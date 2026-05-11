@@ -18,46 +18,48 @@
       </div>
 
       <div class="nav-menu-wrapper">
-        <div class="nav-menu">
-          <div 
-            v-for="menu in menus" 
-            :key="menu.id"
-            class="nav-menu-item"
-            @mouseenter="showSubMenu(menu.id)"
-            @mouseleave="hideSubMenu(menu.id)"
-          >
-            <button 
-              class="menu-trigger"
-              :class="{ active: activeMenu?.id === menu.id }"
-              @click="$emit('select-menu', menu)"
-            >
-              <span class="menu-text">{{ menu.name }}</span>
-              <svg 
-                v-if="menu.children && menu.children.length > 0"
-                class="chevron-icon"
-                :class="{ rotated: hoveredMenuId === menu.id }"
-                viewBox="0 0 24 24" 
-                fill="none" 
-                stroke="currentColor"
-              >
-                <polyline points="6 9 12 15 18 9"/>
-              </svg>
-            </button>
-
+        <div class="nav-scroll-container">
+          <div class="nav-menu">
             <div 
-              v-if="menu.children && menu.children.length > 0"
-              class="submenu-dropdown"
-              :class="{ 'show': hoveredMenuId === menu.id }"
+              v-for="menu in menus" 
+              :key="menu.id"
+              class="nav-menu-item"
+              @mouseenter="showSubMenu(menu.id)"
+              @mouseleave="hideSubMenu(menu.id)"
             >
               <button 
-                v-for="sub in menu.children"
-                :key="sub.id"
-                class="submenu-item"
-                :class="{ active: activeSubMenu?.id === sub.id }"
-                @click="$emit('select-submenu', menu, sub)"
+                class="menu-trigger"
+                :class="{ active: activeMenu?.id === menu.id }"
+                @click="$emit('select-menu', menu)"
               >
-                {{ sub.name }}
+                <span class="menu-text">{{ menu.name }}</span>
+                <svg 
+                  v-if="menu.children && menu.children.length > 0"
+                  class="chevron-icon"
+                  :class="{ rotated: hoveredMenuId === menu.id }"
+                  viewBox="0 0 24 24" 
+                  fill="none" 
+                  stroke="currentColor"
+                >
+                  <polyline points="6 9 12 15 18 9"/>
+                </svg>
               </button>
+
+              <div 
+                v-if="menu.children && menu.children.length > 0"
+                class="submenu-dropdown"
+                :class="{ 'show': hoveredMenuId === menu.id }"
+              >
+                <button 
+                  v-for="sub in menu.children"
+                  :key="sub.id"
+                  class="submenu-item"
+                  :class="{ active: activeSubMenu?.id === sub.id }"
+                  @click="$emit('select-submenu', menu, sub)"
+                >
+                  {{ sub.name }}
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -127,25 +129,11 @@ const handleLogoClick = () => {
   background: rgba(0, 0, 0, 0.7);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
-  overflow-x: auto;
-  scrollbar-width: thin;
+  overflow: visible;
 }
 
 .nav-bar::-webkit-scrollbar {
-  height: 6px;
-}
-
-.nav-bar::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.nav-bar::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.3);
-  border-radius: 3px;
-}
-
-.nav-bar::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.5);
+  display: none;
 }
 
 .nav-bar-content {
@@ -202,12 +190,41 @@ const handleLogoClick = () => {
 
 .nav-menu-wrapper {
   margin-left: 1.5rem;
+  display: flex;
+  align-items: center;
+  flex: 1;
+  min-width: 0;
+}
+
+.nav-scroll-container {
+  overflow-x: auto;
+  scrollbar-width: thin;
+  -ms-overflow-style: none;
+  flex: 1;
+}
+
+.nav-scroll-container::-webkit-scrollbar {
+  height: 6px;
+}
+
+.nav-scroll-container::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.nav-scroll-container::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.3);
+  border-radius: 3px;
+}
+
+.nav-scroll-container::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.5);
 }
 
 .nav-menu {
   display: flex;
   align-items: center;
   gap: 0.25rem;
+  flex-shrink: 0;
 }
 
 .nav-menu-item {
