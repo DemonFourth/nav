@@ -239,7 +239,7 @@ function renderCategoryOptions(cats, keyword = '') {
     div.textContent = cat.path;
     
     const depth = cat.path.split(' / ').length - 1;
-    div.style.paddingLeft = `${12 + depth * 16}px`;
+    div.style.paddingLeft = '12px';
     
     if (depth > 0) {
       div.classList.add('is-child');
