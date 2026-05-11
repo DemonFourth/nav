@@ -1,8 +1,20 @@
 <template>
   <nav class="nav-bar">
     <div class="nav-bar-content">
-      <div class="nav-logo" @click="handleLogoClick">
-        <span class="logo-text">{{ customTitle || '导航站' }}</span>
+      <div class="nav-left">
+        <button 
+          class="settings-btn" 
+          @click="$emit('openSettings')"
+          title="设置"
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="3"/>
+            <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
+          </svg>
+        </button>
+        <div class="nav-logo" @click="handleLogoClick">
+          <span class="logo-text">{{ customTitle || '导航站' }}</span>
+        </div>
       </div>
 
       <div class="nav-menu">
@@ -73,7 +85,7 @@ const props = defineProps({
   }
 })
 
-const emit = defineEmits(['select-menu', 'select-submenu'])
+const emit = defineEmits(['select-menu', 'select-submenu', 'openSettings'])
 
 const openMenuId = ref(null)
 
@@ -142,6 +154,37 @@ onUnmounted(() => {
   padding: 0.6rem 1.5rem;
 }
 
+.nav-left {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-shrink: 0;
+}
+
+.settings-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  background: rgba(255, 255, 255, 0.1);
+  border: none;
+  border-radius: var(--radius-sm);
+  color: rgba(255, 255, 255, 0.8);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.settings-btn:hover {
+  background: rgba(255, 255, 255, 0.2);
+  color: #ffffff;
+}
+
+.settings-btn svg {
+  width: 20px;
+  height: 20px;
+}
+
 .nav-logo {
   cursor: pointer;
   user-select: none;
@@ -158,6 +201,21 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   gap: 0.5rem;
+  overflow-x: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.nav-menu::-webkit-scrollbar {
+  display: none;
+}
+
+.nav-menu:hover {
+  scrollbar-width: thin;
+}
+
+.nav-menu:hover::-webkit-scrollbar {
+  display: block;
 }
 
 .nav-menu-item {

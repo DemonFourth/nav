@@ -1,7 +1,10 @@
 <template>
   <div class="app efficient-mode">
     <!-- Nav-Item View Mode -->
-    <NavItemView v-if="displayMode === 'nav-item'" />
+    <NavItemView 
+      v-if="displayMode === 'nav-item'" 
+      :settings-page="settingsPage"
+    />
 
     <!-- Default View Mode -->
     <template v-else>

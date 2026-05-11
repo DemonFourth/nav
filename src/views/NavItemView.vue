@@ -1,12 +1,13 @@
 <template>
   <div class="nav-item-view">
     <NavBar 
-      :menus="menus"
+      :menus="menuTree"
       :active-menu="activeMenu"
       :active-sub-menu="activeSubMenu"
       :custom-title="customTitle"
       @select-menu="handleSelectMenu"
       @select-submenu="handleSelectSubMenu"
+      @open-settings="openSettings"
     />
 
     <div class="search-section">
@@ -29,6 +30,14 @@ import NavSearch from '../components/NavSearch.vue'
 import NavCardGrid from '../components/NavCardGrid.vue'
 import { useBookmarks } from '../composables/useBookmarks'
 import { useSettings } from '../composables/useSettings'
+import { buildCategoryTree } from '../utils/categoryTree'
+
+const props = defineProps({
+  settingsPage: {
+    type: Object,
+    default: null
+  }
+})
 
 const { categories, bookmarks, fetchData } = useBookmarks()
 const { customTitle } = useSettings()
@@ -36,8 +45,9 @@ const { customTitle } = useSettings()
 const activeMenu = ref(null)
 const activeSubMenu = ref(null)
 
-const menus = computed(() => {
-  return categories.value
+const menuTree = computed(() => {
+  const { tree } = buildCategoryTree(categories.value)
+  return tree
 })
 
 const allBookmarks = computed(() => bookmarks.value)
@@ -54,15 +64,19 @@ const currentBookmarks = computed(() => {
     .sort((a, b) => a.position - b.position)
 })
 
+const openSettings = () => {
+  props.settingsPage?.value?.open()
+}
+
 onMounted(async () => {
   await fetchData()
   
-  if (menus.value.length > 0) {
-    activeMenu.value = menus.value[0]
+  if (menuTree.value.length > 0) {
+    activeMenu.value = menuTree.value[0]
   }
 })
 
-watch(menus, (newMenus) => {
+watch(menuTree, (newMenus) => {
   if (newMenus.length > 0 && !activeMenu.value) {
     activeMenu.value = newMenus[0]
   }
