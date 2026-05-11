@@ -286,6 +286,43 @@
       @setActiveTab="handleSettingsTabChange"
       @toggle-display-mode="toggleDisplayMode"
     />
+    </template>
+
+    <!-- Settings Page - always rendered, outside v-else -->
+    <SettingsPage 
+      ref="settingsPage"
+      :theme-mode="themeMode"
+      :theme-style="themeStyle"
+      :is-dark="isDark"
+      :bookmarks="bookmarks"
+      :show-search="showSearch"
+      :random-wallpaper="randomWallpaper"
+      :wallpaper-api="wallpaperApi"
+      :display-mode="displayMode"
+
+      :hide-empty-categories="hideEmptyCategories"
+      :public-mode="publicMode"
+      :custom-title="customTitle"
+      :avatar-url="avatarUrl"
+      :username="authUsername"
+      :footer-content="footerContent"
+      :active-settings-tab="activeSettingsTab"
+      :empty-category-count="emptyCategoryCount"
+      @action="handleSettingsAction"
+      @set-theme-mode="setThemeMode"
+      @toggle-search="toggleSearch"
+      @toggle-hide-empty="toggleHideEmptyCategories"
+      @toggle-public-mode="togglePublicMode"
+      @toggle-random-wallpaper="toggleRandomWallpaper"
+      @update-wallpaper-api="updateWallpaperApi"
+      @update-title="updateCustomTitle"
+      @update-footer="updateFooterContent"
+      @editTitle="handleEditTitle"
+      @editFooter="handleEditFooter"
+      @uploadAvatar="handleUploadAvatar"
+      @setActiveTab="handleSettingsTabChange"
+      @toggle-display-mode="toggleDisplayMode"
+    />
     
     <!-- Update Notification -->
     <UpdateNotification />
