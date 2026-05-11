@@ -2,40 +2,82 @@ import { ref, computed } from 'vue'
 import { useAuth } from './useAuth'
 import { useToast } from './useToast'
 
+const CACHE_KEY = 'nav_bookmarks_cache'
+const CACHE_EXPIRY_MS = 5 * 60 * 1000 // 5 minutes
+
 const categories = ref([])
 const bookmarks = ref([])
 const searchQuery = ref('')
-const searchCategoryId = ref(null) // 分类过滤
-const searchTags = ref([]) // 标签过滤
+const searchCategoryId = ref(null)
+const searchTags = ref([])
+
+function getCacheKey(isAuth) {
+  return isAuth ? `${CACHE_KEY}_auth` : `${CACHE_KEY}_public`
+}
+
+function loadFromCache(isAuth) {
+  try {
+    const cacheKey = getCacheKey(isAuth)
+    const cached = localStorage.getItem(cacheKey)
+    if (!cached) return null
+
+    const { data, timestamp } = JSON.parse(cached)
+    const isExpired = Date.now() - timestamp > CACHE_EXPIRY_MS
+
+    if (isExpired) {
+      localStorage.removeItem(cacheKey)
+      return null
+    }
+
+    return data
+  } catch {
+    return null
+  }
+}
+
+function saveToCache(isAuth, data) {
+  try {
+    const cacheKey = getCacheKey(isAuth)
+    const cacheData = {
+      data,
+      timestamp: Date.now()
+    }
+    localStorage.setItem(cacheKey, JSON.stringify(cacheData))
+  } catch (e) {
+    console.warn('Failed to save cache:', e)
+  }
+}
+
+function clearCache() {
+  localStorage.removeItem(`${CACHE_KEY}_auth`)
+  localStorage.removeItem(`${CACHE_KEY}_public`)
+}
 
 export function useBookmarks() {
-  const { getAuthHeaders, logout, apiRequest } = useAuth()
+  const { getAuthHeaders, logout, apiRequest, isAuthenticated } = useAuth()
   const { error: toastError } = useToast()
-  
-  
+
+
   const filteredBookmarks = computed(() => {
     let result = bookmarks.value
-    
-    // 分类过滤
+
     if (searchCategoryId.value) {
       result = result.filter(bookmark => bookmark.category_id === searchCategoryId.value)
     }
-    
-    // 标签过滤
+
     if (searchTags.value && searchTags.value.length > 0) {
       result = result.filter(bookmark => {
         if (!bookmark.tags) return false
         const bookmarkTags = bookmark.tags.split(',').map(t => t.trim().toLowerCase()).filter(Boolean)
-        return searchTags.value.some(searchTag => 
+        return searchTags.value.some(searchTag =>
           bookmarkTags.includes(searchTag.toLowerCase())
         )
       })
     }
-    
-    // 关键词搜索
+
     if (searchQuery.value) {
       const query = searchQuery.value.toLowerCase()
-      result = result.filter(bookmark => 
+      result = result.filter(bookmark =>
         bookmark.name.toLowerCase().includes(query) ||
         bookmark.url.toLowerCase().includes(query) ||
         (bookmark.description && bookmark.description.toLowerCase().includes(query)) ||
@@ -43,10 +85,10 @@ export function useBookmarks() {
         (bookmark.notes && bookmark.notes.toLowerCase().includes(query))
       )
     }
-    
+
     return result
   })
-  
+
   const bookmarksByCategory = computed(() => {
     const result = {}
     categories.value.forEach(category => {
@@ -56,7 +98,7 @@ export function useBookmarks() {
     })
     return result
   })
-  
+
   const allTags = computed(() => {
     const tagsSet = new Set()
     bookmarks.value.forEach(bookmark => {
@@ -67,46 +109,73 @@ export function useBookmarks() {
     })
     return Array.from(tagsSet).sort()
   })
-  
-  const fetchData = async () => {
-    try {
-      const authHeaders = getAuthHeaders()
-      
-      // 获取分类
-      const categoriesRes = await fetch('/api/categories', {
-        headers: authHeaders
-      })
-      
-      if (categoriesRes.status === 401) {
-        if (authHeaders.Authorization) {
-          logout()
+
+  const fetchData = async (options = {}) => {
+    const { forceRefresh = false, background = false } = options
+    const isAuth = isAuthenticated.value
+
+    // Load from cache first (instant)
+    if (!forceRefresh) {
+      const cached = loadFromCache(isAuth)
+      if (cached) {
+        categories.value = cached.categories || []
+        bookmarks.value = cached.bookmarks || []
+      }
+    }
+
+    const doFetch = async () => {
+      try {
+        const authHeaders = getAuthHeaders()
+
+        const categoriesRes = await fetch('/api/categories', {
+          headers: authHeaders
+        })
+
+        if (categoriesRes.status === 401) {
+          if (authHeaders.Authorization) {
+            logout()
+          }
+          categories.value = []
+          bookmarks.value = []
+          clearCache()
+          return
         }
-        categories.value = []
-      } else {
+
         const categoriesData = await categoriesRes.json()
         categories.value = categoriesData.data || []
-      }
-      
-      // 获取书签（如果已登录，带上token以获取私密书签）
-      const bookmarksRes = await fetch('/api/bookmarks', {
-        headers: authHeaders
-      })
-      
-      if (bookmarksRes.status === 401) {
-        if (authHeaders.Authorization) {
-          logout()
+
+        const bookmarksRes = await fetch('/api/bookmarks', {
+          headers: authHeaders
+        })
+
+        if (bookmarksRes.status === 401) {
+          if (authHeaders.Authorization) {
+            logout()
+          }
+          bookmarks.value = []
+          return
         }
-        bookmarks.value = []
-        return
+
+        const bookmarksData = await bookmarksRes.json()
+        bookmarks.value = bookmarksData.data || []
+
+        // Save to cache
+        saveToCache(isAuth, {
+          categories: categories.value,
+          bookmarks: bookmarks.value
+        })
+      } catch (error) {
+        console.error('Failed to fetch data:', error)
       }
-      
-      const bookmarksData = await bookmarksRes.json()
-      bookmarks.value = bookmarksData.data || []
-    } catch (error) {
-      console.error('Failed to fetch data:', error)
+    }
+
+    if (background) {
+      doFetch()
+    } else {
+      await doFetch()
     }
   }
-  
+
   const addBookmark = async (data) => {
     try {
       const response = await fetch('/api/bookmarks', {
@@ -117,26 +186,25 @@ export function useBookmarks() {
         },
         body: JSON.stringify(data)
       })
-      
+
       if (response.status === 401) {
         logout()
         return { success: false, error: '未授权' }
       }
-      
+
       const result = await response.json()
-      
-      // 处理重复 URL 的情况
+
       if (response.status === 409 && result.duplicate) {
-        return { 
-          success: false, 
+        return {
+          success: false,
           duplicate: true,
           error: `该 URL 已存在于"${result.existingBookmark.category_name}"分类中`,
           existingBookmark: result.existingBookmark
         }
       }
-      
+
       if (result.success) {
-        await fetchData()
+        await fetchData({ forceRefresh: true })
         return { success: true }
       }
       return { success: false, error: result.error || '添加失败' }
@@ -144,28 +212,27 @@ export function useBookmarks() {
       return { success: false, error: '网络错误' }
     }
   }
-  
+
   const updateBookmark = async (id, data) => {
     try {
       const response = await apiRequest(`/api/bookmarks/${id}`, {
         method: 'PUT',
         body: JSON.stringify(data)
       })
-      
+
       const result = await response.json()
-      
-      // 处理重复 URL 的情况
+
       if (response.status === 409 && result.duplicate) {
-        return { 
-          success: false, 
+        return {
+          success: false,
           duplicate: true,
           error: `该 URL 已被其他书签使用（位于"${result.existingBookmark.category_name}"分类）`,
           existingBookmark: result.existingBookmark
         }
       }
-      
+
       if (result.success) {
-        await fetchData()
+        await fetchData({ forceRefresh: true })
         return { success: true }
       }
       return { success: false, error: result.error || '更新失败' }
@@ -176,16 +243,16 @@ export function useBookmarks() {
       return { success: false, error: '网络错误' }
     }
   }
-  
+
   const deleteBookmark = async (id) => {
     try {
       const response = await apiRequest(`/api/bookmarks/${id}`, {
         method: 'DELETE'
       })
-      
+
       const result = await response.json()
       if (result.success) {
-        await fetchData()
+        await fetchData({ forceRefresh: true })
         return { success: true }
       }
       return { success: false, error: '删除失败' }
@@ -196,22 +263,22 @@ export function useBookmarks() {
       return { success: false, error: '网络错误' }
     }
   }
-  
+
   const addCategory = async (name, parentId = null, isPrivate = false) => {
     try {
       const body = { name, is_private: isPrivate }
       if (parentId !== null) {
         body.parent_id = parentId
       }
-      
+
       const response = await apiRequest('/api/categories', {
         method: 'POST',
         body: JSON.stringify(body)
       })
-      
+
       const result = await response.json()
       if (result.success) {
-        await fetchData()
+        await fetchData({ forceRefresh: true })
         return { success: true }
       }
       return { success: false, error: result.error || '添加失败' }
@@ -222,27 +289,25 @@ export function useBookmarks() {
       return { success: false, error: '网络错误' }
     }
   }
-  
+
   const updateCategory = async (id, name, parentId = undefined, isPrivate = undefined) => {
     try {
       const body = { name }
-      // 如果提供了 parentId 参数（包括 null），则更新父分类
       if (parentId !== undefined) {
         body.parent_id = parentId
       }
-      // 如果提供了 isPrivate 参数，则更新私密状态
       if (isPrivate !== undefined) {
         body.is_private = isPrivate
       }
-      
+
       const response = await apiRequest(`/api/categories/${id}`, {
         method: 'PUT',
         body: JSON.stringify(body)
       })
-      
+
       const result = await response.json()
       if (result.success) {
-        await fetchData()
+        await fetchData({ forceRefresh: true })
         return { success: true }
       }
       return { success: false, error: result.error || '更新失败' }
@@ -253,16 +318,16 @@ export function useBookmarks() {
       return { success: false, error: error.message || '网络错误' }
     }
   }
-  
+
   const deleteCategory = async (id) => {
     try {
       const response = await apiRequest(`/api/categories/${id}`, {
         method: 'DELETE'
       })
-      
+
       const result = await response.json()
       if (result.success) {
-        await fetchData()
+        await fetchData({ forceRefresh: true })
         return { success: true }
       }
       return { success: false, error: '删除失败' }
@@ -273,17 +338,17 @@ export function useBookmarks() {
       return { success: false, error: '网络错误' }
     }
   }
-  
+
   const reorderItems = async (type, items) => {
     try {
       const response = await apiRequest('/api/reorder', {
         method: 'POST',
         body: JSON.stringify({ type, items })
       })
-      
+
       const result = await response.json()
       if (result.success) {
-        await fetchData()
+        await fetchData({ forceRefresh: true })
         return { success: true }
       }
       return { success: false, error: '排序失败' }
@@ -294,7 +359,7 @@ export function useBookmarks() {
       return { success: false, error: '网络错误' }
     }
   }
-  
+
   const batchOperation = async (operation, bookmarkIds, data = {}, categoryIds = null) => {
     try {
       const body = { operation, data }
@@ -304,15 +369,15 @@ export function useBookmarks() {
       if (categoryIds) {
         body.categoryIds = categoryIds
       }
-      
+
       const response = await apiRequest('/api/batch-operations', {
         method: 'POST',
         body: JSON.stringify(body)
       })
-      
+
       const result = await response.json()
       if (result.success) {
-        await fetchData()
+        await fetchData({ forceRefresh: true })
         return { success: true }
       }
       return { success: false, error: '批量操作失败' }
@@ -323,17 +388,17 @@ export function useBookmarks() {
       return { success: false, error: '网络错误' }
     }
   }
-  
+
   const getEmptyCategories = async () => {
     try {
       const response = await apiRequest('/api/cleanup-empty-categories', {
         method: 'GET'
       })
-      
+
       const result = await response.json()
       if (result.success) {
-        return { 
-          success: true, 
+        return {
+          success: true,
           emptyCategories: result.emptyCategories || [],
           count: result.count || 0
         }
@@ -346,17 +411,17 @@ export function useBookmarks() {
       return { success: false, error: '网络错误' }
     }
   }
-  
+
   const cleanupEmptyCategories = async () => {
     try {
       const response = await apiRequest('/api/cleanup-empty-categories', {
         method: 'POST'
       })
-      
+
       const result = await response.json()
       if (result.success) {
-        await fetchData()
-        return { 
+        await fetchData({ forceRefresh: true })
+        return {
           success: true,
           deletedCount: result.deletedCount || 0,
           deletedCategories: result.deletedCategories || []
@@ -370,7 +435,7 @@ export function useBookmarks() {
       return { success: false, error: '网络错误' }
     }
   }
-  
+
   return {
     categories,
     bookmarks,
@@ -390,7 +455,7 @@ export function useBookmarks() {
     reorderItems,
     batchOperation,
     getEmptyCategories,
-    cleanupEmptyCategories
+    cleanupEmptyCategories,
+    clearCache
   }
 }
-

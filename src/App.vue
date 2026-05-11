@@ -602,7 +602,9 @@ const handleSettingsTabChange = (tab) => {
 }
 
 onMounted(async () => {
-  await fetchData()
+  // Load from cache immediately, fetch from API in background
+  await fetchData({ background: true })
+  
   // 初始化时加载设置（无论是否登录）
   await loadSettingsFromDB()
   await loadThemeFromDB()
