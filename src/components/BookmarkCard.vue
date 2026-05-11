@@ -187,7 +187,9 @@ const iconUrl = computed(() => {
     const baseUrl = faviconSources.value[iconSourceIndex.value]
     
     if (useProxyForSource.value[iconSourceIndex.value] && proxyUrl) {
-      return `${proxyUrl}${baseUrl}`
+      const normalizedProxy = proxyUrl.replace(/\/+$/, '')
+      const normalizedBase = baseUrl.replace(/^\/+/, '')
+      return `${normalizedProxy}/${normalizedBase}`
     }
     
     return baseUrl
