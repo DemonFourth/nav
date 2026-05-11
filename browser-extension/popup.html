@@ -40,9 +40,21 @@
 
         <div class="form-group">
           <label for="category">分类 *</label>
-          <select id="category" required>
-            <option value="">选择分类...</option>
-          </select>
+          <div class="searchable-select" id="category-select">
+            <div class="select-trigger">
+              <span class="select-value">选择分类...</span>
+              <svg class="select-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M6 9l6 6 6-6"/>
+              </svg>
+            </div>
+            <div class="select-dropdown hidden">
+              <input type="text" class="select-search" placeholder="搜索分类...">
+              <div class="select-options"></div>
+            </div>
+            <select id="category" required class="hidden">
+              <option value="">选择分类...</option>
+            </select>
+          </div>
         </div>
 
         <div class="form-group checkbox-group">

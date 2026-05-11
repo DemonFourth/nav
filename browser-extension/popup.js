@@ -206,9 +206,109 @@ function showStatus(message, type = 'info') {
   }, 4000);
 }
 
+function sortCategories(cats) {
+  return cats.sort((a, b) => {
+    if (a.path.length !== b.path.length) {
+      return a.path.length - b.path.length;
+    }
+    return a.path.localeCompare(b.path, 'zh-CN');
+  });
+}
+
+function renderCategoryOptions(cats, keyword = '') {
+  const optionsContainer = document.querySelector('.select-options');
+  optionsContainer.innerHTML = '';
+  
+  const filtered = keyword 
+    ? cats.filter(cat => cat.path.toLowerCase().includes(keyword.toLowerCase()))
+    : cats;
+  
+  if (filtered.length === 0) {
+    optionsContainer.innerHTML = '<div class="select-no-results">无匹配分类</div>';
+    return;
+  }
+  
+  filtered.forEach(cat => {
+    const div = document.createElement('div');
+    div.className = 'select-option';
+    div.dataset.value = String(cat.id);
+    div.textContent = cat.path;
+    
+    const depth = cat.path.split(' / ').length - 1;
+    div.style.paddingLeft = `${12 + depth * 16}px`;
+    
+    if (depth > 0) {
+      div.classList.add('is-child');
+    }
+    
+    div.addEventListener('click', () => selectCategory(cat.id, cat.path));
+    optionsContainer.appendChild(div);
+  });
+}
+
+function selectCategory(id, path) {
+  const nativeSelect = document.getElementById('category');
+  const selectValue = document.querySelector('.select-value');
+  
+  nativeSelect.value = String(id);
+  selectValue.textContent = path;
+  
+  closeSelectDropdown();
+}
+
+function openSelectDropdown() {
+  const dropdown = document.querySelector('.select-dropdown');
+  const searchInput = document.querySelector('.select-search');
+  
+  dropdown.classList.remove('hidden');
+  searchInput.focus();
+  renderCategoryOptions(categories);
+}
+
+function closeSelectDropdown() {
+  const dropdown = document.querySelector('.select-dropdown');
+  const searchInput = document.querySelector('.select-search');
+  
+  dropdown.classList.add('hidden');
+  searchInput.value = '';
+}
+
+function toggleSelectDropdown() {
+  const dropdown = document.querySelector('.select-dropdown');
+  if (dropdown.classList.contains('hidden')) {
+    openSelectDropdown();
+  } else {
+    closeSelectDropdown();
+  }
+}
+
+function initSelectDropdown() {
+  const trigger = document.querySelector('.select-trigger');
+  const searchInput = document.querySelector('.select-search');
+  
+  trigger.addEventListener('click', (e) => {
+    e.stopPropagation();
+    toggleSelectDropdown();
+  });
+  
+  searchInput.addEventListener('input', (e) => {
+    renderCategoryOptions(categories, e.target.value);
+  });
+  
+  searchInput.addEventListener('click', (e) => {
+    e.stopPropagation();
+  });
+  
+  document.addEventListener('click', (e) => {
+    const select = document.querySelector('.searchable-select');
+    if (!select.contains(e.target)) {
+      closeSelectDropdown();
+    }
+  });
+}
+
 async function loadCategories() {
   try {
-    // 确保 token 有效
     await ensureTokenValid();
     
     const headers = new Headers();
@@ -262,20 +362,24 @@ async function loadCategories() {
       };
     });
     
-    const select = document.getElementById('category');
-    select.innerHTML = '<option value="">选择分类...</option>';
+    categories = sortCategories(categories);
+    
+    const nativeSelect = document.getElementById('category');
+    nativeSelect.innerHTML = '<option value="">选择分类...</option>';
     
     categories.forEach(cat => {
       const option = document.createElement('option');
       option.value = String(cat.id);
       option.textContent = cat.path || cat.name;
-      select.appendChild(option);
+      nativeSelect.appendChild(option);
     });
     
     if (categories.length > 0) {
-      select.value = String(categories[0].id);
+      nativeSelect.value = String(categories[0].id);
+      document.querySelector('.select-value').textContent = categories[0].path;
     }
     
+    initSelectDropdown();
     return true;
   } catch (error) {
     console.error('Failed to load categories:', error);
