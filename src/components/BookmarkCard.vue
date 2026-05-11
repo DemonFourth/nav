@@ -107,7 +107,7 @@
 </template>
 
 <script setup>
-import { computed, ref, reactive } from 'vue'
+import { computed, ref } from 'vue'
 import { useBookmarks } from '../composables/useBookmarks'
 import HighlightText from './HighlightText.vue'
 import LetterIcon from './LetterIcon.vue'
@@ -149,7 +149,6 @@ const emit = defineEmits([
 
 const iconError = ref(false)
 const iconSourceIndex = ref(0) // 当前尝试的图标源索引
-const useProxyForSource = reactive({}) // 记录哪些源需要使用代理
 const isDragging = ref(false)
 const isDragOver = ref(false)
 const dropPosition = ref('after')
@@ -183,16 +182,7 @@ const iconUrl = computed(() => {
   }
   
   if (faviconSources.value.length > 0 && iconSourceIndex.value < faviconSources.value.length) {
-    const proxyUrl = import.meta.env.VITE_FAVICON_PROXY_URL
-    const baseUrl = faviconSources.value[iconSourceIndex.value]
-    
-    if (useProxyForSource[iconSourceIndex.value] && proxyUrl) {
-      const normalizedProxy = proxyUrl.replace(/\/+$/, '')
-      const normalizedBase = baseUrl.replace(/^\/+/, '')
-      return `${normalizedProxy}/${normalizedBase}`
-    }
-    
-    return baseUrl
+    return faviconSources.value[iconSourceIndex.value]
   }
   
   return ''
@@ -213,15 +203,6 @@ const parsedTags = computed(() => {
 })
 
 const handleIconError = () => {
-  const proxyUrl = import.meta.env.VITE_FAVICON_PROXY_URL
-  const currentIdx = iconSourceIndex.value
-  
-  if (!useProxyForSource[currentIdx] && proxyUrl) {
-    useProxyForSource[currentIdx] = true
-    iconError.value = false
-    return
-  }
-  
   if (iconSourceIndex.value < faviconSources.value.length - 1) {
     iconSourceIndex.value++
     iconError.value = false
