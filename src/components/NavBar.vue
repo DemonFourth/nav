@@ -136,9 +136,10 @@ const handleLogoClick = () => {
 
 .nav-bar-content {
   display: flex;
-  align-items: center;
-  min-width: max-content;
+  align-items: flex-start;
+  flex-wrap: wrap;
   padding: 0.6rem 1.5rem;
+  gap: 0.5rem;
 }
 
 .nav-left {
@@ -192,6 +193,7 @@ const handleLogoClick = () => {
   align-items: center;
   flex: 1;
   min-width: 0;
+  width: 100%;
 }
 
 .nav-menu {
