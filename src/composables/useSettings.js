@@ -10,6 +10,7 @@ const publicMode = ref(localStorage.getItem('publicMode') !== 'false')
 const randomWallpaper = ref(localStorage.getItem('randomWallpaper') === 'true')
 const wallpaperApi = ref(localStorage.getItem('wallpaperApi') || '')
 const avatarUrl = ref(localStorage.getItem('avatarUrl') || '')
+const displayMode = ref(localStorage.getItem('displayMode') || 'default')
 
 // 加载标志位，避免循环触发
 const isLoadingFromDB = ref(false)
@@ -65,6 +66,11 @@ export function useSettings() {
           if (data.data.avatarUrl !== undefined) {
             avatarUrl.value = data.data.avatarUrl || ''
             localStorage.setItem('avatarUrl', data.data.avatarUrl || '')
+          }
+
+          if (data.data.displayMode !== undefined) {
+            displayMode.value = data.data.displayMode || 'default'
+            localStorage.setItem('displayMode', data.data.displayMode || 'default')
           }
         }
       }
@@ -178,6 +184,13 @@ export function useSettings() {
     localStorage.setItem('avatarUrl', avatarUrl.value)
 
     await saveSettingsToDB({ avatarUrl: avatarUrl.value })
+  }
+
+  const toggleDisplayMode = async () => {
+    displayMode.value = displayMode.value === 'default' ? 'nav-item' : 'default'
+    localStorage.setItem('displayMode', displayMode.value)
+
+    await saveSettingsToDB({ displayMode: displayMode.value })
   }
 
   // 应用随机壁纸
@@ -388,6 +401,24 @@ export function useSettings() {
     }
   })
 
+  watch(displayMode, async (newValue) => {
+    if (!isLoadingFromDB.value) {
+      localStorage.setItem('displayMode', newValue)
+      if (isAuthenticated.value) {
+        try {
+          await apiRequest('/api/settings', {
+            method: 'POST',
+            body: JSON.stringify({ settings: { displayMode: newValue } })
+          })
+        } catch (error) {
+          if (error.message === 'Token expired') {
+            console.warn('Token expired, displayMode not saved to database')
+          }
+        }
+      }
+    }
+  })
+
   return {
     showSearch,
     hideEmptyCategories,
@@ -398,6 +429,7 @@ export function useSettings() {
     randomWallpaper,
     wallpaperApi,
     avatarUrl,
+    displayMode,
     toggleSearch,
     toggleHideEmptyCategories,
     updateCustomTitle,
@@ -407,6 +439,7 @@ export function useSettings() {
     toggleRandomWallpaper,
     updateWallpaperApi,
     updateAvatarUrl,
+    toggleDisplayMode,
     applyWallpaper,
     removeWallpaper,
     loadSettingsFromDB

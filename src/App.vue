@@ -1,6 +1,11 @@
 <template>
   <div class="app efficient-mode">
-    <!-- Header -->
+    <!-- Nav-Item View Mode -->
+    <NavItemView v-if="displayMode === 'nav-item'" />
+
+    <!-- Default View Mode -->
+    <template v-else>
+      <!-- Header -->
     <header class="app-header efficient-mode">
       <div class="header-content">
          <!-- 左上角：汉堡菜单按钮 -->
@@ -253,6 +258,7 @@
       :show-search="showSearch"
       :random-wallpaper="randomWallpaper"
       :wallpaper-api="wallpaperApi"
+      :display-mode="displayMode"
 
       :hide-empty-categories="hideEmptyCategories"
       :public-mode="publicMode"
@@ -275,6 +281,7 @@
       @editFooter="handleEditFooter"
       @uploadAvatar="handleUploadAvatar"
       @setActiveTab="handleSettingsTabChange"
+      @toggle-display-mode="toggleDisplayMode"
     />
     
     <!-- Update Notification -->
@@ -282,6 +289,7 @@
     
     <!-- Toast Notifications -->
     <ToastNotification ref="toast" />
+    </template>
   </div>
 </template>
 
@@ -315,6 +323,7 @@ import BackupDialog from './components/BackupDialog.vue'
 import UpdateNotification from './components/UpdateNotification.vue'
 import ToastNotification from './components/ToastNotification.vue'
 import AvatarMenu from './components/AvatarMenu.vue'
+import NavItemView from './views/NavItemView.vue'
 import { useAI } from './composables/useAI'
 
 const { isAuthenticated, username: authUsername, logout, onAuthChange } = useAuth()
@@ -339,7 +348,7 @@ const {
   cleanupEmptyCategories
 } = useBookmarks()
 const { themeMode, isDark, setThemeMode, toggleTheme, loadThemeFromDB } = useTheme()
-const { showSearch, hideEmptyCategories, customTitle, footerContent, activeSettingsTab, publicMode, randomWallpaper, wallpaperApi, avatarUrl, toggleSearch, toggleHideEmptyCategories, togglePublicMode, updateCustomTitle, updateFooterContent, setActiveSettingsTab, toggleRandomWallpaper, updateWallpaperApi, updateAvatarUrl, applyWallpaper, loadSettingsFromDB } = useSettings()
+const { showSearch, hideEmptyCategories, customTitle, footerContent, activeSettingsTab, publicMode, randomWallpaper, wallpaperApi, avatarUrl, displayMode, toggleSearch, toggleHideEmptyCategories, togglePublicMode, updateCustomTitle, updateFooterContent, setActiveSettingsTab, toggleRandomWallpaper, updateWallpaperApi, updateAvatarUrl, toggleDisplayMode, applyWallpaper, loadSettingsFromDB } = useSettings()
 const { setToastInstance, success: toastSuccess, error: toastError } = useToast()
 const {
   isBatchMode,
