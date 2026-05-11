@@ -208,13 +208,10 @@ function showStatus(message, type = 'info') {
 
 function sortCategories(cats) {
   return cats.sort((a, b) => {
-    const depthA = a.path.split(' / ').length;
-    const depthB = b.path.split(' / ').length;
-    
-    if (depthA !== depthB) {
-      return depthA - depthB;
+    const depth = c => (c.path.split(' / ').length - 1);
+    if (depth(a) !== depth(b)) {
+      return depth(a) - depth(b);
     }
-    
     return a.path.localeCompare(b.path, 'zh-CN');
   });
 }
