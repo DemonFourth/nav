@@ -208,9 +208,13 @@ function showStatus(message, type = 'info') {
 
 function sortCategories(cats) {
   return cats.sort((a, b) => {
-    if (a.path.length !== b.path.length) {
-      return a.path.length - b.path.length;
+    const depthA = a.path.split(' / ').length;
+    const depthB = b.path.split(' / ').length;
+    
+    if (depthA !== depthB) {
+      return depthA - depthB;
     }
+    
     return a.path.localeCompare(b.path, 'zh-CN');
   });
 }
