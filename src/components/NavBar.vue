@@ -17,46 +17,49 @@
         </div>
       </div>
 
-      <div class="nav-menu">
-        <div 
-          v-for="menu in menus" 
-          :key="menu.id"
-          class="nav-menu-item"
-        >
-          <button 
-            class="menu-trigger"
-            :class="{ active: activeMenu?.id === menu.id }"
-            @click="handleMenuClick(menu)"
+      <div class="nav-menu-wrapper">
+        <div class="nav-menu">
+          <div 
+            v-for="menu in menus" 
+            :key="menu.id"
+            class="nav-menu-item"
+            @mouseenter="showSubMenu(menu.id)"
+            @mouseleave="hideSubMenu(menu.id)"
           >
-            <span>{{ menu.name }}</span>
-            <svg 
-              v-if="menu.children && menu.children.length > 0"
-              class="chevron-icon"
-              :class="{ rotated: openMenuId === menu.id }"
-              viewBox="0 0 24 24" 
-              fill="none" 
-              stroke="currentColor"
+            <button 
+              class="menu-trigger"
+              :class="{ active: activeMenu?.id === menu.id }"
+              @click="$emit('select-menu', menu)"
             >
-              <polyline points="6 9 12 15 18 9"/>
-            </svg>
-          </button>
+              <span class="menu-text">{{ menu.name }}</span>
+              <svg 
+                v-if="menu.children && menu.children.length > 0"
+                class="chevron-icon"
+                :class="{ rotated: hoveredMenuId === menu.id }"
+                viewBox="0 0 24 24" 
+                fill="none" 
+                stroke="currentColor"
+              >
+                <polyline points="6 9 12 15 18 9"/>
+              </svg>
+            </button>
 
-          <Transition name="dropdown">
             <div 
-              v-if="openMenuId === menu.id && menu.children && menu.children.length > 0"
+              v-if="menu.children && menu.children.length > 0"
               class="submenu-dropdown"
+              :class="{ 'show': hoveredMenuId === menu.id }"
             >
               <button 
                 v-for="sub in menu.children"
                 :key="sub.id"
                 class="submenu-item"
                 :class="{ active: activeSubMenu?.id === sub.id }"
-                @click="handleSubMenuClick(menu, sub)"
+                @click="$emit('select-submenu', menu, sub)"
               >
                 {{ sub.name }}
               </button>
             </div>
-          </Transition>
+          </div>
         </div>
       </div>
     </div>
@@ -64,7 +67,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref } from 'vue'
 
 const props = defineProps({
   menus: {
@@ -87,50 +90,31 @@ const props = defineProps({
 
 const emit = defineEmits(['select-menu', 'select-submenu', 'openSettings'])
 
-const openMenuId = ref(null)
+const hoveredMenuId = ref(null)
+const hideTimeout = ref(null)
 
-const handleMenuClick = (menu) => {
-  if (menu.children && menu.children.length > 0) {
-    openMenuId.value = openMenuId.value === menu.id ? null : menu.id
-  } else {
-    openMenuId.value = null
-    emit('select-menu', menu)
+const showSubMenu = (menuId) => {
+  if (hideTimeout.value) {
+    clearTimeout(hideTimeout.value)
+    hideTimeout.value = null
   }
+  hoveredMenuId.value = menuId
 }
 
-const handleSubMenuClick = (menu, sub) => {
-  openMenuId.value = null
-  emit('select-submenu', menu, sub)
+const hideSubMenu = (menuId) => {
+  hideTimeout.value = setTimeout(() => {
+    if (hoveredMenuId.value === menuId) {
+      hoveredMenuId.value = null
+    }
+  }, 100)
 }
 
 const handleLogoClick = () => {
-  openMenuId.value = null
+  hoveredMenuId.value = null
   if (props.menus.length > 0) {
     emit('select-menu', props.menus[0])
   }
 }
-
-const handleClickOutside = (event) => {
-  if (!event.target.closest('.nav-menu')) {
-    openMenuId.value = null
-  }
-}
-
-const handleEscape = (event) => {
-  if (event.key === 'Escape') {
-    openMenuId.value = null
-  }
-}
-
-onMounted(() => {
-  document.addEventListener('click', handleClickOutside)
-  document.addEventListener('keydown', handleEscape)
-})
-
-onUnmounted(() => {
-  document.removeEventListener('click', handleClickOutside)
-  document.removeEventListener('keydown', handleEscape)
-})
 </script>
 
 <style scoped>
@@ -143,18 +127,32 @@ onUnmounted(() => {
   background: rgba(0, 0, 0, 0.7);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
-  overflow: visible;
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+
+.nav-bar::-webkit-scrollbar {
+  height: 6px;
+}
+
+.nav-bar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.nav-bar::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.3);
+  border-radius: 3px;
+}
+
+.nav-bar::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.5);
 }
 
 .nav-bar-content {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  max-width: 1400px;
-  margin: 0 auto;
+  min-width: max-content;
   padding: 0.6rem 1.5rem;
-  width: 100%;
-  box-sizing: border-box;
 }
 
 .nav-left {
@@ -191,6 +189,7 @@ onUnmounted(() => {
 .nav-logo {
   cursor: pointer;
   user-select: none;
+  flex-shrink: 0;
 }
 
 .logo-text {
@@ -198,38 +197,29 @@ onUnmounted(() => {
   font-weight: 700;
   color: #ffffff;
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+  white-space: nowrap;
+}
+
+.nav-menu-wrapper {
+  margin-left: 1.5rem;
 }
 
 .nav-menu {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  overflow-x: auto;
-  scrollbar-width: none;
-  -ms-overflow-style: none;
-}
-
-.nav-menu::-webkit-scrollbar {
-  display: none;
-}
-
-.nav-menu:hover {
-  scrollbar-width: thin;
-}
-
-.nav-menu:hover::-webkit-scrollbar {
-  display: block;
+  gap: 0.25rem;
 }
 
 .nav-menu-item {
   position: relative;
+  flex-shrink: 0;
 }
 
 .menu-trigger {
   display: flex;
   align-items: center;
-  gap: 0.35rem;
-  padding: 0.5rem 1rem;
+  gap: 0.3rem;
+  padding: 0.5rem 0.8rem;
   background: transparent;
   border: none;
   border-radius: var(--radius-sm);
@@ -238,6 +228,7 @@ onUnmounted(() => {
   font-weight: 500;
   cursor: pointer;
   transition: all 0.2s ease;
+  white-space: nowrap;
 }
 
 .menu-trigger:hover {
@@ -250,11 +241,17 @@ onUnmounted(() => {
   color: #ffffff;
 }
 
+.menu-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .chevron-icon {
-  width: 16px;
-  height: 16px;
+  width: 14px;
+  height: 14px;
   stroke-width: 2;
   transition: transform 0.2s ease;
+  flex-shrink: 0;
 }
 
 .chevron-icon.rotated {
@@ -266,31 +263,35 @@ onUnmounted(() => {
   top: calc(100% + 0.5rem);
   left: 50%;
   transform: translateX(-50%);
-  min-width: 160px;
-  background: rgba(255, 255, 255, 0.95);
+  min-width: 120px;
+  background: rgba(30, 41, 59, 0.95);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
   border-radius: var(--radius);
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.15);
   padding: 0.5rem;
   z-index: 200;
+  opacity: 0;
+  visibility: hidden;
+  transition: all 0.2s ease;
 }
 
-html.dark .submenu-dropdown {
-  background: rgba(30, 41, 59, 0.95);
-  border-color: rgba(255, 255, 255, 0.1);
+.submenu-dropdown.show {
+  opacity: 1;
+  visibility: visible;
+  transform: translateX(-50%) translateY(2px);
 }
 
 .submenu-item {
   display: block;
   width: 100%;
-  padding: 0.6rem 1rem;
+  padding: 0.5rem 0.8rem;
   background: transparent;
   border: none;
   border-radius: var(--radius-sm);
-  color: var(--text);
-  font-size: 0.9rem;
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 0.875rem;
   text-align: left;
   cursor: pointer;
   transition: all 0.15s ease;
@@ -298,41 +299,27 @@ html.dark .submenu-dropdown {
 }
 
 .submenu-item:hover {
-  background: rgba(99, 102, 241, 0.1);
-  color: var(--primary);
+  background: rgba(57, 157, 255, 0.25);
+  color: #399dff;
 }
 
 .submenu-item.active {
-  background: rgba(99, 102, 241, 0.15);
-  color: var(--primary);
-  font-weight: 600;
-}
-
-.dropdown-enter-active,
-.dropdown-leave-active {
-  transition: all 0.2s ease;
-}
-
-.dropdown-enter-from,
-.dropdown-leave-to {
-  opacity: 0;
-  transform: translateX(-50%) translateY(-10px);
+  background: rgba(57, 157, 255, 0.35);
+  color: #399dff;
+  font-weight: 500;
 }
 
 @media (max-width: 768px) {
   .nav-bar-content {
     padding: 0.5rem 1rem;
-    flex-wrap: wrap;
-    gap: 0.5rem;
   }
 
-  .nav-menu {
-    flex-wrap: wrap;
-    gap: 0.25rem;
+  .nav-menu-wrapper {
+    margin-left: 1rem;
   }
 
   .menu-trigger {
-    padding: 0.4rem 0.75rem;
+    padding: 0.4rem 0.6rem;
     font-size: 0.875rem;
   }
 
@@ -345,8 +332,7 @@ html.dark .submenu-dropdown {
     overflow-y: auto;
   }
 
-  .dropdown-enter-from,
-  .dropdown-leave-to {
+  .submenu-dropdown.show {
     transform: none;
   }
 }
