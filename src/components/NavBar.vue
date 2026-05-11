@@ -140,9 +140,10 @@ onUnmounted(() => {
   left: 0;
   right: 0;
   z-index: 100;
-  background: rgba(0, 0, 0, 0.6);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  overflow: visible;
 }
 
 .nav-bar-content {
@@ -152,6 +153,8 @@ onUnmounted(() => {
   max-width: 1400px;
   margin: 0 auto;
   padding: 0.6rem 1.5rem;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .nav-left {

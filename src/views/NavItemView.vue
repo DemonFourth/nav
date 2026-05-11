@@ -7,7 +7,7 @@
       :custom-title="customTitle"
       @select-menu="handleSelectMenu"
       @select-submenu="handleSelectSubMenu"
-      @open-settings="openSettings"
+      @open-settings="handleOpenSettings"
     />
 
     <div class="search-section">
@@ -32,15 +32,10 @@ import { useBookmarks } from '../composables/useBookmarks'
 import { useSettings } from '../composables/useSettings'
 import { buildCategoryTree } from '../utils/categoryTree'
 
-const props = defineProps({
-  settingsPage: {
-    type: Object,
-    default: null
-  }
-})
-
 const { categories, bookmarks, fetchData } = useBookmarks()
 const { customTitle } = useSettings()
+
+const emit = defineEmits(['open-settings'])
 
 const activeMenu = ref(null)
 const activeSubMenu = ref(null)
@@ -64,8 +59,12 @@ const currentBookmarks = computed(() => {
     .sort((a, b) => a.position - b.position)
 })
 
+const handleOpenSettings = () => {
+  emit('open-settings')
+}
+
 const openSettings = () => {
-  props.settingsPage?.value?.open()
+  emit('open-settings')
 }
 
 onMounted(async () => {
@@ -122,9 +121,12 @@ const findParentCategory = (categoryId) => {
 }
 
 .search-section {
-  padding: 3rem 1rem 2rem;
+  padding: 5rem 1rem 2rem;
   position: relative;
   z-index: 2;
+  background: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
 }
 
 .content-section {
@@ -135,5 +137,10 @@ const findParentCategory = (categoryId) => {
   max-width: 1400px;
   margin: 0 auto;
   width: 100%;
+  background: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  min-height: calc(100vh - 180px);
+  border-radius: var(--radius-lg) 0 0 0;
 }
 </style>

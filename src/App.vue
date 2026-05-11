@@ -3,7 +3,7 @@
     <!-- Nav-Item View Mode -->
     <NavItemView 
       v-if="displayMode === 'nav-item'" 
-      :settings-page="settingsPage"
+      @open-settings="handleOpenSettings"
     />
 
     <!-- Default View Mode -->
@@ -701,6 +701,10 @@ const handleLogout = async () => {
     isEditMode.value = false
     await fetchData()
   }
+}
+
+const handleOpenSettings = () => {
+  settingsPage.value.open()
 }
 
 const handleUploadAvatar = async (base64Image) => {
