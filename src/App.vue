@@ -329,7 +329,6 @@
     
     <!-- Toast Notifications -->
     <ToastNotification ref="toast" />
-    </template>
   </div>
 </template>
 
