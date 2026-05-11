@@ -149,6 +149,7 @@ const emit = defineEmits([
 
 const iconError = ref(false)
 const iconSourceIndex = ref(0) // 当前尝试的图标源索引
+const useProxyForSource = ref({}) // 记录哪些源需要使用代理
 const isDragging = ref(false)
 const isDragOver = ref(false)
 const dropPosition = ref('after')
@@ -160,13 +161,10 @@ const faviconSources = computed(() => {
     const url = new URL(props.bookmark.url)
     const domain = url.hostname
     return [
-      // 1. DuckDuckGo (最稳定)
-      `https://icons.duckduckgo.com/ip3/${domain}.ico`,
-      // 2. Icon Horse
-      `https://icon.horse/icon/${domain}`,
-      // 3. FaviconExtractor
       `https://www.faviconextractor.com/favicon/${domain}`,
-      // 4. 直接从网站获取 (回退)
+      `https://www.google.com/s2/favicons?domain=${domain}&sz=128`,
+      `https://icons.duckduckgo.com/ip3/${domain}.ico`,
+      `https://icon.horse/icon/${domain}`,
       `${url.origin}/favicon.ico`,
     ]
   } catch {
@@ -180,17 +178,21 @@ const showLetterIcon = computed(() => {
 })
 
 const iconUrl = computed(() => {
-  // 如果有自定义图标URL，使用自定义图标
   if (props.bookmark.icon && props.bookmark.icon.trim()) {
     return props.bookmark.icon
   }
   
-  // 尝试使用多个 favicon 源
   if (faviconSources.value.length > 0 && iconSourceIndex.value < faviconSources.value.length) {
-    return faviconSources.value[iconSourceIndex.value]
+    const proxyUrl = import.meta.env.VITE_FAVICON_PROXY_URL
+    const baseUrl = faviconSources.value[iconSourceIndex.value]
+    
+    if (useProxyForSource.value[iconSourceIndex.value] && proxyUrl) {
+      return `${proxyUrl}${baseUrl}`
+    }
+    
+    return baseUrl
   }
   
-  // 所有源都失败，返回空（将显示字母图标）
   return ''
 })
 
@@ -209,12 +211,19 @@ const parsedTags = computed(() => {
 })
 
 const handleIconError = () => {
-  // 尝试下一个图标源
+  const proxyUrl = import.meta.env.VITE_FAVICON_PROXY_URL
+  const currentIdx = iconSourceIndex.value
+  
+  if (!useProxyForSource.value[currentIdx] && proxyUrl) {
+    useProxyForSource.value[currentIdx] = true
+    iconError.value = false
+    return
+  }
+  
   if (iconSourceIndex.value < faviconSources.value.length - 1) {
     iconSourceIndex.value++
-    iconError.value = false // 重置错误状态，尝试新的源
+    iconError.value = false
   } else {
-    // 所有源都失败，显示字母图标
     iconError.value = true
   }
 }
