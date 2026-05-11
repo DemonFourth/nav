@@ -197,7 +197,8 @@ const handleLogoClick = () => {
 }
 
 .nav-scroll-container {
-  overflow-x: auto;
+  overflow-x: visible;
+  overflow-y: visible;
   scrollbar-width: thin;
   -ms-overflow-style: none;
   flex: 1;

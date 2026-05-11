@@ -704,7 +704,12 @@ const handleLogout = async () => {
 }
 
 const handleOpenSettings = () => {
-  settingsPage.value.open()
+  console.log('[NavItemView] handleOpenSettings called')
+  console.log('[NavItemView] settingsPage.value:', settingsPage.value)
+  console.log('[NavItemView] settingsPage.value.open:', settingsPage.value?.open)
+  if (settingsPage.value) {
+    settingsPage.value.open()
+  }
 }
 
 const handleUploadAvatar = async (base64Image) => {
