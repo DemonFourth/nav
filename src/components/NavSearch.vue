@@ -47,6 +47,10 @@
             </div>
             <div class="modal-body">
               <div v-if="searchResults.length === 0" class="no-results">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                  <circle cx="11" cy="11" r="8"/>
+                  <path d="m21 21-4.35-4.35"/>
+                </svg>
                 <p>未找到匹配的书签</p>
               </div>
               <div v-else class="results-list">
@@ -54,16 +58,33 @@
                   v-for="result in searchResults"
                   :key="result.id"
                   class="result-item"
-                  @click="handleResultClick(result)"
                 >
-                  <div class="result-icon">
-                    <img v-if="result.icon" :src="result.icon" :alt="result.name" @error="handleIconError" />
-                    <div v-else class="letter-icon">{{ result.name.charAt(0) }}</div>
+                  <div class="result-row-main">
+                    <div class="result-icon" @click="handleResultClick(result)">
+                      <img v-if="result.icon" :src="result.icon" :alt="result.name" @error="handleIconError" />
+                      <div v-else class="letter-icon">{{ result.name.charAt(0) }}</div>
+                    </div>
+                    <div class="result-name" :title="result.name">{{ result.name }}</div>
+                    <div class="result-action" @click.stop="openUrl(result.url)">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                        <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+                        <polyline points="15 3 21 3 21 9"/>
+                        <line x1="10" y1="14" x2="21" y2="3"/>
+                      </svg>
+                    </div>
                   </div>
-                  <div class="result-info">
-                    <div class="result-name">{{ result.name }}</div>
-                    <div class="result-url">{{ getDisplayUrl(result.url) }}</div>
-                    <div v-if="result.description" class="result-desc">{{ result.description }}</div>
+                  <div class="result-row-sub">
+                    <div class="result-url" :title="result.url">{{ getDisplayUrl(result.url) }}</div>
+                    <div v-if="result.description" class="result-desc" :title="result.description">{{ result.description }}</div>
+                    <div v-if="result.tags" class="result-tags">
+                      <span 
+                        v-for="tag in result.tags.split(',').slice(0, 3)" 
+                        :key="tag"
+                        class="result-tag"
+                      >
+                        {{ tag.trim() }}
+                      </span>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -198,15 +219,23 @@ const handleResultClick = (result) => {
 const getDisplayUrl = (url) => {
   try {
     const parsed = new URL(url)
-    return parsed.hostname
+    const path = parsed.pathname + parsed.search
+    if (path === '/' || path.length <= 1) {
+      return parsed.hostname
+    }
+    return parsed.hostname + (path.length > 30 ? path.slice(0, 30) + '...' : path)
   } catch {
-    return url
+    return url.length > 40 ? url.slice(0, 40) + '...' : url
   }
 }
 
 const handleIconError = (event) => {
   event.target.style.display = 'none'
   event.target.nextElementSibling.style.display = 'flex'
+}
+
+const openUrl = (url) => {
+  window.open(url, '_blank')
 }
 </script>
 
@@ -317,113 +346,186 @@ const handleIconError = (event) => {
 .search-modal-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.6);
-  backdrop-filter: blur(5px);
-  -webkit-backdrop-filter: blur(5px);
+  background: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 1000;
-  padding: 1rem;
+  z-index: 9999;
+  padding: 10vh 10vw;
 }
 
 .search-modal {
-  background: rgba(255, 255, 255, 0.95);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border-radius: 16px;
+  background: linear-gradient(165deg, rgba(30, 41, 59, 0.98) 0%, rgba(15, 23, 42, 0.98) 100%);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-radius: 20px;
   width: 100%;
-  max-width: 600px;
-  max-height: 70vh;
+  height: 100%;
+  max-height: 80vh;
   display: flex;
   flex-direction: column;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  box-shadow: 
+    0 0 0 1px rgba(255, 255, 255, 0.1),
+    0 25px 80px rgba(0, 0, 0, 0.5),
+    0 0 120px rgba(57, 157, 255, 0.1);
   overflow: hidden;
-}
-
-html.dark .search-modal {
-  background: rgba(30, 41, 59, 0.95);
-  border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .modal-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 1rem 1.5rem;
-  border-bottom: 1px solid var(--border);
+  padding: 1.5rem 2rem;
+  background: rgba(255, 255, 255, 0.03);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .modal-header h3 {
   margin: 0;
-  font-size: 1.1rem;
-  font-weight: 600;
-  color: var(--text);
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #f1f5f9;
+  letter-spacing: -0.02em;
 }
 
 .close-btn {
-  background: none;
-  border: none;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   cursor: pointer;
-  padding: 0.5rem;
-  border-radius: 8px;
-  color: var(--text-secondary);
-  transition: all 0.2s;
+  padding: 0.625rem;
+  border-radius: 10px;
+  color: #94a3b8;
+  transition: all 0.2s ease;
   display: flex;
   align-items: center;
+  justify-content: center;
 }
 
 .close-btn:hover {
-  background: var(--bg-hover);
-  color: var(--error);
+  background: rgba(239, 68, 68, 0.2);
+  border-color: rgba(239, 68, 68, 0.4);
+  color: #f87171;
+  transform: rotate(90deg);
+}
+
+.close-btn svg {
+  width: 18px;
+  height: 18px;
 }
 
 .modal-body {
   flex: 1;
   overflow-y: auto;
-  padding: 1rem;
+  padding: 1.5rem 2rem;
+}
+
+.modal-body::-webkit-scrollbar {
+  width: 6px;
+}
+
+.modal-body::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.modal-body::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 3px;
+}
+
+.modal-body::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.25);
 }
 
 .no-results {
   text-align: center;
-  padding: 2rem;
-  color: var(--text-secondary);
+  padding: 4rem 2rem;
+  color: #64748b;
+}
+
+.no-results svg {
+  width: 64px;
+  height: 64px;
+  margin-bottom: 1rem;
+  opacity: 0.4;
+}
+
+.no-results p {
+  font-size: 1rem;
+  font-weight: 500;
 }
 
 .results-list {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: 0.75rem;
 }
 
 .result-item {
   display: flex;
-  align-items: center;
-  gap: 1rem;
-  padding: 0.75rem 1rem;
-  background: var(--bg);
-  border-radius: var(--radius);
+  flex-direction: column;
+  gap: 0.625rem;
+  padding: 1rem 1.25rem;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 14px;
   cursor: pointer;
-  transition: all 0.2s ease;
-  border: 1px solid transparent;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+}
+
+.result-item::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, rgba(57, 157, 255, 0.1), rgba(139, 92, 246, 0.05));
+  opacity: 0;
+  transition: opacity 0.3s ease;
 }
 
 .result-item:hover {
-  background: var(--bg-hover);
-  border-color: var(--primary);
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(57, 157, 255, 0.3);
   transform: translateY(-2px);
+  box-shadow: 
+    0 8px 32px rgba(0, 0, 0, 0.3),
+    0 0 0 1px rgba(57, 157, 255, 0.1);
+}
+
+.result-item:hover::before {
+  opacity: 1;
+}
+
+.result-row-main {
+  display: flex;
+  align-items: center;
+  gap: 0.875rem;
+}
+
+.result-row-sub {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding-left: 3.5rem;
+  flex-wrap: wrap;
+  min-height: 1.5rem;
 }
 
 .result-icon {
   width: 40px;
   height: 40px;
-  border-radius: 8px;
+  border-radius: 10px;
   overflow: hidden;
   flex-shrink: 0;
-  background: var(--bg-secondary);
+  background: rgba(255, 255, 255, 0.95);
   display: flex;
   align-items: center;
   justify-content: center;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  position: relative;
+  z-index: 1;
 }
 
 .result-icon img {
@@ -438,42 +540,98 @@ html.dark .search-modal {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+  background: linear-gradient(135deg, #6366f1, #8b5cf6);
   color: white;
-  font-weight: 600;
+  font-weight: 700;
   font-size: 1rem;
-}
-
-.result-info {
-  flex: 1;
-  min-width: 0;
+  letter-spacing: -0.02em;
 }
 
 .result-name {
-  font-weight: 600;
-  color: var(--text);
-  font-size: 0.95rem;
-  margin-bottom: 0.2rem;
-}
-
-.result-url {
-  font-size: 0.8rem;
-  color: var(--text-secondary);
-  margin-bottom: 0.2rem;
-}
-
-.result-desc {
-  font-size: 0.8rem;
-  color: var(--text-tertiary);
+  flex: 1;
+  min-width: 0;
+  font-weight: 700;
+  color: #f1f5f9;
+  font-size: 1rem;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  letter-spacing: -0.01em;
+}
+
+.result-url {
+  font-size: 0.75rem;
+  color: #94a3b8;
+  font-family: 'SF Mono', Monaco, monospace;
+  background: rgba(255, 255, 255, 0.06);
+  padding: 2px 8px;
+  border-radius: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 250px;
+  flex-shrink: 0;
+}
+
+.result-desc {
+  font-size: 0.75rem;
+  color: #64748b;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 300px;
+  flex-shrink: 1;
+}
+
+.result-tags {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.result-tag {
+  padding: 2px 8px;
+  background: rgba(57, 157, 255, 0.15);
+  color: #60a5fa;
+  border-radius: 4px;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  border: 1px solid rgba(57, 157, 255, 0.2);
+}
+
+.result-action {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: rgba(57, 157, 255, 0.1);
+  border: 1px solid rgba(57, 157, 255, 0.2);
+  color: #60a5fa;
+  flex-shrink: 0;
+  transition: all 0.2s ease;
+  position: relative;
+  z-index: 1;
+}
+
+.result-action svg {
+  width: 18px;
+  height: 18px;
+  stroke-width: 2;
+}
+
+.result-item:hover .result-action {
+  background: rgba(57, 157, 255, 0.25);
+  border-color: rgba(57, 157, 255, 0.5);
+  transform: scale(1.1);
+  box-shadow: 0 0 20px rgba(57, 157, 255, 0.3);
 }
 
 /* Modal Animation */
 .modal-enter-active,
 .modal-leave-active {
-  transition: all 0.3s ease;
+  transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .modal-enter-from,
@@ -483,17 +641,7 @@ html.dark .search-modal {
 
 .modal-enter-from .search-modal,
 .modal-leave-to .search-modal {
-  transform: scale(0.95) translateY(20px);
-}
-
-@media (max-width: 768px) {
-  .search-modal {
-    max-height: 80vh;
-  }
-
-  .engine-btn {
-    font-size: 0.8rem;
-    padding: 0.3rem 0.7rem;
-  }
+  transform: scale(0.95) translateY(20px) scale(0.98);
+  filter: blur(10px);
 }
 </style>

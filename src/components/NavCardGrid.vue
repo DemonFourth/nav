@@ -9,6 +9,13 @@
         @click="handleCardClick(bookmark)"
         :title="bookmark.name + '\n' + bookmark.url"
       >
+        <button class="card-detail-btn" @click.stop="handleShowDetail(bookmark)" title="查看详情">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"/>
+            <line x1="12" y1="16" x2="12" y2="12"/>
+            <line x1="12" y1="8" x2="12.01" y2="8"/>
+          </svg>
+        </button>
         <div class="card-icon">
           <img 
             v-if="!iconErrors[bookmark.id]"
@@ -60,7 +67,7 @@ const props = defineProps({
   }
 })
 
-const emit = defineEmits(['tag-click'])
+const emit = defineEmits(['tag-click', 'show-detail'])
 
 const { iconSources, parseIconSourceUrl, navCardAnimation } = useSettings()
 
@@ -200,6 +207,10 @@ const toggleExpand = (index) => {
 const handleTagClick = (tag) => {
   emit('tag-click', tag)
 }
+
+const handleShowDetail = (bookmark) => {
+  emit('show-detail', { tag: null, bookmark })
+}
 </script>
 
 <style scoped>
@@ -233,6 +244,7 @@ const handleTagClick = (tag) => {
   transition: all 0.2s ease;
   min-height: 100px;
   height: auto;
+  position: relative;
 }
 
 .nav-card:hover {
@@ -240,6 +252,40 @@ const handleTagClick = (tag) => {
   transform: translateY(-2px);
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.14);
   border-color: rgba(255, 255, 255, 0.18);
+}
+
+.card-detail-btn {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.1);
+  border: none;
+  color: rgba(255, 255, 255, 0.6);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: all 0.2s ease;
+  z-index: 10;
+}
+
+.card-detail-btn svg {
+  width: 14px;
+  height: 14px;
+}
+
+.nav-card:hover .card-detail-btn {
+  opacity: 1;
+}
+
+.card-detail-btn:hover {
+  background: rgba(57, 157, 255, 0.4);
+  color: #fff;
+  transform: scale(1.1);
 }
 
 .card-icon {
