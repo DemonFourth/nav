@@ -120,6 +120,56 @@ src/
 - 运行 `npm run build` 验证构建成功
 - 检查开发环境控制台是否有错误
 
+## 风格切换（displayMode）
+
+### 两种风格模式
+
+| 模式 | displayMode 值 | 说明 |
+|------|---------------|------|
+| 默认风格 | `'default'` | 标准书签管理界面，支持分类侧边栏、编辑模式等完整功能 |
+| 导航站风格 | `'nav-item'` | 简洁的导航站界面，顶部导航菜单 + 搜索框 + 卡片网格 |
+
+### 存储策略
+
+**重要**：`displayMode` 仅保存在本地 `localStorage` 中，**不同步到 D1 数据库**，以确保各设备风格偏好独立。
+
+```javascript
+// useSettings.js
+const displayMode = ref(localStorage.getItem('displayMode') || 'default')
+
+const toggleDisplayMode = () => {
+  displayMode.value = displayMode.value === 'default' ? 'nav-item' : 'default'
+  localStorage.setItem('displayMode', displayMode.value)
+}
+```
+
+### 相关文件
+
+| 文件 | 作用 |
+|------|------|
+| `src/composables/useSettings.js` | displayMode 状态定义、切换逻辑 |
+| `src/App.vue` | 根组件，根据 displayMode 条件渲染不同视图 |
+| `src/views/NavItemView.vue` | 导航站风格页面组件 |
+| `src/components/NavBar.vue` | 导航站风格的顶部导航栏（含悬浮设置/切换按钮） |
+| `src/components/NavSearch.vue` | 导航站风格的搜索组件 |
+| `src/components/NavCardGrid.vue` | 导航站风格的书签卡片网格 |
+| `src/components/settings/AppearanceSettings.vue` | 设置页面中的风格切换开关 |
+
+### 切换入口
+
+1. **默认风格**：
+   - 右上角风格切换按钮（登录/头像按钮左侧）
+   - 设置 → 外观 → 风格开关
+2. **导航站风格**：
+   - 顶部导航栏右侧悬浮按钮（hover 时显示）
+   - 设置 → 外观 → 风格开关
+
+### 注意事项
+
+- `loadSettingsFromDB()` **不会**从 D1 加载 displayMode，避免登录后覆盖本地偏好
+- 风格设置为纯本地行为，不会同步到其他设备
+- 导航站风格下，悬浮按钮功能为"切换到默认风格"而非"设置"
+
 ## 浏览器扩展
 
 ```bash
