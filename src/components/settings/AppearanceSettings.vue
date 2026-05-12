@@ -271,6 +271,14 @@
             >
             <span class="slider"></span>
           </label>
+          <label class="larger-checkbox" title="添加 ?larger=true 参数">
+            <input 
+              type="checkbox" 
+              :checked="source.useLarger"
+              @change="$emit('toggleIconSourceLarger', source.id)"
+            />
+            <span>larger</span>
+          </label>
           <button 
             class="delete-btn" 
             @click="$emit('removeIconSource', source.id)"
@@ -462,6 +470,7 @@ const emit = defineEmits([
   'addIconSource',
   'removeIconSource',
   'toggleIconSourceEnabled',
+  'toggleIconSourceLarger',
   'moveIconSource',
   'updateProxyUrl'
 ])
@@ -535,10 +544,17 @@ const handleTestAll = async () => {
   for (const result of testResults.value) {
     if (!result.enabled) continue
 
+    const source = props.iconSources.find(s => s.id === result.id)
+    const useLarger = source?.useLarger || false
+
     try {
-      const iconUrl = result.url
+      let iconUrl = result.url
         .replace('{domain}', domain)
         .replace('{origin}', `https://${domain}`)
+
+      if (useLarger) {
+        iconUrl += iconUrl.includes('?') ? '&larger=true' : '?larger=true'
+      }
 
       const startTime = Date.now()
 
@@ -1239,6 +1255,43 @@ html.dark .api-dialog {
 .delete-btn:hover {
   color: var(--error);
   background: var(--bg-hover);
+}
+
+.larger-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.25rem 0.5rem;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  transition: var(--transition);
+  user-select: none;
+}
+
+.larger-checkbox:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+.larger-checkbox input {
+  width: 14px;
+  height: 14px;
+  cursor: pointer;
+  accent-color: var(--primary);
+}
+
+.larger-checkbox input:checked + span {
+  color: var(--primary);
+  font-weight: 500;
+}
+
+.larger-checkbox:has(input:checked) {
+  background: rgba(99, 102, 241, 0.1);
+  border-color: var(--primary);
 }
 
 .add-source-form {

@@ -14,11 +14,11 @@ const displayMode = ref(localStorage.getItem('displayMode') || 'default')
 
 // 图标源配置
 const defaultIconSources = [
-  { id: '1', name: 'Favicon.im (大)', url: 'https://favicon.im/{domain}?larger=true', enabled: true },
-  { id: '2', name: 'Icon Horse', url: 'https://icon.horse/icon/{domain}', enabled: true },
-  { id: '3', name: 'Favicon Extractor', url: 'https://www.faviconextractor.com/favicon/{domain}', enabled: true },
-  { id: '4', name: 'DuckDuckGo', url: 'https://icons.duckduckgo.com/ip3/{domain}.ico', enabled: false },
-  { id: '5', name: '网站自身 favicon', url: '{origin}/favicon.ico', enabled: true },
+  { id: '1', name: 'Favicon.im (大)', url: 'https://favicon.im/{domain}', enabled: true, useLarger: false },
+  { id: '2', name: 'Icon Horse', url: 'https://icon.horse/icon/{domain}', enabled: true, useLarger: false },
+  { id: '3', name: 'Favicon Extractor', url: 'https://www.faviconextractor.com/favicon/{domain}', enabled: true, useLarger: false },
+  { id: '4', name: 'DuckDuckGo', url: 'https://icons.duckduckgo.com/ip3/{domain}.ico', enabled: false, useLarger: false },
+  { id: '5', name: '网站自身 favicon', url: '{origin}/favicon.ico', enabled: true, useLarger: false },
 ]
 
 const iconSources = ref(JSON.parse(localStorage.getItem('iconSources') || 'null') || [...defaultIconSources])
@@ -207,7 +207,8 @@ export function useSettings() {
       id: newId,
       name: source.name || '自定义源',
       url: source.url,
-      enabled: true
+      enabled: true,
+      useLarger: source.useLarger || false
     })
     saveIconSourcesToStorage()
   }
@@ -221,6 +222,14 @@ export function useSettings() {
     const source = iconSources.value.find(s => s.id === id)
     if (source) {
       source.enabled = !source.enabled
+      saveIconSourcesToStorage()
+    }
+  }
+
+  const toggleIconSourceLarger = (id) => {
+    const source = iconSources.value.find(s => s.id === id)
+    if (source) {
+      source.useLarger = !source.useLarger
       saveIconSourcesToStorage()
     }
   }
@@ -248,14 +257,18 @@ export function useSettings() {
   }
 
   // 解析图标源 URL，替换占位符
-  const parseIconSourceUrl = (sourceUrl, bookmarkUrl) => {
+  const parseIconSourceUrl = (sourceUrl, bookmarkUrl, useLarger = false) => {
     try {
       const url = new URL(bookmarkUrl)
       const domain = url.hostname
       const origin = url.origin
-      return sourceUrl
+      let result = sourceUrl
         .replace('{domain}', domain)
         .replace('{origin}', origin)
+      if (useLarger) {
+        result += result.includes('?') ? '&larger=true' : '?larger=true'
+      }
+      return result
     } catch {
       return ''
     }
@@ -263,7 +276,7 @@ export function useSettings() {
 
   // 测试单个图标源
   const testIconSource = async (source, testDomain) => {
-    const iconUrl = parseIconSourceUrl(source.url, `https://${testDomain}`)
+    const iconUrl = parseIconSourceUrl(source.url, `https://${testDomain}`, source.useLarger)
     if (!iconUrl) return { success: false, error: '无效URL' }
 
     const startTime = Date.now()
@@ -304,7 +317,7 @@ export function useSettings() {
 
     const tryFetch = async (useProxy) => {
       for (const source of enabledSources) {
-        let iconUrl = parseIconSourceUrl(source.url, bookmark.url)
+        let iconUrl = parseIconSourceUrl(source.url, bookmark.url, source.useLarger)
         if (!iconUrl) continue
 
         if (useProxy && proxyUrl.value) {
@@ -582,6 +595,7 @@ export function useSettings() {
     addIconSource,
     removeIconSource,
     toggleIconSourceEnabled,
+    toggleIconSourceLarger,
     moveIconSource,
     updateProxyUrl,
     parseIconSourceUrl,

@@ -86,6 +86,7 @@
               @addIconSource="$emit('addIconSource', $event)"
               @removeIconSource="$emit('removeIconSource', $event)"
               @toggleIconSourceEnabled="$emit('toggleIconSourceEnabled', $event)"
+              @toggleIconSourceLarger="$emit('toggleIconSourceLarger', $event)"
               @moveIconSource="(id, dir) => $emit('moveIconSource', id, dir)"
               @updateProxyUrl="$emit('updateProxyUrl', $event)"
             />
@@ -174,7 +175,7 @@ const props = defineProps({
   }
 })
 
-const emit = defineEmits(['action', 'close', 'setThemeMode', 'toggleSearch', 'toggleHideEmpty', 'togglePublicMode', 'updateTitle', 'updateFooter', 'editTitle', 'editFooter', 'setActiveTab', 'toggleRandomWallpaper', 'updateWallpaperApi', 'uploadAvatar', 'toggleDisplayMode', 'addIconSource', 'removeIconSource', 'toggleIconSourceEnabled', 'moveIconSource', 'updateProxyUrl'])
+const emit = defineEmits(['action', 'close', 'setThemeMode', 'toggleSearch', 'toggleHideEmpty', 'togglePublicMode', 'updateTitle', 'updateFooter', 'editTitle', 'editFooter', 'setActiveTab', 'toggleRandomWallpaper', 'updateWallpaperApi', 'uploadAvatar', 'toggleDisplayMode', 'addIconSource', 'removeIconSource', 'toggleIconSourceEnabled', 'toggleIconSourceLarger', 'moveIconSource', 'updateProxyUrl'])
 
 const menuItems = ref([
   { id: 'appearance', name: '外观设置' },
