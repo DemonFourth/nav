@@ -325,13 +325,14 @@ export function useSettings() {
         }
 
         try {
-          const response = await fetch(iconUrl, { mode: 'cors' })
-          if (response.ok) {
-            const blob = await response.blob()
-            const objectUrl = URL.createObjectURL(blob)
-            onIconLoaded(objectUrl)
-            return true
-          }
+          const img = new Image()
+          await new Promise((resolve, reject) => {
+            img.onload = resolve
+            img.onerror = () => reject(new Error('加载失败'))
+            img.src = iconUrl
+          })
+          onIconLoaded(img.src)
+          return true
         } catch {
           continue
         }
