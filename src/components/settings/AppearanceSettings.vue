@@ -565,46 +565,18 @@ const handleTestAll = async () => {
 
       const startTime = Date.now()
 
-      // 对于 {origin}/favicon.ico 类型的源，使用不同的测试方式
-      // 因为这类请求通常没有 CORS 头，fetch 会失败
-      if (result.url.includes('{origin}')) {
-        // 使用图片加载测试（无法获取尺寸，但能验证是否可访问）
-        const img = new Image()
-        await new Promise((resolve, reject) => {
-          img.onload = resolve
-          img.onerror = () => reject(new Error('加载失败'))
-          img.src = iconUrl
-        })
+      // 使用 new Image() 测试所有图标源（不受 CORS 限制）
+      const img = new Image()
+      await new Promise((resolve, reject) => {
+        img.onload = resolve
+        img.onerror = () => reject(new Error('加载失败'))
+        img.src = iconUrl
+      })
 
-        result.success = true
-        result.size = '未知（CORS限制）'
-        result.duration = Date.now() - startTime
-        result.imageUrl = iconUrl
-      } else {
-        // 其他图标源使用 fetch 测试
-        const response = await fetch(iconUrl, { mode: 'cors' })
-        const duration = Date.now() - startTime
-
-        if (response.ok) {
-          const blob = await response.blob()
-          const img = new Image()
-
-          await new Promise((resolve) => {
-            img.onload = resolve
-            img.onerror = resolve
-            img.src = URL.createObjectURL(blob)
-          })
-
-          result.success = true
-          result.size = `${img.width}x${img.height}`
-          result.duration = duration
-          result.imageUrl = img.src
-        } else {
-          result.success = false
-          result.error = `HTTP ${response.status}`
-          result.duration = duration
-        }
-      }
+      result.success = true
+      result.size = `${img.width}x${img.height}`
+      result.duration = Date.now() - startTime
+      result.imageUrl = iconUrl
     } catch (err) {
       result.success = false
       result.error = err.message || '请求失败'
