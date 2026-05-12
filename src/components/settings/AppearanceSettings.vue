@@ -357,29 +357,39 @@
         <div 
           v-for="result in testResults" 
           :key="result.id"
-          class="test-result-item"
+          class="test-result-group"
         >
-          <div class="result-status">
+          <!-- 源名称 -->
+          <div class="test-source-name">
+            <span>{{ result.name }}</span>
+            <span v-if="!result.enabled" class="status-disabled">(未启用)</span>
+          </div>
+          
+          <!-- 直接测试结果 -->
+          <div class="test-result-row">
+            <span class="result-label">直接:</span>
             <span v-if="!result.enabled" class="status-disabled">⊘ 未启用</span>
-            <span v-else-if="result.loading" class="status-loading">⟳ 测试中</span>
-            <span v-else-if="result.success" class="status-success">✓ 成功</span>
-            <span v-else class="status-error">✗ {{ result.error }}</span>
+            <span v-else-if="result.direct.loading" class="status-loading">⟳ 测试中</span>
+            <span v-else-if="result.direct.success" class="status-success">✓ {{ result.direct.size }} {{ result.direct.duration }}ms</span>
+            <span v-else class="status-error">✗ {{ result.direct.error }}</span>
+            <div class="result-url-row">
+              <span class="result-url" :title="result.direct.testedUrl">{{ result.direct.testedUrl }}</span>
+              <button class="copy-btn" @click="copyUrl(result.direct.testedUrl)" :disabled="!result.direct.testedUrl">复制</button>
+            </div>
           </div>
-          <div class="result-info">
-            <span class="result-name">{{ result.name }}</span>
-            <span v-if="result.size" class="result-size">{{ result.size }}</span>
-            <span v-if="result.duration" class="result-duration">{{ result.duration }}ms</span>
+          
+          <!-- 代理测试结果（仅当配置代理时显示） -->
+          <div v-if="proxyUrl" class="test-result-row">
+            <span class="result-label">代理:</span>
+            <span v-if="result.proxy.loading" class="status-loading">⟳ 测试中</span>
+            <span v-else-if="result.proxy.success" class="status-success">✓ {{ result.proxy.size }} {{ result.proxy.duration }}ms</span>
+            <span v-else-if="result.proxy.testedUrl" class="status-error">✗ {{ result.proxy.error }}</span>
+            <span v-else class="status-disabled">未测试</span>
+            <div v-if="result.proxy.testedUrl" class="result-url-row">
+              <span class="result-url" :title="result.proxy.testedUrl">{{ result.proxy.testedUrl }}</span>
+              <button class="copy-btn" @click="copyUrl(result.proxy.testedUrl)">复制</button>
+            </div>
           </div>
-          <div class="result-url-row">
-            <span class="result-url" :title="result.testedUrl">{{ result.testedUrl }}</span>
-            <button class="copy-btn" @click="copyUrl(result.testedUrl)" title="复制URL">复制</button>
-          </div>
-          <img 
-            v-if="result.success && result.imageUrl" 
-            :src="result.imageUrl" 
-            class="result-preview"
-            alt="预览"
-          />
         </div>
       </div>
     </div>
@@ -536,13 +546,22 @@ const handleTestAll = async () => {
     name: s.name,
     url: s.url,
     enabled: s.enabled,
-    loading: s.enabled,
-    success: false,
-    error: '',
-    size: '',
-    duration: 0,
-    imageUrl: '',
-    testedUrl: ''
+    direct: {
+      loading: s.enabled,
+      success: false,
+      error: '',
+      size: '',
+      duration: 0,
+      testedUrl: ''
+    },
+    proxy: {
+      loading: false,
+      success: false,
+      error: '',
+      size: '',
+      duration: 0,
+      testedUrl: ''
+    }
   }))
 
   // 测试每个启用的源
@@ -552,20 +571,20 @@ const handleTestAll = async () => {
     const source = props.iconSources.find(s => s.id === result.id)
     const useLarger = source?.useLarger || false
 
+    // 构建基础 URL
+    let iconUrl = result.url
+      .replace('{domain}', domain)
+      .replace('{origin}', `https://${domain}`)
+
+    if (useLarger) {
+      iconUrl += iconUrl.includes('?') ? '&larger=true' : '?larger=true'
+    }
+
+    // 测试直接连接
     try {
-      let iconUrl = result.url
-        .replace('{domain}', domain)
-        .replace('{origin}', `https://${domain}`)
-
-      if (useLarger) {
-        iconUrl += iconUrl.includes('?') ? '&larger=true' : '?larger=true'
-      }
-
-      result.testedUrl = iconUrl
-
+      result.direct.testedUrl = iconUrl
       const startTime = Date.now()
 
-      // 使用 new Image() 测试所有图标源（不受 CORS 限制）
       const img = new Image()
       await new Promise((resolve, reject) => {
         img.onload = resolve
@@ -573,16 +592,40 @@ const handleTestAll = async () => {
         img.src = iconUrl
       })
 
-      result.success = true
-      result.size = `${img.width}x${img.height}`
-      result.duration = Date.now() - startTime
-      result.imageUrl = iconUrl
+      result.direct.success = true
+      result.direct.size = `${img.width}x${img.height}`
+      result.direct.duration = Date.now() - startTime
     } catch (err) {
-      result.success = false
-      result.error = err.message || '请求失败'
+      result.direct.success = false
+      result.direct.error = err.message || '请求失败'
     }
+    result.direct.loading = false
 
-    result.loading = false
+    // 测试代理连接（仅当配置了代理时）
+    if (props.proxyUrl) {
+      result.proxy.loading = true
+      const proxyIconUrl = props.proxyUrl + encodeURIComponent(iconUrl)
+
+      try {
+        result.proxy.testedUrl = proxyIconUrl
+        const startTime = Date.now()
+
+        const img = new Image()
+        await new Promise((resolve, reject) => {
+          img.onload = resolve
+          img.onerror = () => reject(new Error('加载失败'))
+          img.src = proxyIconUrl
+        })
+
+        result.proxy.success = true
+        result.proxy.size = `${img.width}x${img.height}`
+        result.proxy.duration = Date.now() - startTime
+      } catch (err) {
+        result.proxy.success = false
+        result.proxy.error = err.message || '请求失败'
+      }
+      result.proxy.loading = false
+    }
   }
 
   isTesting.value = false
@@ -1320,14 +1363,45 @@ html.dark .api-dialog {
   margin-top: 1rem;
 }
 
-.test-result-item {
+.test-result-group {
+  margin-bottom: 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+
+.test-source-name {
   display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem;
+  background: var(--bg-secondary);
+  font-weight: 500;
+  font-size: 0.875rem;
+  color: var(--text);
+  border-bottom: 1px solid var(--border);
+}
+
+.test-result-row {
+  display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 0.75rem;
   padding: 0.75rem;
-  background: var(--bg-secondary);
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--border);
+  padding-left: 1.5rem;
+  background: var(--bg);
+  border-bottom: 1px solid var(--border);
+}
+
+.test-result-row:last-child {
+  border-bottom: none;
+}
+
+.result-label {
+  min-width: 36px;
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  font-weight: 500;
 }
 
 .result-status {
@@ -1383,12 +1457,12 @@ html.dark .api-dialog {
   align-items: center;
   gap: 0.5rem;
   width: 100%;
-  margin-top: 0.5rem;
+  margin-top: 0.25rem;
 }
 
 .result-url {
   flex: 1;
-  font-size: 0.75rem;
+  font-size: 0.7rem;
   color: var(--text-secondary);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1400,7 +1474,7 @@ html.dark .api-dialog {
 
 .copy-btn {
   padding: 0.25rem 0.5rem;
-  font-size: 0.75rem;
+  font-size: 0.7rem;
   background: var(--bg-tertiary);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
@@ -1410,9 +1484,14 @@ html.dark .api-dialog {
   white-space: nowrap;
 }
 
-.copy-btn:hover {
+.copy-btn:hover:not(:disabled) {
   background: var(--primary);
   border-color: var(--primary);
   color: white;
+}
+
+.copy-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 </style>
