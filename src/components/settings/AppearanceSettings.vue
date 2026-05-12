@@ -513,10 +513,10 @@ const handleProxyBlur = () => {
 const handleTestAll = async () => {
   const domain = testDomain.value.trim()
   if (!domain) return
-  
+
   isTesting.value = true
   testResults.value = []
-  
+
   // 初始化结果
   testResults.value = props.iconSources.map(s => ({
     id: s.id,
@@ -530,47 +530,66 @@ const handleTestAll = async () => {
     duration: 0,
     imageUrl: ''
   }))
-  
+
   // 测试每个启用的源
   for (const result of testResults.value) {
     if (!result.enabled) continue
-    
+
     try {
       const iconUrl = result.url
         .replace('{domain}', domain)
         .replace('{origin}', `https://${domain}`)
-      
+
       const startTime = Date.now()
-      const response = await fetch(iconUrl, { mode: 'cors' })
-      const duration = Date.now() - startTime
-      
-      if (response.ok) {
-        const blob = await response.blob()
+
+      // 对于 {origin}/favicon.ico 类型的源，使用不同的测试方式
+      // 因为这类请求通常没有 CORS 头，fetch 会失败
+      if (result.url.includes('{origin}')) {
+        // 使用图片加载测试（无法获取尺寸，但能验证是否可访问）
         const img = new Image()
-        
-        await new Promise((resolve) => {
+        await new Promise((resolve, reject) => {
           img.onload = resolve
-          img.onerror = resolve
-          img.src = URL.createObjectURL(blob)
+          img.onerror = () => reject(new Error('加载失败'))
+          img.src = iconUrl
         })
-        
+
         result.success = true
-        result.size = `${img.width}x${img.height}`
-        result.duration = duration
-        result.imageUrl = img.src
+        result.size = '未知（CORS限制）'
+        result.duration = Date.now() - startTime
+        result.imageUrl = iconUrl
       } else {
-        result.success = false
-        result.error = `HTTP ${response.status}`
-        result.duration = duration
+        // 其他图标源使用 fetch 测试
+        const response = await fetch(iconUrl, { mode: 'cors' })
+        const duration = Date.now() - startTime
+
+        if (response.ok) {
+          const blob = await response.blob()
+          const img = new Image()
+
+          await new Promise((resolve) => {
+            img.onload = resolve
+            img.onerror = resolve
+            img.src = URL.createObjectURL(blob)
+          })
+
+          result.success = true
+          result.size = `${img.width}x${img.height}`
+          result.duration = duration
+          result.imageUrl = img.src
+        } else {
+          result.success = false
+          result.error = `HTTP ${response.status}`
+          result.duration = duration
+        }
       }
     } catch (err) {
       result.success = false
       result.error = err.message || '请求失败'
     }
-    
+
     result.loading = false
   }
-  
+
   isTesting.value = false
 }
 
