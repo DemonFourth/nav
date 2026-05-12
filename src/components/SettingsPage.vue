@@ -89,6 +89,8 @@
               @toggleIconSourceLarger="$emit('toggleIconSourceLarger', $event)"
               @moveIconSource="(id, dir) => $emit('moveIconSource', id, dir)"
               @updateProxyUrl="$emit('updateProxyUrl', $event)"
+              @toggleNavCardAnimation="$emit('toggleNavCardAnimation')"
+              @updateNavWallpaper="$emit('updateNavWallpaper', $event)"
             />
           </div>
         </div>
@@ -172,10 +174,18 @@ const props = defineProps({
   proxyUrl: {
     type: String,
     default: ''
+  },
+  navCardAnimation: {
+    type: Boolean,
+    default: true
+  },
+  navWallpaper: {
+    type: String,
+    default: 'https://main.ssss.nyc.mn/background.webp'
   }
 })
 
-const emit = defineEmits(['action', 'close', 'setThemeMode', 'toggleSearch', 'toggleHideEmpty', 'togglePublicMode', 'updateTitle', 'updateFooter', 'editTitle', 'editFooter', 'setActiveTab', 'toggleRandomWallpaper', 'updateWallpaperApi', 'uploadAvatar', 'toggleDisplayMode', 'addIconSource', 'removeIconSource', 'toggleIconSourceEnabled', 'toggleIconSourceLarger', 'moveIconSource', 'updateProxyUrl'])
+const emit = defineEmits(['action', 'close', 'setThemeMode', 'toggleSearch', 'toggleHideEmpty', 'togglePublicMode', 'updateTitle', 'updateFooter', 'editTitle', 'editFooter', 'setActiveTab', 'toggleRandomWallpaper', 'updateWallpaperApi', 'uploadAvatar', 'toggleDisplayMode', 'addIconSource', 'removeIconSource', 'toggleIconSourceEnabled', 'toggleIconSourceLarger', 'moveIconSource', 'updateProxyUrl', 'toggleNavCardAnimation', 'updateNavWallpaper'])
 
 const menuItems = ref([
   { id: 'appearance', name: '外观设置' },
@@ -218,7 +228,9 @@ const componentProps = computed(() => ({
   emptyCategoryCount: props.emptyCategoryCount,
   displayMode: props.displayMode,
   iconSources: props.iconSources,
-  proxyUrl: props.proxyUrl
+  proxyUrl: props.proxyUrl,
+  navCardAnimation: props.navCardAnimation,
+  navWallpaper: props.navWallpaper
 }))
 
 const open = () => {

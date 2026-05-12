@@ -201,7 +201,7 @@ const handleIconError = (event) => {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.75rem;
+  gap: 0.4rem;
 }
 
 .search-engine-select {
@@ -209,42 +209,43 @@ const handleIconError = (event) => {
   flex-wrap: wrap;
   justify-content: center;
   gap: 0.5rem;
+  position: relative;
+  z-index: 3;
 }
 
 .engine-btn {
   border: none;
   background: none;
   color: rgba(255, 255, 255, 0.8);
-  font-size: 0.85rem;
-  padding: 0.35rem 0.85rem;
-  border-radius: 20px;
+  font-size: 0.8rem;
+  padding: 2px 10px;
+  border-radius: 4px;
   cursor: pointer;
-  transition: all 0.2s ease;
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  transition: all 0.2s;
 }
 
 .engine-btn:hover {
+  color: var(--nav-primary);
   background: rgba(255, 255, 255, 0.1);
-  color: #ffffff;
 }
 
 .engine-btn.active {
-  background: rgba(255, 255, 255, 0.2);
-  color: #ffffff;
-  border-color: rgba(255, 255, 255, 0.4);
+  color: var(--nav-primary);
+  background: rgba(255, 255, 255, 0.15);
 }
 
 .search-container {
   display: flex;
   align-items: center;
-  background: rgba(255, 255, 255, 0.15);
-  border-radius: 25px;
-  padding: 0.4rem;
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
+  background: rgba(179, 183, 184, 0.23);
+  border-radius: 20px;
+  padding: 0.3rem;
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
   width: 100%;
-  max-width: 500px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  max-width: 480px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
 }
 
 .search-input {
@@ -258,7 +259,7 @@ const handleIconError = (event) => {
 }
 
 .search-input::placeholder {
-  color: rgba(255, 255, 255, 0.5);
+  color: rgba(255, 255, 255, 0.6);
 }
 
 .clear-btn {
@@ -266,13 +267,14 @@ const handleIconError = (event) => {
   border: none;
   outline: none;
   cursor: pointer;
-  padding: 0.25rem;
+  margin-right: 0.2rem;
   display: flex;
   align-items: center;
+  padding: 0;
 }
 
 .search-btn {
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(233, 233, 235, 0);
   color: #ffffff;
   border: none;
   border-radius: 50%;
@@ -282,12 +284,12 @@ const handleIconError = (event) => {
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: all 0.2s ease;
-  flex-shrink: 0;
+  transition: all 0.2s;
+  margin-right: 0.1rem;
 }
 
 .search-btn:hover {
-  background: rgba(255, 255, 255, 0.2);
+  background: #3367d6;
   transform: scale(1.05);
 }
 

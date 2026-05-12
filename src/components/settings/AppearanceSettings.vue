@@ -234,6 +234,40 @@
       </div>
     </div>
 
+    <!-- 导航站卡片动画 -->
+    <div class="form-group">
+      <label class="form-label">导航站卡片动画</label>
+      <div class="form-row">
+        <span class="form-text">{{ navCardAnimation ? '已开启' : '已关闭' }}</span>
+        <label class="switch">
+          <input 
+            type="checkbox" 
+            :checked="navCardAnimation"
+            @change="$emit('toggleNavCardAnimation')"
+          >
+          <span class="slider"></span>
+        </label>
+      </div>
+      <div class="form-hint">切换菜单时卡片会以动画方式入场</div>
+    </div>
+    
+    <!-- 导航站壁纸 -->
+    <div class="form-group">
+      <label class="form-label">导航站壁纸</label>
+      <div class="form-row">
+        <input 
+          type="text" 
+          :value="navWallpaper || '使用默认壁纸'" 
+          class="form-input" 
+          readonly
+        />
+        <button type="button" class="text-btn" @click="openNavWallpaperDialog">
+          编辑
+        </button>
+      </div>
+      <div class="form-hint">设置导航站模式的背景图片（留空使用默认壁纸）</div>
+    </div>
+
     <!-- 图标获取设置 -->
     <div class="form-group">
       <label class="form-label">图标获取设置</label>
@@ -443,6 +477,56 @@
         </div>
       </Transition>
     </Teleport>
+
+    <!-- 导航站壁纸对话框 -->
+    <Teleport to="body">
+      <Transition name="fade">
+        <div v-if="showNavWallpaperDialog" class="dialog-overlay" @click="showNavWallpaperDialog = false">
+          <div class="dialog-box api-dialog" @click.stop>
+            <h3 class="dialog-title">编辑导航站壁纸</h3>
+            
+            <div class="form-group">
+              <label>壁纸图片地址</label>
+              <input 
+                v-model="navWallpaperInput" 
+                type="text" 
+                placeholder="请输入图片地址，例如：https://example.com/image.jpg"
+                @keyup.enter="handleNavWallpaperConfirm"
+                autofocus
+              >
+              <div class="form-hint">输入背景图片的完整URL地址</div>
+            </div>
+            
+            <div class="form-group">
+              <div class="example-apis">
+                <div class="example-title">示例壁纸（点击快速填入）：</div>
+                <button 
+                  type="button"
+                  class="example-btn" 
+                  @click="navWallpaperInput = 'https://main.ssss.nyc.mn/background.webp'"
+                >
+                  参考项目默认壁纸
+                </button>
+                <button 
+                  type="button"
+                  class="example-btn" 
+                  @click="navWallpaperInput = 'https://picsum.photos/1920/1080'"
+                >
+                  Lorem Picsum 随机图片
+                </button>
+              </div>
+            </div>
+            
+            <p v-if="navWallpaperError" class="error-message">{{ navWallpaperError }}</p>
+            
+            <div class="dialog-buttons">
+              <button class="text-btn" @click="handleNavWallpaperCancel">取消</button>
+              <button class="btn btn-primary" @click="handleNavWallpaperConfirm">确认</button>
+            </div>
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
   </div>
 </template>
 
@@ -467,7 +551,9 @@ const props = defineProps({
   wallpaperApi: String,
   displayMode: String,
   iconSources: Array,
-  proxyUrl: String
+  proxyUrl: String,
+  navCardAnimation: Boolean,
+  navWallpaper: String
 })
 
 const emit = defineEmits([
@@ -486,7 +572,9 @@ const emit = defineEmits([
   'toggleIconSourceEnabled',
   'toggleIconSourceLarger',
   'moveIconSource',
-  'updateProxyUrl'
+  'updateProxyUrl',
+  'toggleNavCardAnimation',
+  'updateNavWallpaper'
 ])
 
 const { SEARCH_ENGINES, enabledEngines, enabledSearchEnginesPanel, toggleEngine, toggleSearchEnginesPanel } = useSearchEngines()
@@ -497,6 +585,10 @@ const showApiDialog = ref(false)
 const apiInput = ref('')
 const error = ref('')
 const avatarInput = ref(null)
+
+const showNavWallpaperDialog = ref(false)
+const navWallpaperInput = ref('')
+const navWallpaperError = ref('')
 
 const showAddSource = ref(false)
 const newSourceName = ref('')
@@ -723,6 +815,48 @@ const openDialog = (e) => {
       if (input) input.focus()
     }
   })
+}
+
+const openNavWallpaperDialog = (e) => {
+  if (e) {
+    e.preventDefault()
+    e.stopPropagation()
+  }
+  navWallpaperInput.value = props.navWallpaper || ''
+  navWallpaperError.value = ''
+  showNavWallpaperDialog.value = true
+  nextTick(() => {
+    const dialog = document.querySelector('.api-dialog')
+    if (dialog) {
+      const input = dialog.querySelector('input')
+      if (input) input.focus()
+    }
+  })
+}
+
+const handleNavWallpaperConfirm = () => {
+  navWallpaperError.value = ''
+  const trimmedUrl = navWallpaperInput.value.trim()
+  
+  if (trimmedUrl === '') {
+    emit('updateNavWallpaper', '')
+    showNavWallpaperDialog.value = false
+    return
+  }
+  
+  try {
+    new URL(trimmedUrl)
+    emit('updateNavWallpaper', trimmedUrl)
+    showNavWallpaperDialog.value = false
+  } catch {
+    navWallpaperError.value = '请输入有效的URL地址'
+  }
+}
+
+const handleNavWallpaperCancel = () => {
+  navWallpaperInput.value = props.navWallpaper || ''
+  navWallpaperError.value = ''
+  showNavWallpaperDialog.value = false
 }
 </script>
 

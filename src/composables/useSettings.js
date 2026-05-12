@@ -9,6 +9,8 @@ const activeSettingsTab = ref(localStorage.getItem('activeSettingsTab') || 'appe
 const publicMode = ref(localStorage.getItem('publicMode') !== 'false')
 const randomWallpaper = ref(localStorage.getItem('randomWallpaper') === 'true')
 const wallpaperApi = ref(localStorage.getItem('wallpaperApi') || '')
+const navCardAnimation = ref(localStorage.getItem('navCardAnimation') !== 'false')
+const navWallpaper = ref(localStorage.getItem('navWallpaper') || 'https://main.ssss.nyc.mn/background.webp')
 const avatarUrl = ref(localStorage.getItem('avatarUrl') || '')
 const displayMode = ref(localStorage.getItem('displayMode') || 'default')
 
@@ -79,6 +81,7 @@ export function useSettings() {
             avatarUrl.value = data.data.avatarUrl || ''
             localStorage.setItem('avatarUrl', data.data.avatarUrl || '')
           }
+
 
           
         }
@@ -186,7 +189,15 @@ export function useSettings() {
     }
   }
 
+  const toggleNavCardAnimation = () => {
+    navCardAnimation.value = !navCardAnimation.value
+    localStorage.setItem('navCardAnimation', navCardAnimation.value.toString())
+  }
 
+  const updateNavWallpaper = (url) => {
+    navWallpaper.value = url || ''
+    localStorage.setItem('navWallpaper', navWallpaper.value)
+  }
 
   const updateAvatarUrl = async (url) => {
     avatarUrl.value = url || ''
@@ -538,7 +549,17 @@ export function useSettings() {
     }
   })
 
+  watch(navCardAnimation, (newValue) => {
+    if (!isLoadingFromDB.value) {
+      localStorage.setItem('navCardAnimation', newValue.toString())
+    }
+  })
 
+  watch(navWallpaper, (newValue) => {
+    if (!isLoadingFromDB.value) {
+      localStorage.setItem('navWallpaper', newValue)
+    }
+  })
 
   watch(avatarUrl, async (newValue) => {
     if (!isLoadingFromDB.value) {
@@ -579,6 +600,8 @@ export function useSettings() {
     publicMode,
     randomWallpaper,
     wallpaperApi,
+    navCardAnimation,
+    navWallpaper,
     avatarUrl,
     displayMode,
     iconSources,
@@ -593,6 +616,8 @@ export function useSettings() {
     updateWallpaperApi,
     updateAvatarUrl,
     toggleDisplayMode,
+    toggleNavCardAnimation,
+    updateNavWallpaper,
     addIconSource,
     removeIconSource,
     toggleIconSourceEnabled,

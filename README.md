@@ -1,112 +1,150 @@
-# 📚 书签管理系统
+# 书签管理系统
 
-基于 Cloudflare Pages + D1 + Vue 3 构建的现代化书签管理系统。
+基于 Vue 3 + Vite + Cloudflare Pages Functions + D1 构建的书签管理系统，支持默认管理模式与导航站模式两种界面。
 
-## ✨ 功能特性
+## 功能特性
 
-- 📑 **分类管理**：多级嵌套分类，支持拖拽排序
-- 🔖 **书签管理**：添加、编辑、删除书签，支持私密标记
-- 🔍 **实时搜索**：按名称、URL 或描述快速搜索
-- 📥 **导入导出**：支持 JSON/HTML 格式，导入浏览器书签
-- 💾 **云端备份**：备份到 Cloudflare R2，支持恢复（可选）
-- ⚡ **批量操作**：批量移动、编辑、删除
-- 🤖 **AI 功能**：智能生成描述、分类推荐（支持 OpenAI 兼容 API）
-- 🎨 **主题定制**：亮色/暗色主题、自定义壁纸、标题、页脚
-- 🌐 **浏览器扩展**：支持 Chrome、Edge、Brave、Firefox
+- 多级分类管理，支持嵌套分类与排序
+- 书签增删改查，支持描述、图标、备注、标签等信息
+- 默认管理模式：适合整理、编辑和批量维护书签
+- 导航站模式：适合日常访问，支持顶部菜单、站内/站外搜索、固定壁纸、卡片动画
+- 搜索功能：支持书签筛选与导航站搜索引擎切换
+- 主题与外观设置：亮色/暗色、随机壁纸、自定义标题、页脚内容
+- 图标源配置：支持多图标源回退、启用/禁用、顺序调整
+- 批量操作：批量移动、编辑、删除
+- 导入导出：支持 JSON / HTML
+- AI 辅助：支持描述生成、分类推荐（需配置兼容 OpenAI 的 API）
+- 浏览器扩展构建：支持 Chromium / Firefox
 
-## 🛠️ 技术栈
+## 导航站模式说明
 
-Vue 3 + Vite + Cloudflare Pages Functions + D1 + R2
+项目内置 `displayMode` 双模式切换：
 
-## 🚀 快速部署
+- `default`：默认书签管理界面
+- `nav-item`：导航站模式
 
-### 1. 创建 D1 数据库
-在 [Cloudflare Dashboard](https://dash.cloudflare.com/) 中：
-- `Workers & Pages` > `D1` > `Create database`，名称：`bookmark-db`
-- 进入数据库 > `Console`，执行 `schema.sql`
+导航站模式最近做了以下增强：
 
-### 2. 部署 Pages 项目
-- Fork [本仓库](https://github.com/deerwan/nav) 到 GitHub
-- 在 Cloudflare Dashboard 创建 Pages 项目，连接 GitHub 仓库
-- 构建设置：构建命令 `npm run build`，输出目录 `dist`
+- 参考 [eooce/Nav-Item](https://github.com/eooce/Nav-Item) 的视觉风格进行了重新调整
+- 支持固定壁纸地址配置
+- 支持卡片切换动画开关
+- 卡片、菜单栏、搜索框样式按导航站场景独立优化
+- 上述导航站专属设置仅保存在本地，不同步到 D1
 
-### 3. 配置绑定和变量
+## 技术栈
 
-**绑定 D1 数据库**：
-- Pages 项目 > `Settings` > `Functions` > `D1 database bindings`
-- 添加绑定：变量名 `DB`，选择 `bookmark-db`
+- Vue 3
+- Vite
+- Cloudflare Pages Functions
+- Cloudflare D1
+- Cloudflare R2（可选，用于备份）
+- Wrangler
 
-**配置环境变量**（部署后配置）：
-- Pages 项目 > `Settings` > `Variables and Secrets`
-- 添加以下变量后，在 `Deployments` 页面重试部署
+## 项目结构
 
-| 变量名 | 说明 | 必需 |
-|--------|------|------|
-| `ADMIN_USERNAME` | 管理员用户名 | ✅ |
-| `ADMIN_PASSWORD` | 管理员密码 | ✅ |
-| `JWT_SECRET` | JWT 密钥（至少32位随机字符串） | ✅ |
-| `OPENAI_API_KEY` | OpenAI API Key（AI 功能） | ❌ |
-| `OPENAI_BASE_URL` | API 地址（默认：`https://api.openai.com/v1`） | ❌ |
-| `OPENAI_MODEL` | 模型名称（默认：`gpt-4o-mini`） | ❌ |
+```text
+src/
+├── components/          # 通用组件与设置面板
+│   └── settings/        # 设置页子模块
+├── composables/         # 组合式逻辑（认证、书签、设置、主题等）
+├── views/               # 页面级视图（含 NavItemView）
+├── utils/               # 工具函数
+├── assets/              # 全局样式
+├── App.vue              # 应用入口视图
+└── main.js              # 应用入口
+```
 
-**配置 R2 备份**（可选）：
-- `Workers & Pages` > `R2` > `Create bucket`，名称：`bookmark-backups`
-- Pages 项目 > `Settings` > `Functions` > `R2 bucket bindings`
-- 添加绑定：变量名 `BACKUP_BUCKET`，选择 `bookmark-backups`
-- 重试部署
+## 本地开发
 
-> **提示**：所有配置通过 Dashboard 完成，无需修改代码。`wrangler.toml` 仅用于本地开发（已添加到 `.gitignore`）。
-
-**本地开发**：
 ```bash
-cp wrangler.toml.example wrangler.toml
-# 编辑 wrangler.toml，替换 database_id
+npm install
 npm run dev
 ```
 
-## 🧩 浏览器扩展
+默认开发地址：`http://localhost:3000`
 
-**商店下载**：
-- [Edge 扩展](https://microsoftedge.microsoft.com/addons/detail/hepnnmnggonihfpkgcpengcaghlmjpkl)
-- [Firefox 扩展](https://addons.mozilla.org/en-US/firefox/addon/%E4%B9%A6%E7%AD%BE%E7%AE%A1%E7%90%86%E5%8A%A9%E6%89%8B-bookmark-manager/)
+## 构建与预览
 
-**手动安装**：
-在 [Releases](https://github.com/deerwan/nav/releases) 下载扩展：
-- Chrome/Edge/Brave: `bookmark-manager-chromium.zip`
-- Firefox: `bookmark-manager-firefox.zip`
+```bash
+npm run build
+npm run preview
+```
 
-安装后配置服务器地址和管理员账号即可使用。
+## 部署
 
-## 📖 更多信息
+```bash
+npm run deploy
+```
 
-- 📺 [视频教程](https://www.bilibili.com/video/BV1zR2MB6EnW/)
-- 📦 [GitHub 仓库](https://github.com/deerwan/nav)
+部署前需要在 Cloudflare Pages 中配置：
 
-## 💰 请喝咖啡
+### D1 绑定
 
-如果这个项目对你有帮助，欢迎赞助支持！
+- 绑定变量名：`DB`
 
-<table>
-  <tr>
-    <td align="center">
-      <strong>微信</strong><br>
-      <img src="images/zsm.jpeg" alt="微信" width="200">
-    </td>
-    <td align="center">
-      <strong>支付宝</strong><br>
-      <img src="images/zfb.JPG" alt="支付宝" width="200">
-    </td>
-    <td align="center">
-      <strong>红包码</strong><br>
-      <img src="images/hbm.PNG" alt="红包码" width="200">
-    </td>
-  </tr>
-</table>
+### 必需环境变量
 
-☕ [查看咖啡列表](https://lllh.de/sponsor/) - 感谢所有支持者！
+- `ADMIN_USERNAME`
+- `ADMIN_PASSWORD`
+- `JWT_SECRET`
 
-## 📝 许可证
+### 可选环境变量
+
+- `OPENAI_API_KEY`
+- `OPENAI_BASE_URL`
+- `OPENAI_MODEL`
+
+### 可选 R2 绑定
+
+- 绑定变量名：`BACKUP_BUCKET`
+
+## 数据库与脚本
+
+```bash
+npm run db:create
+npm run db:init:local
+npm run db:init:remote
+npm run db:migrate:indexes
+```
+
+## 浏览器扩展
+
+```bash
+npm run ext:build:chromium
+npm run ext:build:firefox
+```
+
+## 当前外观设置的存储策略
+
+### 同步到 D1 的设置
+
+- `showSearch`
+- `hideEmptyCategories`
+- `customTitle`
+- `footerContent`
+- `activeSettingsTab`
+- `publicMode`
+- `randomWallpaper`
+- `wallpaperApi`
+- `avatarUrl`
+
+### 仅本地存储的设置
+
+- `displayMode`
+- `navCardAnimation`
+- `navWallpaper`
+- `iconSources`
+- `proxyUrl`
+
+## 参考项目
+
+导航站模式视觉风格参考：
+
+- GitHub: [https://github.com/eooce/Nav-Item](https://github.com/eooce/Nav-Item)
+- 示例站点: [https://eooce.ct8.pl/](https://eooce.ct8.pl/)
+
+本项目并非该项目的直接移植，而是在现有书签管理系统基础上，参考其导航站布局与交互风格进行适配。
+
+## 许可证
 
 Apache License 2.0
-
-Made with ❤️ using Vue 3 and Cloudflare

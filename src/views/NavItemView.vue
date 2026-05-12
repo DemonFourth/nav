@@ -1,5 +1,5 @@
 <template>
-  <div class="nav-item-view">
+  <div class="nav-item-view" :style="backgroundStyle">
     <NavBar 
       :menus="menuTree"
       :active-menu="activeMenu"
@@ -19,7 +19,7 @@
     </div>
 
     <div class="content-section">
-      <NavCardGrid :bookmarks="currentBookmarks" />
+      <NavCardGrid :key="animationKey" :bookmarks="currentBookmarks" />
     </div>
   </div>
 </template>
@@ -34,12 +34,27 @@ import { useSettings } from '../composables/useSettings'
 import { buildCategoryTree } from '../utils/categoryTree'
 
 const { categories, bookmarks, fetchData } = useBookmarks()
-const { customTitle } = useSettings()
+const { customTitle, navWallpaper } = useSettings()
 
 const emit = defineEmits(['open-settings'])
 
 const activeMenu = ref(null)
 const activeSubMenu = ref(null)
+const animationKey = ref(0)
+
+const backgroundStyle = computed(() => {
+  const style = {}
+  if (navWallpaper.value) {
+    style.backgroundImage = `url(${navWallpaper.value})`
+    style.backgroundSize = 'cover'
+    style.backgroundPosition = 'center'
+    style.backgroundRepeat = 'no-repeat'
+    style.backgroundAttachment = 'fixed'
+  } else {
+    style.backgroundColor = '#222'
+  }
+  return style
+})
 
 const menuTree = computed(() => {
   const { tree } = buildCategoryTree(categories.value)
@@ -85,11 +100,13 @@ watch(menuTree, (newMenus) => {
 const handleSelectMenu = (menu) => {
   activeMenu.value = menu
   activeSubMenu.value = null
+  animationKey.value++
 }
 
 const handleSelectSubMenu = (menu, sub) => {
   activeMenu.value = menu
   activeSubMenu.value = sub
+  animationKey.value++
 }
 
 const handleSearchResultClick = (result) => {
@@ -119,26 +136,23 @@ const findParentCategory = (categoryId) => {
   display: flex;
   flex-direction: column;
   position: relative;
+  background-color: transparent;
 }
 
 .search-section {
-  padding: 7rem 1rem 2rem;
+  padding: 8.5rem 1rem 1.25rem;
   position: relative;
   z-index: 2;
-  background: rgba(0, 0, 0, 0.4);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  background: transparent;
 }
 
 .content-section {
   flex: 1;
-  padding: 1rem;
+  padding: 0 1rem 2rem;
   position: relative;
   z-index: 2;
   width: 100%;
-  background: rgba(0, 0, 0, 0.4);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  background: transparent;
   min-height: calc(100vh - 180px);
 }
 </style>

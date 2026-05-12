@@ -187,9 +187,7 @@ const vClickOutside = {
   left: 0;
   right: 0;
   z-index: 100;
-  background: rgba(0, 0, 0, 0.7);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  background: transparent;
   overflow: visible;
   display: flex;
 }
@@ -231,21 +229,24 @@ const vClickOutside = {
   display: flex;
   align-items: center;
   gap: 0.3rem;
-  padding: 0.5rem 0.8rem;
+  padding: 0.5rem 1.2rem;
   background: transparent;
   border: none;
-  border-radius: var(--radius-sm);
+  border-radius: 8px;
   color: rgba(255, 255, 255, 0.85);
-  font-size: 0.95rem;
+  font-size: 1rem;
   font-weight: 500;
   cursor: pointer;
   transition: all 0.2s ease;
   white-space: nowrap;
+  position: relative;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
 }
 
 .menu-trigger:hover {
   background: rgba(255, 255, 255, 0.1);
   color: #ffffff;
+  transform: translateY(-1px);
 }
 
 .menu-trigger.active {
@@ -279,7 +280,7 @@ const vClickOutside = {
   background: rgba(30, 41, 59, 0.95);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
-  border-radius: var(--radius);
+  border-radius: 12px;
   box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4);
   border: 1px solid rgba(255, 255, 255, 0.15);
   padding: 0.5rem;
@@ -301,23 +302,23 @@ const vClickOutside = {
   padding: 0.5rem 0.8rem;
   background: transparent;
   border: none;
-  border-radius: var(--radius-sm);
+  border-radius: 8px;
   color: rgba(255, 255, 255, 0.9);
   font-size: 0.875rem;
   text-align: left;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: all 0.2s ease;
   white-space: nowrap;
 }
 
 .submenu-item:hover {
   background: rgba(57, 157, 255, 0.25);
-  color: #399dff;
+  color: var(--nav-primary);
 }
 
 .submenu-item.active {
   background: rgba(57, 157, 255, 0.35);
-  color: #399dff;
+  color: var(--nav-primary);
   font-weight: 500;
 }
 

@@ -1,10 +1,11 @@
 <template>
   <div class="nav-card-grid">
-    <div class="cards-container">
+    <div class="cards-container" :class="animationClass">
       <div 
-        v-for="bookmark in bookmarks" 
+        v-for="(bookmark, index) in bookmarks" 
         :key="bookmark.id"
         class="nav-card"
+        :style="getCardStyle(index)"
         @click="handleCardClick(bookmark)"
         :title="bookmark.name + '\n' + bookmark.url"
       >
@@ -32,7 +33,7 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useSettings } from '../composables/useSettings'
 
 const props = defineProps({
@@ -42,10 +43,72 @@ const props = defineProps({
   }
 })
 
-const { iconSources, proxyUrl, parseIconSourceUrl } = useSettings()
+const { iconSources, parseIconSourceUrl, navCardAnimation } = useSettings()
 
 const iconErrors = ref({})
 const iconSourceIndexes = ref({})
+const animationClass = ref('')
+const animationType = ref('slideUp')
+
+onMounted(() => {
+  triggerAnimation()
+})
+
+function triggerAnimation() {
+  if (!navCardAnimation.value || props.bookmarks.length === 0) {
+    animationClass.value = ''
+    return
+  }
+
+  const animations = ['slideUp', 'radial', 'fadeIn', 'slideLeft', 'slideRight', 'convergeIn', 'flipIn']
+  const randomIndex = Math.floor(Math.random() * animations.length)
+  animationType.value = animations[randomIndex]
+  animationClass.value = `animate-${animationType.value}`
+}
+
+function getCardStyle(index) {
+  if (!animationClass.value) return {}
+  
+  const isMobile = window.innerWidth <= 480
+  if (isMobile) {
+    return { animationDelay: '0s' }
+  }
+  
+  if (animationType.value === 'slideUp') {
+    return { animationDelay: `${index * 0.05}s` }
+  } else if (animationType.value === 'radial') {
+    const cols = window.innerWidth <= 768 ? 3 : (window.innerWidth <= 1200 ? 4 : 6)
+    const row = Math.floor(index / cols)
+    const col = index % cols
+    const centerCol = Math.floor(cols / 2)
+    const distance = Math.abs(col - centerCol) + row
+    return { animationDelay: `${distance * 0.08}s` }
+  } else if (animationType.value === 'fadeIn') {
+    return { animationDelay: `${Math.random() * 0.5}s` }
+  } else if (animationType.value === 'slideLeft') {
+    const cols = window.innerWidth <= 768 ? 3 : (window.innerWidth <= 1200 ? 4 : 6)
+    const row = Math.floor(index / cols)
+    return { animationDelay: `${row * 0.1}s` }
+  } else if (animationType.value === 'slideRight') {
+    const cols = window.innerWidth <= 768 ? 3 : (window.innerWidth <= 1200 ? 4 : 6)
+    const row = Math.floor(index / cols)
+    const col = index % cols
+    return { animationDelay: `${(row + (cols - col - 1) * 0.02) * 0.08}s` }
+  } else if (animationType.value === 'convergeIn') {
+    const cols = window.innerWidth <= 768 ? 3 : (window.innerWidth <= 1200 ? 4 : 6)
+    const col = index % cols
+    const centerCol = Math.floor(cols / 2)
+    const distanceFromCenter = Math.abs(col - centerCol)
+    return { animationDelay: `${(cols - distanceFromCenter - 1) * 0.08}s` }
+  } else if (animationType.value === 'flipIn') {
+    const cols = window.innerWidth <= 768 ? 3 : (window.innerWidth <= 1200 ? 4 : 6)
+    const row = Math.floor(index / cols)
+    const col = index % cols
+    return { animationDelay: `${(row + col) * 0.06}s` }
+  }
+  
+  return {}
+}
 
 const getIconSources = (bookmark) => {
   if (bookmark.icon && bookmark.icon.trim()) {
@@ -97,53 +160,47 @@ const handleCardClick = (bookmark) => {
 
 .cards-container {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-  gap: 1rem;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 15px;
   max-width: 80%;
   margin: 0 auto;
+  width: 100%;
 }
 
 .nav-card {
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 1.25rem 1rem;
-  background: rgba(255, 255, 255, 0.2);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  border-radius: 12px;
-  border: 1px solid rgba(255, 255, 255, 0.25);
+  justify-content: center;
+  padding: 0.75rem 0.5rem;
+  background: rgba(255, 255, 255, 0.15);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  border-radius: 15px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
   cursor: pointer;
-  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-html.dark .nav-card {
-  background: rgba(30, 41, 59, 0.5);
-  border-color: rgba(255, 255, 255, 0.15);
+  transition: all 0.2s ease;
+  min-height: 100px;
+  height: auto;
 }
 
 .nav-card:hover {
-  background: rgba(255, 255, 255, 0.3);
-  transform: translateY(-4px);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
-  border-color: rgba(255, 255, 255, 0.4);
-}
-
-html.dark .nav-card:hover {
-  background: rgba(30, 41, 59, 0.7);
+  background: rgba(255, 255, 255, 0.28);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.14);
+  border-color: rgba(255, 255, 255, 0.18);
 }
 
 .card-icon {
-  width: 48px;
-  height: 48px;
-  border-radius: 10px;
+  width: 40px;
+  height: 40px;
+  margin: 4px auto;
+  border-radius: 8px;
   overflow: hidden;
-  margin-bottom: 0.75rem;
   background: rgba(255, 255, 255, 0.9);
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
 .card-icon img {
@@ -161,45 +218,222 @@ html.dark .nav-card:hover {
   background: linear-gradient(135deg, var(--primary), var(--primary-dark));
   color: white;
   font-weight: 700;
-  font-size: 1.25rem;
+  font-size: 0.875rem;
 }
 
 .card-title {
-  font-size: 0.875rem;
+  padding-right: 4px;
+  padding-left: 4px;
+  font-size: 14px;
   font-weight: 500;
   color: #ffffff;
   text-align: center;
-  line-height: 1.3;
+  word-break: break-all;
   max-width: 100%;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
   overflow: hidden;
   text-overflow: ellipsis;
-  white-space: nowrap;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+  white-space: normal;
+  line-height: 1;
+  min-height: 1.5em;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.45);
 }
 
 .empty-state {
   text-align: center;
   padding: 3rem 1rem;
-  color: rgba(255, 255, 255, 0.7);
+  color: #ffffff;
+}
+
+/* 动画样式 */
+.animate-slideUp .nav-card {
+  animation: slideUpIn 0.6s ease-out forwards;
+  opacity: 0;
+  transform: translateY(30px);
+}
+
+@keyframes slideUpIn {
+  0% {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-radial .nav-card {
+  animation: radialIn 0.5s ease-out forwards;
+  opacity: 0;
+  transform: scale(0.3);
+}
+
+@keyframes radialIn {
+  0% {
+    opacity: 0;
+    transform: scale(0.3);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.1);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.animate-fadeIn .nav-card {
+  animation: fadeIn 0.6s ease-out forwards;
+  opacity: 0;
+}
+
+@keyframes fadeIn {
+  0% {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-slideLeft .nav-card {
+  animation: slideLeftIn 0.6s ease-out forwards;
+  opacity: 0;
+  transform: translateX(-50px);
+}
+
+@keyframes slideLeftIn {
+  0% {
+    opacity: 0;
+    transform: translateX(-50px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.animate-slideRight .nav-card {
+  animation: slideRightIn 0.6s ease-out forwards;
+  opacity: 0;
+  transform: translateX(50px);
+}
+
+@keyframes slideRightIn {
+  0% {
+    opacity: 0;
+    transform: translateX(50px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.animate-convergeIn .nav-card {
+  animation: convergeIn 0.7s ease-out forwards;
+  opacity: 0;
+}
+
+.animate-convergeIn .nav-card:nth-child(6n+1),
+.animate-convergeIn .nav-card:nth-child(6n+6) {
+  transform: translateX(-80px);
+}
+
+.animate-convergeIn .nav-card:nth-child(6n+2),
+.animate-convergeIn .nav-card:nth-child(6n+5) {
+  transform: translateX(-40px);
+}
+
+.animate-convergeIn .nav-card:nth-child(6n+3),
+.animate-convergeIn .nav-card:nth-child(6n+4) {
+  transform: translateY(-30px);
+}
+
+@keyframes convergeIn {
+  0% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 1;
+    transform: translate(0, 0);
+  }
+}
+
+.animate-flipIn .nav-card {
+  animation: flipIn 0.7s ease-out forwards;
+  opacity: 0;
+  transform: rotateY(-90deg);
+}
+
+@keyframes flipIn {
+  0% {
+    opacity: 0;
+    transform: rotateY(-90deg);
+  }
+  50% {
+    opacity: 1;
+    transform: rotateY(-45deg);
+  }
+  100% {
+    opacity: 1;
+    transform: rotateY(0deg);
+  }
 }
 
 @media (max-width: 768px) {
   .cards-container {
     grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
-    gap: 0.75rem;
+    gap: 10px;
+    max-width: 90%;
   }
-
+  
   .nav-card {
-    padding: 1rem 0.75rem;
+    min-height: 90px;
+    padding: 0.625rem 0.4rem;
   }
-
+  
   .card-icon {
-    width: 40px;
-    height: 40px;
+    width: 32px;
+    height: 32px;
   }
-
+  
   .card-title {
-    font-size: 0.8rem;
+    font-size: 12px;
+  }
+}
+
+@media (max-width: 480px) {
+  .cards-container {
+    grid-template-columns: repeat(3, 1fr);
+  }
+  
+  .animate-slideUp .nav-card {
+    animation-duration: 0.4s;
+  }
+  
+  .animate-radial .nav-card {
+    animation-duration: 0.4s;
+  }
+  
+  .animate-slideUp .nav-card,
+  .animate-radial .nav-card {
+    animation-delay: 0s !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-slideUp .nav-card,
+  .animate-radial .nav-card {
+    animation: none;
+    opacity: 1;
+    transform: none;
   }
 }
 </style>
