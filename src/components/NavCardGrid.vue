@@ -91,13 +91,16 @@ const handleCardClick = (bookmark) => {
 <style scoped>
 .nav-card-grid {
   width: 100%;
-  padding: 0 1rem;
+  display: flex;
+  justify-content: center;
 }
 
 .cards-container {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
   gap: 1rem;
+  max-width: 80%;
+  margin: 0 auto;
 }
 
 .nav-card {

@@ -8,6 +8,7 @@
       @select-menu="handleSelectMenu"
       @select-submenu="handleSelectSubMenu"
       @toggle-style="handleToggleStyle"
+      @open-settings="handleOpenSettings"
     />
 
     <div class="search-section">
@@ -63,8 +64,8 @@ const handleToggleStyle = () => {
   emit('toggleStyle')
 }
 
-const openSettings = () => {
-  emit('toggleStyle')
+const handleOpenSettings = () => {
+  emit('open-settings')
 }
 
 onMounted(async () => {
@@ -134,13 +135,10 @@ const findParentCategory = (categoryId) => {
   padding: 1rem;
   position: relative;
   z-index: 2;
-  max-width: 1400px;
-  margin: 0 auto;
   width: 100%;
   background: rgba(0, 0, 0, 0.4);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   min-height: calc(100vh - 180px);
-  border-radius: var(--radius-lg) 0 0 0;
 }
 </style>

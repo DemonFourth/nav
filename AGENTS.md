@@ -150,10 +150,23 @@ const toggleDisplayMode = () => {
 | `src/composables/useSettings.js` | displayMode 状态定义、切换逻辑 |
 | `src/App.vue` | 根组件，根据 displayMode 条件渲染不同视图 |
 | `src/views/NavItemView.vue` | 导航站风格页面组件 |
-| `src/components/NavBar.vue` | 导航站风格的顶部导航栏（含悬浮设置/切换按钮） |
+| `src/components/NavBar.vue` | 导航站风格的顶部导航栏（含风格切换、登录/头像按钮） |
 | `src/components/NavSearch.vue` | 导航站风格的搜索组件 |
 | `src/components/NavCardGrid.vue` | 导航站风格的书签卡片网格 |
 | `src/components/settings/AppearanceSettings.vue` | 设置页面中的风格切换开关 |
+
+### 导航站布局
+
+导航站模式采用三段式布局：
+```
+[ 左侧10%空白 ] [ 中间80%菜单/内容 ] [ 右侧10%按钮区 ]
+```
+
+- **左侧10%**：空白区域
+- **中间80%**：菜单栏（居中）和书签卡片网格（居中）
+- **右侧10%**：功能按钮区，包含：
+  - 风格切换按钮（始终可见）
+  - 登录按钮（未登录）或头像菜单（已登录）
 
 ### 切换入口
 
@@ -161,14 +174,15 @@ const toggleDisplayMode = () => {
    - 右上角风格切换按钮（登录/头像按钮左侧）
    - 设置 → 外观 → 风格开关
 2. **导航站风格**：
-   - 顶部导航栏右侧悬浮按钮（hover 时显示）
+   - 顶部导航栏右侧按钮（始终可见）
    - 设置 → 外观 → 风格开关
 
 ### 注意事项
 
 - `loadSettingsFromDB()` **不会**从 D1 加载 displayMode，避免登录后覆盖本地偏好
 - 风格设置为纯本地行为，不会同步到其他设备
-- 导航站风格下，悬浮按钮功能为"切换到默认风格"而非"设置"
+- 导航站风格下右侧按钮区独立于80%菜单区域，始终可见
+- 导航站模式支持完整的登录/登出功能和设置页面访问
 
 ## 浏览器扩展
 
