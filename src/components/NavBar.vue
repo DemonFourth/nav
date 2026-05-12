@@ -1,8 +1,8 @@
 <template>
   <nav class="nav-bar">
+    <div class="nav-left-space"></div>
     <div class="nav-bar-container">
-      <div class="nav-bar-content">
-        <div class="nav-menu-wrapper">
+      <div class="nav-menu-wrapper">
           <div class="nav-menu">
             <div 
               v-for="menu in menus" 
@@ -48,7 +48,6 @@
           </div>
         </div>
       </div>
-    </div>
 
     <div class="nav-right-area">
       <button class="nav-icon-btn" @click="$emit('toggleStyle')" title="切换风格">
@@ -193,27 +192,21 @@ const vClickOutside = {
   -webkit-backdrop-filter: blur(12px);
   overflow: visible;
   display: flex;
-  justify-content: center;
 }
 
 .nav-bar::-webkit-scrollbar {
   display: none;
 }
 
+.nav-left-space {
+  flex: 0 0 10%;
+}
+
 .nav-bar-container {
   display: flex;
   align-items: center;
   flex: 0 0 80%;
-  width: 80%;
-  padding: 0.6rem 1.5rem;
-  margin-right: 10%;
-}
-
-.nav-bar-content {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  min-width: 0;
+  padding: 0.6rem 0;
 }
 
 .nav-menu-wrapper {
@@ -329,14 +322,10 @@ const vClickOutside = {
 }
 
 .nav-right-area {
-  position: absolute;
-  right: 0;
-  top: 50%;
-  transform: translateY(-50%);
+  flex: 0 0 10%;
   display: flex;
   align-items: center;
   gap: 0.75rem;
-  width: 10%;
   justify-content: flex-start;
 }
 
