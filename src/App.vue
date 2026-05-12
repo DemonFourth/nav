@@ -25,10 +25,24 @@
            </button>
          </div>
 
-         <!-- 右上角：操作按钮 -->
-         <div class="header-right">
+<!-- 右上角：操作按钮 -->
+          <div class="header-right">
 
-          <!-- 未登录状态：显示登录按钮 -->
+           <!-- 风格切换按钮 -->
+           <button
+             class="style-toggle-btn"
+             @click="toggleDisplayMode"
+             :title="displayMode === 'nav-item' ? '切换到默认风格' : '切换到导航站风格'"
+           >
+             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+               <rect x="3" y="3" width="7" height="7"/>
+               <rect x="14" y="3" width="7" height="7"/>
+               <rect x="14" y="14" width="7" height="7"/>
+               <rect x="3" y="14" width="7" height="7"/>
+             </svg>
+           </button>
+
+           <!-- 未登录状态：显示登录按钮 -->
           <button
             v-if="!isAuthenticated"
             class="btn btn-primary"
@@ -1183,6 +1197,34 @@ const handleReorderCategory = async ({ id, direction }) => {
 
 
 <style>
+/* Style Toggle Button */
+.style-toggle-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  cursor: pointer;
+  transition: var(--transition);
+  flex-shrink: 0;
+}
+
+.style-toggle-btn:hover {
+  background: var(--bg-tertiary);
+  color: var(--primary);
+  border-color: var(--primary);
+}
+
+.style-toggle-btn svg {
+  width: 18px;
+  height: 18px;
+  stroke-width: 2;
+}
+
 /* Breadcrumbs Styles */
 .breadcrumbs-container {
   display: flex;
