@@ -269,7 +269,6 @@
     <SettingsPage 
       ref="settingsPage"
       :theme-mode="themeMode"
-      :theme-style="themeStyle"
       :is-dark="isDark"
       :bookmarks="bookmarks"
       :show-search="showSearch"
@@ -314,7 +313,6 @@
     <SettingsPage 
       ref="settingsPage"
       :theme-mode="themeMode"
-      :theme-style="themeStyle"
       :is-dark="isDark"
       :bookmarks="bookmarks"
       :show-search="showSearch"
