@@ -532,7 +532,69 @@ const handleProxyBlur = () => {
   emit('updateProxyUrl', proxyInput.value)
 }
 
-// 测试所有图标源
+// 测试单个图标源（直接 + 代理）
+const testIconSource = async (result, domain) => {
+  const source = props.iconSources.find(s => s.id === result.id)
+  const useLarger = source?.useLarger || false
+
+  // 构建基础 URL
+  let iconUrl = result.url
+    .replace('{domain}', domain)
+    .replace('{origin}', `https://${domain}`)
+
+  if (useLarger) {
+    iconUrl += iconUrl.includes('?') ? '&larger=true' : '?larger=true'
+  }
+
+  // 测试直接连接
+  try {
+    result.direct.testedUrl = iconUrl
+    const startTime = Date.now()
+
+    const img = new Image()
+    await new Promise((resolve, reject) => {
+      img.onload = resolve
+      img.onerror = () => reject(new Error('加载失败'))
+      img.src = iconUrl
+    })
+
+    result.direct.success = true
+    result.direct.size = `${img.width}x${img.height}`
+    result.direct.duration = Date.now() - startTime
+  } catch (err) {
+    result.direct.success = false
+    result.direct.error = err.message || '请求失败'
+  }
+  result.direct.loading = false
+
+  // 测试代理连接（仅当配置了代理时）
+  if (props.proxyUrl) {
+    result.proxy.loading = true
+    const proxyIconUrl = props.proxyUrl + encodeURIComponent(iconUrl)
+
+    try {
+      result.proxy.testedUrl = proxyIconUrl
+      const startTime = Date.now()
+
+      const img = new Image()
+      await new Promise((resolve, reject) => {
+        img.onload = resolve
+        img.onerror = () => reject(new Error('加载失败'))
+        img.src = proxyIconUrl
+      })
+
+      result.proxy.success = true
+      result.proxy.size = `${img.width}x${img.height}`
+      result.proxy.duration = Date.now() - startTime
+    } catch (err) {
+      result.proxy.success = false
+      result.proxy.error = err.message || '请求失败'
+    }
+    result.proxy.loading = false
+  }
+}
+
+// 测试所有图标源（并行）
 const handleTestAll = async () => {
   const domain = testDomain.value.trim()
   if (!domain) return
@@ -564,69 +626,9 @@ const handleTestAll = async () => {
     }
   }))
 
-  // 测试每个启用的源
-  for (const result of testResults.value) {
-    if (!result.enabled) continue
-
-    const source = props.iconSources.find(s => s.id === result.id)
-    const useLarger = source?.useLarger || false
-
-    // 构建基础 URL
-    let iconUrl = result.url
-      .replace('{domain}', domain)
-      .replace('{origin}', `https://${domain}`)
-
-    if (useLarger) {
-      iconUrl += iconUrl.includes('?') ? '&larger=true' : '?larger=true'
-    }
-
-    // 测试直接连接
-    try {
-      result.direct.testedUrl = iconUrl
-      const startTime = Date.now()
-
-      const img = new Image()
-      await new Promise((resolve, reject) => {
-        img.onload = resolve
-        img.onerror = () => reject(new Error('加载失败'))
-        img.src = iconUrl
-      })
-
-      result.direct.success = true
-      result.direct.size = `${img.width}x${img.height}`
-      result.direct.duration = Date.now() - startTime
-    } catch (err) {
-      result.direct.success = false
-      result.direct.error = err.message || '请求失败'
-    }
-    result.direct.loading = false
-
-    // 测试代理连接（仅当配置了代理时）
-    if (props.proxyUrl) {
-      result.proxy.loading = true
-      const proxyIconUrl = props.proxyUrl + encodeURIComponent(iconUrl)
-
-      try {
-        result.proxy.testedUrl = proxyIconUrl
-        const startTime = Date.now()
-
-        const img = new Image()
-        await new Promise((resolve, reject) => {
-          img.onload = resolve
-          img.onerror = () => reject(new Error('加载失败'))
-          img.src = proxyIconUrl
-        })
-
-        result.proxy.success = true
-        result.proxy.size = `${img.width}x${img.height}`
-        result.proxy.duration = Date.now() - startTime
-      } catch (err) {
-        result.proxy.success = false
-        result.proxy.error = err.message || '请求失败'
-      }
-      result.proxy.loading = false
-    }
-  }
+  // 并行测试所有启用的源
+  const enabledResults = testResults.value.filter(r => r.enabled)
+  await Promise.all(enabledResults.map(result => testIconSource(result, domain)))
 
   isTesting.value = false
 }
