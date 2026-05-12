@@ -68,10 +68,7 @@ export function useSettings() {
             localStorage.setItem('avatarUrl', data.data.avatarUrl || '')
           }
 
-          if (data.data.displayMode !== undefined) {
-            displayMode.value = data.data.displayMode || 'default'
-            localStorage.setItem('displayMode', data.data.displayMode || 'default')
-          }
+          
         }
       }
     } catch (error) {
