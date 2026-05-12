@@ -404,18 +404,6 @@ export function useSettings() {
   watch(displayMode, async (newValue) => {
     if (!isLoadingFromDB.value) {
       localStorage.setItem('displayMode', newValue)
-      if (isAuthenticated.value) {
-        try {
-          await apiRequest('/api/settings', {
-            method: 'POST',
-            body: JSON.stringify({ settings: { displayMode: newValue } })
-          })
-        } catch (error) {
-          if (error.message === 'Token expired') {
-            console.warn('Token expired, displayMode not saved to database')
-          }
-        }
-      }
     }
   })
 

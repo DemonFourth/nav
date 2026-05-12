@@ -218,11 +218,11 @@
       <div class="form-hint">自定义随机壁纸API接口地址（留空则不显示壁纸）</div>
     </div>
 
-    <!-- 导航站风格 -->
+    <!-- 风格 -->
     <div class="form-group">
-      <label class="form-label">导航站风格</label>
+      <label class="form-label">风格</label>
       <div class="form-row">
-        <span class="form-text">{{ displayMode === 'nav-item' ? '导航站风格' : '默认风格' }}</span>
+        <span class="form-text">{{ displayMode === 'nav-item' ? '导航站' : '默认' }}</span>
         <label class="switch">
           <input 
             type="checkbox" 
@@ -232,7 +232,6 @@
           <span class="slider"></span>
         </label>
       </div>
-      <div class="form-hint">开启后显示类似 Nav-Item 的导航站界面</div>
     </div>
     
     <!-- API接口编辑对话框 -->
