@@ -208,20 +208,32 @@ function showStatus(message, type = 'info') {
 
 function sortCategories(cats) {
   return cats.sort((a, b) => {
-    const depth = c => (c.path.split(' / ').length - 1);
-    if (depth(a) !== depth(b)) {
-      return depth(a) - depth(b);
+    const depth = c => {
+      if (!c || !c.path) return 0;
+      return c.path.split(' / ').length - 1;
+    };
+    const depthA = depth(a);
+    const depthB = depth(b);
+    if (depthA !== depthB) {
+      return depthA - depthB;
     }
-    return a.path.localeCompare(b.path, 'zh-CN');
+    const pathA = a?.path || a?.name || '';
+    const pathB = b?.path || b?.name || '';
+    return pathA.localeCompare(pathB, 'zh-CN');
   });
 }
 
 function renderCategoryOptions(cats, keyword = '') {
   const optionsContainer = document.querySelector('.select-options');
+  if (!optionsContainer) return;
+  
   optionsContainer.innerHTML = '';
   
   const filtered = keyword 
-    ? cats.filter(cat => cat.path.toLowerCase().includes(keyword.toLowerCase()))
+    ? cats.filter(cat => {
+        const path = cat?.path || cat?.name || '';
+        return path.toLowerCase().includes(keyword.toLowerCase());
+      })
     : cats;
   
   if (filtered.length === 0) {
@@ -233,16 +245,17 @@ function renderCategoryOptions(cats, keyword = '') {
     const div = document.createElement('div');
     div.className = 'select-option';
     div.dataset.value = String(cat.id);
-    div.textContent = cat.path;
+    const displayPath = cat?.path || cat?.name || '未命名分类';
+    div.textContent = displayPath;
     
-    const depth = cat.path.split(' / ').length - 1;
+    const depth = displayPath.split(' / ').length - 1;
     div.style.paddingLeft = '12px';
     
     if (depth > 0) {
       div.classList.add('is-child');
     }
     
-    div.addEventListener('click', () => selectCategory(cat.id, cat.path));
+    div.addEventListener('click', () => selectCategory(cat.id, displayPath));
     optionsContainer.appendChild(div);
   });
 }
@@ -261,6 +274,11 @@ function openSelectDropdown() {
   const dropdown = document.querySelector('.select-dropdown');
   const searchInput = document.querySelector('.select-search');
   
+  if (!dropdown || !searchInput) {
+    console.error('Dropdown or search input not found');
+    return;
+  }
+  
   dropdown.classList.remove('hidden');
   searchInput.focus();
   renderCategoryOptions(categories);
@@ -276,6 +294,10 @@ function closeSelectDropdown() {
 
 function toggleSelectDropdown() {
   const dropdown = document.querySelector('.select-dropdown');
+  if (!dropdown) {
+    console.error('Dropdown element not found');
+    return;
+  }
   if (dropdown.classList.contains('hidden')) {
     openSelectDropdown();
   } else {
@@ -286,6 +308,11 @@ function toggleSelectDropdown() {
 function initSelectDropdown() {
   const trigger = document.querySelector('.select-trigger');
   const searchInput = document.querySelector('.select-search');
+  
+  if (!trigger || !searchInput) {
+    console.error('Select trigger or search input not found');
+    return;
+  }
   
   trigger.addEventListener('click', (e) => {
     e.stopPropagation();
@@ -302,7 +329,7 @@ function initSelectDropdown() {
   
   document.addEventListener('click', (e) => {
     const select = document.querySelector('.searchable-select');
-    if (!select.contains(e.target)) {
+    if (!select || !select.contains(e.target)) {
       closeSelectDropdown();
     }
   });
@@ -347,10 +374,11 @@ async function loadCategories() {
 
       while (current) {
         if (visited.has(current.id)) {
+          console.warn('Circular reference detected in category:', cat.id);
           break;
         }
         visited.add(current.id);
-        segments.unshift(current.name);
+        segments.unshift(current.name || '未命名');
         if (!current.parent_id) {
           break;
         }
@@ -371,19 +399,23 @@ async function loadCategories() {
     categories.forEach(cat => {
       const option = document.createElement('option');
       option.value = String(cat.id);
-      option.textContent = cat.path || cat.name;
+      option.textContent = cat.path || cat.name || '未命名分类';
       nativeSelect.appendChild(option);
     });
     
     if (categories.length > 0) {
       nativeSelect.value = String(categories[0].id);
-      document.querySelector('.select-value').textContent = categories[0].path;
+      const selectValue = document.querySelector('.select-value');
+      if (selectValue) {
+        selectValue.textContent = categories[0].path || categories[0].name;
+      }
     }
     
     initSelectDropdown();
     return true;
   } catch (error) {
     console.error('Failed to load categories:', error);
+    initSelectDropdown();
     return false;
   }
 }
