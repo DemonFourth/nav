@@ -7,7 +7,7 @@
       :custom-title="customTitle"
       @select-menu="handleSelectMenu"
       @select-submenu="handleSelectSubMenu"
-      @open-settings="handleOpenSettings"
+      @toggle-style="handleToggleStyle"
     />
 
     <div class="search-section">
@@ -59,12 +59,12 @@ const currentBookmarks = computed(() => {
     .sort((a, b) => a.position - b.position)
 })
 
-const handleOpenSettings = () => {
-  emit('open-settings')
+const handleToggleStyle = () => {
+  emit('toggleStyle')
 }
 
 const openSettings = () => {
-  emit('open-settings')
+  emit('toggleStyle')
 }
 
 onMounted(async () => {

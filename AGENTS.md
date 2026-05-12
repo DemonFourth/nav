@@ -1,0 +1,147 @@
+# AGENTS.md - 书签管理器开发指南
+
+## 构建和开发命令
+
+```bash
+# 安装依赖
+npm install
+
+# 启动开发服务器（http://localhost:3000）
+npm run dev
+
+# 构建生产版本
+npm run build
+
+# 本地预览生产构建
+npm run preview
+
+# 部署到 Cloudflare Pages
+npm run deploy
+```
+
+## 项目结构
+
+```
+src/
+├── components/          # Vue 组件（对话框、卡片、侧边栏等）
+│   └── settings/        # 设置面板子组件
+├── composables/        # Vue 组合式函数（useAuth、useBookmarks 等）
+├── views/              # 页面级组件（NavItemView）
+├── utils/              # 辅助函数（categoryTree、helpers）
+├── assets/             # CSS 样式（main.css，含 CSS 变量主题）
+├── App.vue             # 根组件
+└── main.js             # 入口文件
+```
+
+## 代码风格规范
+
+### Vue 组件
+- 使用 **Composition API** 和 `<script setup>` 语法
+- 组件为 `.vue` 单文件组件
+- 使用 `defineProps` 和 `defineEmits` 声明类型安全的 props 和 emits
+- 推荐使用 scoped 样式（`<style scoped>`）
+
+### 命名规范
+- **组件**：PascalCase（`CategorySidebar.vue`、`BookmarkDialog.vue`）
+- **Composables**：camelCase 并以 `use` 开头（`useAuth.js`、`useBookmarks.js`）
+- **CSS 类名**：kebab-case（`.nav-bar-content`、`.bookmark-card`）
+- **变量/函数**：camelCase（`fetchData`、`searchQuery`）
+- **常量**：模块级使用 UPPER_SNAKE_CASE
+
+### 导入顺序
+- 使用 `@/` 别名导入 src 下的模块（如 `import { useBookmarks } from '@/composables/useBookmarks'`）
+- Vue 内置模块：从 'vue' 导入
+- 本地模块：使用路径别名
+- 顺序：Vue 导入 → 外部库 → 内部别名 → 相对导入
+
+### CSS 和主题
+- 使用 `:root` 和 `html.dark` 中定义的 CSS 自定义属性（变量）
+- 可用 token：`--primary`、`--bg`、`--text`、`--border`、`--radius`、`--transition` 等
+- 主题感知组件通过 `html.dark` 选择器支持亮色和暗色模式
+- 使用 `var(--variable)` 保持一致性
+- 避免硬编码颜色值
+
+### 错误处理
+- API 函数返回 `{ success: boolean, error?: string, ... }` 对象
+- 使用 try/catch 并提供适当的错误消息
+- 通过调用 `logout()` 处理 401 未授权
+- 使用 `useToast` 通过 toast 通知显示错误
+
+### 类型安全
+- 使用 JSDoc 标记复杂对象结构
+- 尽量解构 props
+- 使用 TypeScript 友好的 `ref()` 和 `computed()` 模式
+
+### Composables 模式
+- 为可复用逻辑创建 composables（auth、bookmarks、theme、toast 等）
+- Composables 返回响应式状态和函数
+- Composables 可以调用其他 composables（如 `useBookmarks` 调用 `useAuth` 和 `useToast`）
+
+### API 模式
+- 所有 API 调用通过 `/api/*` 端点（代理到 Cloudflare Workers）
+- 通过 `useAuth` 的 `getAuthHeaders()` 添加认证头
+- 使用 `apiRequest()` 包装器处理认证请求
+- `fetchData()` 支持 `{ forceRefresh, background }` 选项控制缓存
+
+### 性能优化
+- 使用 `computed()` 处理派生状态
+- 搜索输入使用 `utils/helpers.js` 中的 `debounce()`
+- Vite 配置了代码分割：`vue-vendor`、`cf-vendor`、`composables`、`components` 分块
+- 合理使用 `v-if` / `v-show`（从 DOM 移除 vs 隐藏）
+- 状态变更后需要 DOM 更新时使用 `nextTick()`
+
+## 测试
+
+当前项目**没有配置测试文件**。添加测试时：
+- 使用 Vitest（与 Vite 兼容）
+- 放置在源文件旁：`*.spec.js` 或 `*.test.js`
+- 运行单个测试：`npx vitest run src/components/SomeComponent.spec.js`
+
+## 常用模式
+
+### 对话框/模态框模式
+- 使用 `<Teleport to="body">` 避免 z-index 问题
+- 用 `<Transition name="modal">` 包裹实现动画
+- 向父组件 emit confirm/cancel 事件
+
+### 状态管理
+- 使用带 `ref()` 的 composables 管理本地状态
+- 使用 `computed()` 处理派生状态
+- 父组件通过 props 接收状态，通过 emit 发送事件
+
+### 响应式设计
+- 使用 CSS 媒体查询设置断点（768px、1024px）
+- 采用桌面端优先，移动端覆盖的方式
+- 书签卡片网格：`repeat(auto-fill, minmax(200px, 1fr))`
+
+## 代码检查
+
+项目未配置 ESLint。提交前：
+- 运行 `npm run build` 验证构建成功
+- 检查开发环境控制台是否有错误
+
+## 浏览器扩展
+
+```bash
+# 构建 Chromium 版本
+npm run ext:build:chromium
+
+# 构建 Firefox 版本
+npm run ext:build:firefox
+```
+
+## 数据库（Cloudflare D1）
+
+```bash
+# 创建新的 D1 数据库
+npm run db:create
+
+# 初始化本地数据库
+npm run db:init:local
+
+# 初始化远程数据库
+npm run db:init:remote
+
+# 在远程运行迁移
+npm run db:migrate:indexes
+```

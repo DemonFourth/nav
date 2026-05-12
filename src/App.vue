@@ -3,7 +3,7 @@
     <!-- Nav-Item View Mode -->
     <NavItemView 
       v-if="displayMode === 'nav-item'" 
-      @open-settings="handleOpenSettings"
+      @toggle-style="toggleDisplayMode"
     />
 
     <!-- Default View Mode -->
@@ -736,15 +736,6 @@ const handleLogout = async () => {
     logout()
     isEditMode.value = false
     await fetchData()
-  }
-}
-
-const handleOpenSettings = () => {
-  console.log('[NavItemView] handleOpenSettings called')
-  console.log('[NavItemView] settingsPage.value:', settingsPage.value)
-  console.log('[NavItemView] settingsPage.value.open:', settingsPage.value?.open)
-  if (settingsPage.value) {
-    settingsPage.value.open()
   }
 }
 
