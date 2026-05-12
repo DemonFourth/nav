@@ -12,6 +12,18 @@ const wallpaperApi = ref(localStorage.getItem('wallpaperApi') || '')
 const avatarUrl = ref(localStorage.getItem('avatarUrl') || '')
 const displayMode = ref(localStorage.getItem('displayMode') || 'default')
 
+// 图标源配置
+const defaultIconSources = [
+  { id: '1', name: 'Favicon.im (大)', url: 'https://favicon.im/{domain}?larger=true', enabled: true },
+  { id: '2', name: 'Icon Horse', url: 'https://icon.horse/icon/{domain}', enabled: true },
+  { id: '3', name: 'Favicon Extractor', url: 'https://www.faviconextractor.com/favicon/{domain}', enabled: true },
+  { id: '4', name: 'DuckDuckGo', url: 'https://icons.duckduckgo.com/ip3/{domain}.ico', enabled: false },
+  { id: '5', name: '网站自身 favicon', url: '{origin}/favicon.ico', enabled: true },
+]
+
+const iconSources = ref(JSON.parse(localStorage.getItem('iconSources') || 'null') || [...defaultIconSources])
+const proxyUrl = ref(localStorage.getItem('proxyUrl') || '')
+
 // 加载标志位，避免循环触发
 const isLoadingFromDB = ref(false)
 
@@ -186,6 +198,142 @@ export function useSettings() {
   const toggleDisplayMode = () => {
     displayMode.value = displayMode.value === 'default' ? 'nav-item' : 'default'
     localStorage.setItem('displayMode', displayMode.value)
+  }
+
+  // 图标源管理
+  const addIconSource = (source) => {
+    const newId = Date.now().toString()
+    iconSources.value.push({
+      id: newId,
+      name: source.name || '自定义源',
+      url: source.url,
+      enabled: true
+    })
+    saveIconSourcesToStorage()
+  }
+
+  const removeIconSource = (id) => {
+    iconSources.value = iconSources.value.filter(s => s.id !== id)
+    saveIconSourcesToStorage()
+  }
+
+  const toggleIconSourceEnabled = (id) => {
+    const source = iconSources.value.find(s => s.id === id)
+    if (source) {
+      source.enabled = !source.enabled
+      saveIconSourcesToStorage()
+    }
+  }
+
+  const moveIconSource = (id, direction) => {
+    const index = iconSources.value.findIndex(s => s.id === id)
+    if (index === -1) return
+    
+    const newIndex = direction === 'up' ? index - 1 : index + 1
+    if (newIndex < 0 || newIndex >= iconSources.value.length) return
+    
+    const temp = iconSources.value[index]
+    iconSources.value[index] = iconSources.value[newIndex]
+    iconSources.value[newIndex] = temp
+    saveIconSourcesToStorage()
+  }
+
+  const saveIconSourcesToStorage = () => {
+    localStorage.setItem('iconSources', JSON.stringify(iconSources.value))
+  }
+
+  const updateProxyUrl = (url) => {
+    proxyUrl.value = url || ''
+    localStorage.setItem('proxyUrl', proxyUrl.value)
+  }
+
+  // 解析图标源 URL，替换占位符
+  const parseIconSourceUrl = (sourceUrl, bookmarkUrl) => {
+    try {
+      const url = new URL(bookmarkUrl)
+      const domain = url.hostname
+      const origin = url.origin
+      return sourceUrl
+        .replace('{domain}', domain)
+        .replace('{origin}', origin)
+    } catch {
+      return ''
+    }
+  }
+
+  // 测试单个图标源
+  const testIconSource = async (source, testDomain) => {
+    const iconUrl = parseIconSourceUrl(source.url, `https://${testDomain}`)
+    if (!iconUrl) return { success: false, error: '无效URL' }
+
+    const startTime = Date.now()
+    try {
+      const response = await fetch(iconUrl, { mode: 'cors' })
+      const duration = Date.now() - startTime
+      
+      if (response.ok) {
+        const blob = await response.blob()
+        const img = new Image()
+        return new Promise((resolve) => {
+          img.onload = () => {
+            resolve({
+              success: true,
+              size: `${img.width}x${img.height}`,
+              duration,
+              url: iconUrl
+            })
+          }
+          img.onerror = () => {
+            resolve({ success: false, error: '图片加载失败', duration, url: iconUrl })
+          }
+          img.src = URL.createObjectURL(blob)
+        })
+      } else {
+        return { success: false, error: `HTTP ${response.status}`, duration, url: iconUrl }
+      }
+    } catch (err) {
+      const duration = Date.now() - startTime
+      return { success: false, error: err.message, duration, url: iconUrl }
+    }
+  }
+
+  // 获取图标（两阶段：先无代理，失败后尝试代理）
+  const fetchIconWithFallback = async (bookmark, onIconLoaded) => {
+    const enabledSources = iconSources.value.filter(s => s.enabled)
+    if (enabledSources.length === 0) return
+
+    const tryFetch = async (useProxy) => {
+      for (const source of enabledSources) {
+        let iconUrl = parseIconSourceUrl(source.url, bookmark.url)
+        if (!iconUrl) continue
+
+        if (useProxy && proxyUrl.value) {
+          iconUrl = proxyUrl.value + encodeURIComponent(iconUrl)
+        }
+
+        try {
+          const response = await fetch(iconUrl, { mode: 'cors' })
+          if (response.ok) {
+            const blob = await response.blob()
+            const objectUrl = URL.createObjectURL(blob)
+            onIconLoaded(objectUrl)
+            return true
+          }
+        } catch {
+          continue
+        }
+      }
+      return false
+    }
+
+    // 阶段1：无代理
+    const success = await tryFetch(false)
+    if (success) return
+
+    // 阶段2：代理（如果配置了且阶段1全部失败）
+    if (proxyUrl.value) {
+      await tryFetch(true)
+    }
   }
 
   // 应用随机壁纸
@@ -402,6 +550,12 @@ export function useSettings() {
     }
   })
 
+  watch(proxyUrl, async (newValue) => {
+    if (!isLoadingFromDB.value) {
+      localStorage.setItem('proxyUrl', newValue)
+    }
+  })
+
   return {
     showSearch,
     hideEmptyCategories,
@@ -413,6 +567,8 @@ export function useSettings() {
     wallpaperApi,
     avatarUrl,
     displayMode,
+    iconSources,
+    proxyUrl,
     toggleSearch,
     toggleHideEmptyCategories,
     updateCustomTitle,
@@ -423,6 +579,14 @@ export function useSettings() {
     updateWallpaperApi,
     updateAvatarUrl,
     toggleDisplayMode,
+    addIconSource,
+    removeIconSource,
+    toggleIconSourceEnabled,
+    moveIconSource,
+    updateProxyUrl,
+    parseIconSourceUrl,
+    testIconSource,
+    fetchIconWithFallback,
     applyWallpaper,
     removeWallpaper,
     loadSettingsFromDB

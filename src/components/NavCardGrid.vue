@@ -14,6 +14,7 @@
             :src="getIconUrl(bookmark)"
             :alt="bookmark.name"
             loading="lazy"
+            :key="bookmark.id + '-' + (iconSourceIndexes[bookmark.id] || 0)"
             @error="handleIconError(bookmark.id)"
           />
           <div v-if="iconErrors[bookmark.id]" class="letter-icon">
@@ -32,6 +33,7 @@
 
 <script setup>
 import { ref } from 'vue'
+import { useSettings } from '../composables/useSettings'
 
 const props = defineProps({
   bookmarks: {
@@ -40,23 +42,45 @@ const props = defineProps({
   }
 })
 
+const { iconSources, proxyUrl, parseIconSourceUrl } = useSettings()
+
 const iconErrors = ref({})
+const iconSourceIndexes = ref({})
+
+const getIconSources = (bookmark) => {
+  if (bookmark.icon && bookmark.icon.trim()) {
+    return []
+  }
+  try {
+    const enabledSources = iconSources.value.filter(s => s.enabled)
+    return enabledSources.map(source => parseIconSourceUrl(source.url, bookmark.url))
+  } catch {
+    return []
+  }
+}
 
 const getIconUrl = (bookmark) => {
   if (bookmark.icon && bookmark.icon.trim()) {
     return bookmark.icon
   }
-  try {
-    const url = new URL(bookmark.url)
-    const domain = url.hostname
-    return `https://www.google.com/s2/favicons?domain=${domain}&sz=64`
-  } catch {
-    return ''
+  const sources = getIconSources(bookmark)
+  const index = iconSourceIndexes.value[bookmark.id] || 0
+  if (sources.length > 0 && index < sources.length) {
+    return sources[index]
   }
+  return ''
 }
 
 const handleIconError = (bookmarkId) => {
-  iconErrors.value[bookmarkId] = true
+  const bookmark = props.bookmarks.find(b => b.id === bookmarkId)
+  if (!bookmark) return
+  const sources = getIconSources(bookmark)
+  const currentIndex = iconSourceIndexes.value[bookmarkId] || 0
+  if (currentIndex < sources.length - 1) {
+    iconSourceIndexes.value[bookmarkId] = currentIndex + 1
+  } else {
+    iconErrors.value[bookmarkId] = true
+  }
 }
 
 const handleCardClick = (bookmark) => {

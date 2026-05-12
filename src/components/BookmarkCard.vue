@@ -109,10 +109,12 @@
 <script setup>
 import { computed, ref } from 'vue'
 import { useBookmarks } from '../composables/useBookmarks'
+import { useSettings } from '../composables/useSettings'
 import HighlightText from './HighlightText.vue'
 import LetterIcon from './LetterIcon.vue'
 
 const { searchQuery } = useBookmarks()
+const { iconSources, proxyUrl, parseIconSourceUrl } = useSettings()
 
 const props = defineProps({
   bookmark: {
@@ -154,18 +156,12 @@ const isDragOver = ref(false)
 const dropPosition = ref('after')
 let dragPreviewEl = null
 
-// 多个 favicon 源，按优先级排序
+// 图标源（从设置中获取，按优先级排序）
 const faviconSources = computed(() => {
+  if (!props.bookmark.url) return []
   try {
-    const url = new URL(props.bookmark.url)
-    const domain = url.hostname
-    return [
-      `https://www.faviconextractor.com/favicon/${domain}`,
-      `https://www.google.com/s2/favicons?domain=${domain}&sz=128`,
-      `https://icons.duckduckgo.com/ip3/${domain}.ico`,
-      `https://icon.horse/icon/${domain}`,
-      `${url.origin}/favicon.ico`,
-    ]
+    const enabledSources = iconSources.value.filter(s => s.enabled)
+    return enabledSources.map(source => parseIconSourceUrl(source.url, props.bookmark.url))
   } catch {
     return []
   }

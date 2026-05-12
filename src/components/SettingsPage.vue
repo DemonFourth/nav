@@ -83,6 +83,11 @@
               @toggleRandomWallpaper="$emit('toggleRandomWallpaper')"
               @updateWallpaperApi="$emit('updateWallpaperApi', $event)"
               @toggleDisplayMode="$emit('toggleDisplayMode')"
+              @addIconSource="$emit('addIconSource', $event)"
+              @removeIconSource="$emit('removeIconSource', $event)"
+              @toggleIconSourceEnabled="$emit('toggleIconSourceEnabled', $event)"
+              @moveIconSource="(id, dir) => $emit('moveIconSource', id, dir)"
+              @updateProxyUrl="$emit('updateProxyUrl', $event)"
             />
           </div>
         </div>
@@ -158,10 +163,18 @@ const props = defineProps({
   displayMode: {
     type: String,
     default: 'default'
+  },
+  iconSources: {
+    type: Array,
+    default: () => []
+  },
+  proxyUrl: {
+    type: String,
+    default: ''
   }
 })
 
-const emit = defineEmits(['action', 'close', 'setThemeMode', 'toggleSearch', 'toggleHideEmpty', 'togglePublicMode', 'updateTitle', 'updateFooter', 'editTitle', 'editFooter', 'setActiveTab', 'toggleRandomWallpaper', 'updateWallpaperApi', 'uploadAvatar', 'toggleDisplayMode'])
+const emit = defineEmits(['action', 'close', 'setThemeMode', 'toggleSearch', 'toggleHideEmpty', 'togglePublicMode', 'updateTitle', 'updateFooter', 'editTitle', 'editFooter', 'setActiveTab', 'toggleRandomWallpaper', 'updateWallpaperApi', 'uploadAvatar', 'toggleDisplayMode', 'addIconSource', 'removeIconSource', 'toggleIconSourceEnabled', 'moveIconSource', 'updateProxyUrl'])
 
 const menuItems = ref([
   { id: 'appearance', name: '外观设置' },
@@ -202,7 +215,9 @@ const componentProps = computed(() => ({
   totalBookmarks: totalBookmarks.value,
   privateBookmarks: privateBookmarks.value,
   emptyCategoryCount: props.emptyCategoryCount,
-  displayMode: props.displayMode
+  displayMode: props.displayMode,
+  iconSources: props.iconSources,
+  proxyUrl: props.proxyUrl
 }))
 
 const open = () => {

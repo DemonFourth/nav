@@ -233,6 +233,144 @@
         </label>
       </div>
     </div>
+
+    <!-- 图标获取设置 -->
+    <div class="form-group">
+      <label class="form-label">图标获取设置</label>
+      
+      <!-- 图标源列表 -->
+      <div class="icon-sources-list">
+        <div 
+          v-for="(source, index) in iconSources" 
+          :key="source.id"
+          class="icon-source-item"
+        >
+          <div class="source-controls">
+            <button 
+              class="move-btn" 
+              @click="$emit('moveIconSource', source.id, 'up')"
+              :disabled="index === 0"
+              title="上移"
+            >↑</button>
+            <button 
+              class="move-btn" 
+              @click="$emit('moveIconSource', source.id, 'down')"
+              :disabled="index === iconSources.length - 1"
+              title="下移"
+            >↓</button>
+          </div>
+          <div class="source-info">
+            <span class="source-name">{{ source.name }}</span>
+            <span class="source-url">{{ source.url }}</span>
+          </div>
+          <label class="switch">
+            <input 
+              type="checkbox" 
+              :checked="source.enabled"
+              @change="$emit('toggleIconSourceEnabled', source.id)"
+            >
+            <span class="slider"></span>
+          </label>
+          <button 
+            class="delete-btn" 
+            @click="$emit('removeIconSource', source.id)"
+            title="删除"
+          >×</button>
+        </div>
+      </div>
+
+      <!-- 添加新源 -->
+      <div v-if="showAddSource" class="add-source-form">
+        <input 
+          v-model="newSourceName" 
+          type="text" 
+          placeholder="源名称（如：My Source）"
+          class="form-input"
+        />
+        <input 
+          v-model="newSourceUrl" 
+          type="text" 
+          placeholder="URL，使用 {domain} 或 {origin} 作为占位符"
+          class="form-input"
+        />
+        <div class="add-source-hint">占位符说明：{domain} = 域名，{origin} = 网站origin</div>
+        <div class="add-source-buttons">
+          <button class="text-btn" @click="showAddSource = false">取消</button>
+          <button class="btn btn-primary" @click="handleAddSource">添加</button>
+        </div>
+      </div>
+
+      <button 
+        v-if="!showAddSource" 
+        class="text-btn add-source-btn" 
+        @click="showAddSource = true"
+      >
+        + 添加新源
+      </button>
+    </div>
+
+    <!-- 代理设置 -->
+    <div class="form-group">
+      <label class="form-label">代理设置</label>
+      <div class="form-row">
+        <input 
+          v-model="proxyInput" 
+          type="text" 
+          placeholder="如：https://proxy.example.com/proxy?url=（无代理则留空）"
+          class="form-input"
+          @blur="handleProxyBlur"
+        />
+      </div>
+      <div class="form-hint">仅在无代理获取全部失败后启用，用于解决网络问题</div>
+    </div>
+
+    <!-- 图标源测试 -->
+    <div class="form-group">
+      <label class="form-label">测试图标源</label>
+      <div class="form-row">
+        <input 
+          v-model="testDomain" 
+          type="text" 
+          placeholder="输入域名，如：google.com"
+          class="form-input"
+          @keyup.enter="handleTestAll"
+        />
+        <button 
+          class="btn btn-primary" 
+          @click="handleTestAll"
+          :disabled="isTesting"
+        >
+          {{ isTesting ? '测试中...' : '测试全部' }}
+        </button>
+      </div>
+      
+      <!-- 测试结果 -->
+      <div v-if="testResults.length > 0" class="test-results">
+        <div 
+          v-for="result in testResults" 
+          :key="result.id"
+          class="test-result-item"
+        >
+          <div class="result-status">
+            <span v-if="!result.enabled" class="status-disabled">⊘ 未启用</span>
+            <span v-else-if="result.loading" class="status-loading">⟳ 测试中</span>
+            <span v-else-if="result.success" class="status-success">✓ 成功</span>
+            <span v-else class="status-error">✗ {{ result.error }}</span>
+          </div>
+          <div class="result-info">
+            <span class="result-name">{{ result.name }}</span>
+            <span v-if="result.size" class="result-size">{{ result.size }}</span>
+            <span v-if="result.duration" class="result-duration">{{ result.duration }}ms</span>
+          </div>
+          <img 
+            v-if="result.success && result.imageUrl" 
+            :src="result.imageUrl" 
+            class="result-preview"
+            alt="预览"
+          />
+        </div>
+      </div>
+    </div>
     
     <!-- API接口编辑对话框 -->
     <Teleport to="body">
@@ -305,7 +443,9 @@ const props = defineProps({
   footerContent: String,
   randomWallpaper: Boolean,
   wallpaperApi: String,
-  displayMode: String
+  displayMode: String,
+  iconSources: Array,
+  proxyUrl: String
 })
 
 const emit = defineEmits([
@@ -318,7 +458,12 @@ const emit = defineEmits([
   'togglePublicMode',
   'toggleRandomWallpaper',
   'updateWallpaperApi',
-  'toggleDisplayMode'
+  'toggleDisplayMode',
+  'addIconSource',
+  'removeIconSource',
+  'toggleIconSourceEnabled',
+  'moveIconSource',
+  'updateProxyUrl'
 ])
 
 const { SEARCH_ENGINES, enabledEngines, enabledSearchEnginesPanel, toggleEngine, toggleSearchEnginesPanel } = useSearchEngines()
@@ -330,7 +475,104 @@ const apiInput = ref('')
 const error = ref('')
 const avatarInput = ref(null)
 
+const showAddSource = ref(false)
+const newSourceName = ref('')
+const newSourceUrl = ref('')
+const proxyInput = ref('')
+const testDomain = ref('')
+const isTesting = ref(false)
+const testResults = ref([])
+
 const defaultAvatarIcon = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>'
+
+// 初始化代理输入
+if (props.proxyUrl) {
+  proxyInput.value = props.proxyUrl
+}
+
+// 添加新源
+const handleAddSource = () => {
+  if (!newSourceUrl.value.trim()) {
+    return
+  }
+  emit('addIconSource', {
+    name: newSourceName.value || newSourceUrl.value,
+    url: newSourceUrl.value.trim()
+  })
+  newSourceName.value = ''
+  newSourceUrl.value = ''
+  showAddSource.value = false
+}
+
+// 代理输入失焦保存
+const handleProxyBlur = () => {
+  emit('updateProxyUrl', proxyInput.value)
+}
+
+// 测试所有图标源
+const handleTestAll = async () => {
+  const domain = testDomain.value.trim()
+  if (!domain) return
+  
+  isTesting.value = true
+  testResults.value = []
+  
+  // 初始化结果
+  testResults.value = props.iconSources.map(s => ({
+    id: s.id,
+    name: s.name,
+    url: s.url,
+    enabled: s.enabled,
+    loading: s.enabled,
+    success: false,
+    error: '',
+    size: '',
+    duration: 0,
+    imageUrl: ''
+  }))
+  
+  // 测试每个启用的源
+  for (const result of testResults.value) {
+    if (!result.enabled) continue
+    
+    try {
+      const iconUrl = result.url
+        .replace('{domain}', domain)
+        .replace('{origin}', `https://${domain}`)
+      
+      const startTime = Date.now()
+      const response = await fetch(iconUrl, { mode: 'cors' })
+      const duration = Date.now() - startTime
+      
+      if (response.ok) {
+        const blob = await response.blob()
+        const img = new Image()
+        
+        await new Promise((resolve) => {
+          img.onload = resolve
+          img.onerror = resolve
+          img.src = URL.createObjectURL(blob)
+        })
+        
+        result.success = true
+        result.size = `${img.width}x${img.height}`
+        result.duration = duration
+        result.imageUrl = img.src
+      } else {
+        result.success = false
+        result.error = `HTTP ${response.status}`
+        result.duration = duration
+      }
+    } catch (err) {
+      result.success = false
+      result.error = err.message || '请求失败'
+    }
+    
+    result.loading = false
+  }
+  
+  isTesting.value = false
+}
 
 const handleUploadAvatar = () => {
   avatarInput.value?.click()
@@ -889,5 +1131,185 @@ html.dark .api-dialog {
   height: 18px;
   object-fit: contain;
   border-radius: 2px;
+}
+
+.icon-sources-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.icon-source-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem;
+  background: var(--bg-secondary);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+}
+
+.source-controls {
+  display: flex;
+  gap: 0.25rem;
+}
+
+.move-btn {
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  transition: var(--transition);
+}
+
+.move-btn:hover:not(:disabled) {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+.move-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.source-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  min-width: 0;
+}
+
+.source-name {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--text);
+}
+
+.source-url {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.delete-btn {
+  width: 28px;
+  height: 28px;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 1.25rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-sm);
+  transition: var(--transition);
+}
+
+.delete-btn:hover {
+  color: var(--error);
+  background: var(--bg-hover);
+}
+
+.add-source-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 1rem;
+  background: var(--bg-secondary);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  margin-bottom: 0.75rem;
+}
+
+.add-source-hint {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+}
+
+.add-source-buttons {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: flex-end;
+}
+
+.add-source-btn {
+  margin-top: 0.5rem;
+}
+
+.test-results {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+
+.test-result-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem;
+  background: var(--bg-secondary);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+}
+
+.result-status {
+  min-width: 100px;
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.status-success {
+  color: var(--success);
+}
+
+.status-error {
+  color: var(--error);
+}
+
+.status-disabled {
+  color: var(--text-secondary);
+}
+
+.status-loading {
+  color: var(--primary);
+}
+
+.result-info {
+  flex: 1;
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+}
+
+.result-name {
+  font-size: 0.875rem;
+  color: var(--text);
+}
+
+.result-size,
+.result-duration {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+}
+
+.result-preview {
+  width: 32px;
+  height: 32px;
+  object-fit: contain;
+  border-radius: 4px;
+  background: white;
 }
 </style>

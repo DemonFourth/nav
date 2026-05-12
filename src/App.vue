@@ -285,6 +285,8 @@
       :footer-content="footerContent"
       :active-settings-tab="activeSettingsTab"
       :empty-category-count="emptyCategoryCount"
+      :icon-sources="iconSources"
+      :proxy-url="proxyUrl"
       @action="handleSettingsAction"
       @set-theme-mode="setThemeMode"
       @toggle-search="toggleSearch"
@@ -299,6 +301,11 @@
       @uploadAvatar="handleUploadAvatar"
       @setActiveTab="handleSettingsTabChange"
       @toggle-display-mode="toggleDisplayMode"
+      @add-icon-source="addIconSource"
+      @remove-icon-source="removeIconSource"
+      @toggle-icon-source-enabled="toggleIconSourceEnabled"
+      @move-icon-source="moveIconSource"
+      @update-proxy-url="updateProxyUrl"
     />
     </template>
 
@@ -322,6 +329,8 @@
       :footer-content="footerContent"
       :active-settings-tab="activeSettingsTab"
       :empty-category-count="emptyCategoryCount"
+      :icon-sources="iconSources"
+      :proxy-url="proxyUrl"
       @action="handleSettingsAction"
       @set-theme-mode="setThemeMode"
       @toggle-search="toggleSearch"
@@ -336,6 +345,11 @@
       @uploadAvatar="handleUploadAvatar"
       @setActiveTab="handleSettingsTabChange"
       @toggle-display-mode="toggleDisplayMode"
+      @add-icon-source="addIconSource"
+      @remove-icon-source="removeIconSource"
+      @toggle-icon-source-enabled="toggleIconSourceEnabled"
+      @move-icon-source="moveIconSource"
+      @update-proxy-url="updateProxyUrl"
     />
     
     <!-- Update Notification -->
@@ -401,7 +415,7 @@ const {
   cleanupEmptyCategories
 } = useBookmarks()
 const { themeMode, isDark, setThemeMode, toggleTheme, loadThemeFromDB } = useTheme()
-const { showSearch, hideEmptyCategories, customTitle, footerContent, activeSettingsTab, publicMode, randomWallpaper, wallpaperApi, avatarUrl, displayMode, toggleSearch, toggleHideEmptyCategories, togglePublicMode, updateCustomTitle, updateFooterContent, setActiveSettingsTab, toggleRandomWallpaper, updateWallpaperApi, updateAvatarUrl, toggleDisplayMode, applyWallpaper, loadSettingsFromDB } = useSettings()
+const { showSearch, hideEmptyCategories, customTitle, footerContent, activeSettingsTab, publicMode, randomWallpaper, wallpaperApi, avatarUrl, displayMode, iconSources, proxyUrl, toggleSearch, toggleHideEmptyCategories, togglePublicMode, updateCustomTitle, updateFooterContent, setActiveSettingsTab, toggleRandomWallpaper, updateWallpaperApi, updateAvatarUrl, toggleDisplayMode, addIconSource, removeIconSource, toggleIconSourceEnabled, moveIconSource, updateProxyUrl, applyWallpaper, loadSettingsFromDB } = useSettings()
 const { setToastInstance, success: toastSuccess, error: toastError } = useToast()
 const {
   isBatchMode,
