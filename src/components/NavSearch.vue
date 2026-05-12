@@ -93,6 +93,15 @@ const selectedEngine = ref(null)
 const showSearchModal = ref(false)
 const searchResults = ref([])
 
+defineExpose({
+  openSearchWithTags: (tags) => {
+    if (tags && tags.length > 0) {
+      searchQuery.value = tags.join(',')
+      searchInSite(tags)
+    }
+  }
+})
+
 const searchEngines = [
   {
     name: 'google',
@@ -150,18 +159,29 @@ const handleSearch = () => {
   }
 }
 
-const searchInSite = () => {
-  const query = searchQuery.value.toLowerCase().trim()
-  if (!query) return
+const searchInSite = (tags = null) => {
+  let results = []
 
-  searchResults.value = props.bookmarks.filter(bookmark => 
-    bookmark.name.toLowerCase().includes(query) ||
-    bookmark.url.toLowerCase().includes(query) ||
-    (bookmark.description && bookmark.description.toLowerCase().includes(query)) ||
-    (bookmark.tags && bookmark.tags.toLowerCase().includes(query)) ||
-    (bookmark.notes && bookmark.notes.toLowerCase().includes(query))
-  )
+  if (tags && tags.length > 0) {
+    const tagQueries = tags.map(t => t.toLowerCase().trim())
+    results = props.bookmarks.filter(bookmark => {
+      if (!bookmark.tags) return false
+      const bookmarkTags = bookmark.tags.split(',').map(t => t.trim().toLowerCase()).filter(Boolean)
+      return tagQueries.some(tag => bookmarkTags.includes(tag))
+    })
+  } else {
+    const query = searchQuery.value.toLowerCase().trim()
+    if (!query) return
+    results = props.bookmarks.filter(bookmark => 
+      bookmark.name.toLowerCase().includes(query) ||
+      bookmark.url.toLowerCase().includes(query) ||
+      (bookmark.description && bookmark.description.toLowerCase().includes(query)) ||
+      (bookmark.tags && bookmark.tags.toLowerCase().includes(query)) ||
+      (bookmark.notes && bookmark.notes.toLowerCase().includes(query))
+    )
+  }
 
+  searchResults.value = results
   showSearchModal.value = true
 }
 

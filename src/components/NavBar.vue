@@ -33,16 +33,16 @@
                 v-if="menu.children && menu.children.length > 0"
                 class="submenu-dropdown"
                 :class="{ 'show': hoveredMenuId === menu.id }"
+                @mouseenter="keepSubmenu(menu.id)"
+                @mouseleave="hideSubmenu(menu.id)"
               >
-                <button 
+                <NavMenuItem 
                   v-for="sub in menu.children"
                   :key="sub.id"
-                  class="submenu-item"
-                  :class="{ active: activeSubMenu?.id === sub.id }"
-                  @click="$emit('select-submenu', menu, sub)"
-                >
-                  {{ sub.name }}
-                </button>
+                  :item="sub"
+                  :active-id="activeSubMenu?.id"
+                  @select="(item) => $emit('select-submenu', menu, item)"
+                />
               </div>
             </div>
           </div>
@@ -107,6 +107,7 @@
 import { ref } from 'vue'
 import { useAuth } from '../composables/useAuth'
 import LoginModal from './LoginModal.vue'
+import NavMenuItem from './NavMenuItem.vue'
 
 const props = defineProps({
   menus: {
@@ -144,12 +145,20 @@ const showSubMenu = (menuId) => {
   hoveredMenuId.value = menuId
 }
 
+const keepSubmenu = (menuId) => {
+  if (hideTimeout.value) {
+    clearTimeout(hideTimeout.value)
+    hideTimeout.value = null
+  }
+  hoveredMenuId.value = menuId
+}
+
 const hideSubMenu = (menuId) => {
   hideTimeout.value = setTimeout(() => {
     if (hoveredMenuId.value === menuId) {
       hoveredMenuId.value = null
     }
-  }, 100)
+  }, 150)
 }
 
 const toggleUserMenu = () => {
@@ -294,32 +303,6 @@ const vClickOutside = {
   opacity: 1;
   visibility: visible;
   transform: translateX(-50%) translateY(2px);
-}
-
-.submenu-item {
-  display: block;
-  width: 100%;
-  padding: 0.5rem 0.8rem;
-  background: transparent;
-  border: none;
-  border-radius: 8px;
-  color: rgba(255, 255, 255, 0.9);
-  font-size: 0.875rem;
-  text-align: left;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  white-space: nowrap;
-}
-
-.submenu-item:hover {
-  background: rgba(57, 157, 255, 0.25);
-  color: var(--nav-primary);
-}
-
-.submenu-item.active {
-  background: rgba(57, 157, 255, 0.35);
-  color: var(--nav-primary);
-  font-weight: 500;
 }
 
 .nav-right-area {

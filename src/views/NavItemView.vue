@@ -13,13 +13,18 @@
 
     <div class="search-section">
       <NavSearch 
+        ref="navSearchRef"
         :bookmarks="allBookmarks"
         @result-click="handleSearchResultClick"
       />
     </div>
 
     <div class="content-section">
-      <NavCardGrid :key="animationKey" :bookmarks="currentBookmarks" />
+      <NavCardGrid 
+      :key="animationKey" 
+      :bookmarks="currentBookmarks"
+      @tag-click="handleTagClick"
+    />
     </div>
   </div>
 </template>
@@ -33,7 +38,7 @@ import { useBookmarks } from '../composables/useBookmarks'
 import { useSettings } from '../composables/useSettings'
 import { buildCategoryTree } from '../utils/categoryTree'
 
-const { categories, bookmarks, fetchData } = useBookmarks()
+const { categories, bookmarks, fetchData, searchTags } = useBookmarks()
 const { customTitle, navWallpaper } = useSettings()
 
 const emit = defineEmits(['open-settings'])
@@ -41,6 +46,7 @@ const emit = defineEmits(['open-settings'])
 const activeMenu = ref(null)
 const activeSubMenu = ref(null)
 const animationKey = ref(0)
+const navSearchRef = ref(null)
 
 const backgroundStyle = computed(() => {
   const style = {}
@@ -118,6 +124,12 @@ const handleSearchResultClick = (result) => {
     } else {
       handleSelectMenu(category)
     }
+  }
+}
+
+const handleTagClick = (tag) => {
+  if (navSearchRef.value) {
+    navSearchRef.value.openSearchWithTags([tag])
   }
 }
 

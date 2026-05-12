@@ -23,6 +23,23 @@
           </div>
         </div>
         <div class="card-title">{{ bookmark.name }}</div>
+        <div v-if="bookmark.tags && bookmark.tags.trim()" class="card-tags">
+          <span 
+            v-for="(tag, index) in getVisibleTags(bookmark.tags)" 
+            :key="index"
+            class="tag-badge"
+            @click.stop="handleTagClick(tag)"
+          >
+            {{ tag }}
+          </span>
+          <span 
+            v-if="getRemainingCount(bookmark.tags) > 0" 
+            class="tag-badge more-tags"
+            @click.stop="toggleExpand(index)"
+          >
+            {{ expandedTagsIndex === index ? '收起' : `+${getRemainingCount(bookmark.tags)}` }}
+          </span>
+        </div>
       </div>
     </div>
 
@@ -43,12 +60,16 @@ const props = defineProps({
   }
 })
 
+const emit = defineEmits(['tag-click'])
+
 const { iconSources, parseIconSourceUrl, navCardAnimation } = useSettings()
 
 const iconErrors = ref({})
 const iconSourceIndexes = ref({})
 const animationClass = ref('')
 const animationType = ref('slideUp')
+const expandedTagsIndex = ref(null)
+const MAX_VISIBLE_TAGS = 3
 
 onMounted(() => {
   triggerAnimation()
@@ -149,6 +170,36 @@ const handleIconError = (bookmarkId) => {
 const handleCardClick = (bookmark) => {
   window.open(bookmark.url, '_blank')
 }
+
+const parsedTags = (tagsStr) => {
+  if (!tagsStr) return []
+  return tagsStr.split(',').map(t => t.trim()).filter(Boolean)
+}
+
+const getVisibleTags = (tagsStr) => {
+  const tags = parsedTags(tagsStr)
+  if (expandedTagsIndex.value !== null) {
+    return tags
+  }
+  return tags.slice(0, MAX_VISIBLE_TAGS)
+}
+
+const getRemainingCount = (tagsStr) => {
+  const tags = parsedTags(tagsStr)
+  return Math.max(0, tags.length - MAX_VISIBLE_TAGS)
+}
+
+const toggleExpand = (index) => {
+  if (expandedTagsIndex.value === index) {
+    expandedTagsIndex.value = null
+  } else {
+    expandedTagsIndex.value = index
+  }
+}
+
+const handleTagClick = (tag) => {
+  emit('tag-click', tag)
+}
 </script>
 
 <style scoped>
@@ -239,6 +290,42 @@ const handleCardClick = (bookmark) => {
   line-height: 1;
   min-height: 1.5em;
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.45);
+}
+
+.card-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  justify-content: center;
+  margin-top: 6px;
+  max-width: 100%;
+}
+
+.tag-badge {
+  padding: 2px 6px;
+  background: transparent;
+  color: #60a5fa;
+  border: 1px solid rgba(96, 165, 250, 0.5);
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.tag-badge:hover {
+  background: rgba(96, 165, 250, 0.15);
+  border-color: rgba(96, 165, 250, 0.8);
+}
+
+.tag-badge.more-tags {
+  cursor: pointer;
+  opacity: 0.8;
+}
+
+.tag-badge.more-tags:hover {
+  opacity: 1;
+  background: rgba(96, 165, 250, 0.25);
 }
 
 .empty-state {
