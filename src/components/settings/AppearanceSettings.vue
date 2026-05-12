@@ -370,6 +370,10 @@
             <span v-if="result.size" class="result-size">{{ result.size }}</span>
             <span v-if="result.duration" class="result-duration">{{ result.duration }}ms</span>
           </div>
+          <div class="result-url-row">
+            <span class="result-url" :title="result.testedUrl">{{ result.testedUrl }}</span>
+            <button class="copy-btn" @click="copyUrl(result.testedUrl)" title="复制URL">复制</button>
+          </div>
           <img 
             v-if="result.success && result.imageUrl" 
             :src="result.imageUrl" 
@@ -537,7 +541,8 @@ const handleTestAll = async () => {
     error: '',
     size: '',
     duration: 0,
-    imageUrl: ''
+    imageUrl: '',
+    testedUrl: ''
   }))
 
   // 测试每个启用的源
@@ -555,6 +560,8 @@ const handleTestAll = async () => {
       if (useLarger) {
         iconUrl += iconUrl.includes('?') ? '&larger=true' : '?larger=true'
       }
+
+      result.testedUrl = iconUrl
 
       const startTime = Date.now()
 
@@ -607,6 +614,20 @@ const handleTestAll = async () => {
   }
 
   isTesting.value = false
+}
+
+const copyUrl = async (url) => {
+  if (!url) return
+  try {
+    await navigator.clipboard.writeText(url)
+  } catch {
+    const input = document.createElement('input')
+    input.value = url
+    document.body.appendChild(input)
+    input.select()
+    document.execCommand('copy')
+    document.body.removeChild(input)
+  }
 }
 
 const handleUploadAvatar = () => {
@@ -1383,5 +1404,43 @@ html.dark .api-dialog {
   object-fit: contain;
   border-radius: 4px;
   background: white;
+}
+
+.result-url-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  margin-top: 0.5rem;
+}
+
+.result-url {
+  flex: 1;
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  background: var(--bg-tertiary);
+  padding: 0.25rem 0.5rem;
+  border-radius: var(--radius-sm);
+}
+
+.copy-btn {
+  padding: 0.25rem 0.5rem;
+  font-size: 0.75rem;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: var(--transition);
+  white-space: nowrap;
+}
+
+.copy-btn:hover {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: white;
 }
 </style>
