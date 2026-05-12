@@ -121,7 +121,7 @@ const findParentCategory = (categoryId) => {
 }
 
 .search-section {
-  padding: 5rem 1rem 2rem;
+  padding: 7rem 1rem 2rem;
   position: relative;
   z-index: 2;
   background: rgba(0, 0, 0, 0.4);

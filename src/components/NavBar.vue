@@ -1,22 +1,6 @@
 <template>
   <nav class="nav-bar">
     <div class="nav-bar-content">
-      <div class="nav-left">
-        <button 
-          class="settings-btn" 
-          @click="$emit('openSettings')"
-          title="设置"
-        >
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <circle cx="12" cy="12" r="3"/>
-            <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
-          </svg>
-        </button>
-        <div class="nav-logo" @click="handleLogoClick">
-          <span class="logo-text">{{ customTitle || '导航站' }}</span>
-        </div>
-      </div>
-
       <div class="nav-menu-wrapper">
         <div class="nav-menu">
           <div 
@@ -62,6 +46,17 @@
           </div>
         </div>
       </div>
+
+      <button 
+        class="settings-btn-floating" 
+        @click="$emit('openSettings')"
+        title="设置"
+      >
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="3"/>
+          <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
+        </svg>
+      </button>
     </div>
   </nav>
 </template>
@@ -108,13 +103,6 @@ const hideSubMenu = (menuId) => {
     }
   }, 100)
 }
-
-const handleLogoClick = () => {
-  hoveredMenuId.value = null
-  if (props.menus.length > 0) {
-    emit('select-menu', props.menus[0])
-  }
-}
 </script>
 
 <style scoped>
@@ -142,17 +130,18 @@ const handleLogoClick = () => {
   gap: 0.5rem;
 }
 
-.nav-left {
+.nav-menu-wrapper {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
-  flex-shrink: 0;
+  flex: 1;
+  min-width: 0;
+  width: 100%;
 }
 
-.settings-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
+.settings-btn-floating {
+  position: absolute;
+  top: 0.6rem;
+  right: 1.5rem;
   width: 32px;
   height: 32px;
   background: rgba(255, 255, 255, 0.1);
@@ -161,39 +150,24 @@ const handleLogoClick = () => {
   color: rgba(255, 255, 255, 0.8);
   cursor: pointer;
   transition: all 0.2s ease;
+  opacity: 0;
+  pointer-events: none;
+  z-index: 201;
 }
 
-.settings-btn:hover {
-  background: rgba(255, 255, 255, 0.2);
+.nav-bar:hover .settings-btn-floating {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.settings-btn-floating:hover {
+  background: rgba(255, 255, 255, 0.25);
   color: #ffffff;
 }
 
-.settings-btn svg {
+.settings-btn-floating svg {
   width: 20px;
   height: 20px;
-}
-
-.nav-logo {
-  cursor: pointer;
-  user-select: none;
-  flex-shrink: 0;
-}
-
-.logo-text {
-  font-size: 1.25rem;
-  font-weight: 700;
-  color: #ffffff;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
-  white-space: nowrap;
-}
-
-.nav-menu-wrapper {
-  margin-left: 1.5rem;
-  display: flex;
-  align-items: center;
-  flex: 1;
-  min-width: 0;
-  width: 100%;
 }
 
 .nav-menu {
@@ -306,8 +280,9 @@ const handleLogoClick = () => {
     padding: 0.5rem 1rem;
   }
 
-  .nav-menu-wrapper {
-    margin-left: 1rem;
+  .settings-btn-floating {
+    top: 0.5rem;
+    right: 1rem;
   }
 
   .menu-trigger {
