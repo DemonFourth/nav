@@ -186,11 +186,9 @@ export function useSettings() {
     await saveSettingsToDB({ avatarUrl: avatarUrl.value })
   }
 
-  const toggleDisplayMode = async () => {
+  const toggleDisplayMode = () => {
     displayMode.value = displayMode.value === 'default' ? 'nav-item' : 'default'
     localStorage.setItem('displayMode', displayMode.value)
-
-    await saveSettingsToDB({ displayMode: displayMode.value })
   }
 
   // 应用随机壁纸
