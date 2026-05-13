@@ -1,6 +1,6 @@
 <template>
   <div class="nav-card-grid">
-    <div class="cards-container" :class="animationClass">
+    <div v-if="bookmarks.length > 0" class="cards-container" :class="animationClass">
       <div 
         v-for="(bookmark, index) in bookmarks" 
         :key="bookmark.id"
@@ -50,7 +50,7 @@
       </div>
     </div>
 
-    <div v-if="bookmarks.length === 0" class="empty-state">
+    <div v-else class="empty-state">
       <p>该分类下暂无书签</p>
     </div>
   </div>
@@ -374,10 +374,19 @@ const handleShowDetail = (bookmark) => {
   background: rgba(96, 165, 250, 0.25);
 }
 
-.empty-state {
+.empty-state p {
   text-align: center;
+}
+
+.empty-state {
+  display: grid;
+  place-items: center;
+  max-width: 80%;
+  margin: 0 auto;
   padding: 3rem 1rem;
   color: #ffffff;
+  box-sizing: border-box;
+  width: 100%;
 }
 
 /* 动画样式 */
