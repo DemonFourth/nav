@@ -34,7 +34,13 @@
           <div class="detail-modal" @click.stop>
             <div class="detail-header">
               <div class="detail-icon">
-                <img v-if="detailData.bookmark?.icon" :src="detailData.bookmark.icon" :alt="detailData.bookmark.name" />
+                <img 
+                  v-if="!detailIconError && getDetailIconUrl(detailData.bookmark)" 
+                  :src="getDetailIconUrl(detailData.bookmark)" 
+                  :alt="detailData.bookmark?.name" 
+                  :key="detailData.bookmark?.id + '-' + (detailIconSourceIndexes[detailData.bookmark?.id] || 0)"
+                  @error="handleDetailIconError" 
+                />
                 <div v-else class="letter-icon">{{ detailData.bookmark?.name?.charAt(0) || '?' }}</div>
               </div>
               <div class="detail-title-wrap">
@@ -171,7 +177,7 @@ import { useSettings } from '../composables/useSettings'
 import { buildCategoryTree, getCategoryPath } from '../utils/categoryTree'
 
 const { categories, bookmarks, fetchData, searchTags, updateBookmark } = useBookmarks()
-const { customTitle, navWallpaper } = useSettings()
+const { customTitle, navWallpaper, iconSources, parseIconSourceUrl } = useSettings()
 
 const emit = defineEmits(['open-settings'])
 
@@ -182,6 +188,8 @@ const navSearchRef = ref(null)
 const showDetailModal = ref(false)
 const detailData = ref({ tag: null, bookmark: null })
 const selectedFilterTag = ref(null)
+const detailIconError = ref(false)
+const detailIconSourceIndexes = ref({})
 const editForm = ref({
   category_id: '',
   description: '',
@@ -339,6 +347,8 @@ const handleShowDetail = ({ tag, bookmark }) => {
   editingTagIndex.value = null
   selectOpen.value = false
   selectSearch.value = ''
+  detailIconError.value = false
+  detailIconSourceIndexes.value = {}
   showDetailModal.value = true
 }
 
@@ -450,6 +460,42 @@ const findParentCategory = (categoryId) => {
   if (!category.parent_id) return category
   
   return categories.value.find(c => c.id === category.parent_id)
+}
+
+const getDetailIconSources = (bookmark) => {
+  if (bookmark.icon && bookmark.icon.trim()) {
+    return []
+  }
+  try {
+    const enabledSources = iconSources.value.filter(s => s.enabled)
+    return enabledSources.map(source => parseIconSourceUrl(source.url, bookmark.url))
+  } catch {
+    return []
+  }
+}
+
+const getDetailIconUrl = (bookmark) => {
+  if (bookmark.icon && bookmark.icon.trim()) {
+    return bookmark.icon
+  }
+  const sources = getDetailIconSources(bookmark)
+  const index = detailIconSourceIndexes.value[bookmark.id] || 0
+  if (sources.length > 0 && index < sources.length) {
+    return sources[index]
+  }
+  return ''
+}
+
+const handleDetailIconError = () => {
+  const bookmark = detailData.value.bookmark
+  if (!bookmark) return
+  const sources = getDetailIconSources(bookmark)
+  const currentIndex = detailIconSourceIndexes.value[bookmark.id] || 0
+  if (currentIndex < sources.length - 1) {
+    detailIconSourceIndexes.value[bookmark.id] = currentIndex + 1
+  } else {
+    detailIconError.value = true
+  }
 }
 </script>
 

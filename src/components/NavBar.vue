@@ -34,7 +34,7 @@
                 class="submenu-dropdown"
                 :class="{ 'show': hoveredMenuId === menu.id }"
                 @mouseenter="keepSubmenu(menu.id)"
-                @mouseleave="hideSubmenu(menu.id)"
+                @mouseleave="hideSubMenu(menu.id)"
               >
                 <NavMenuItem 
                   v-for="sub in menu.children"

@@ -61,7 +61,13 @@
                 >
                   <div class="result-row-main">
                     <div class="result-icon" @click="handleResultClick(result)">
-                      <img v-if="result.icon" :src="result.icon" :alt="result.name" @error="handleIconError" />
+                      <img 
+                        v-if="!searchIconErrors[result.id] && getSearchResultIconUrl(result)" 
+                        :src="getSearchResultIconUrl(result)" 
+                        :alt="result.name" 
+                        :key="result.id + '-' + (searchIconSourceIndexes[result.id] || 0)"
+                        @error="handleIconError($event, result.id)" 
+                      />
                       <div v-else class="letter-icon">{{ result.name.charAt(0) }}</div>
                     </div>
                     <div class="result-name" :title="result.name">{{ result.name }}</div>
@@ -74,7 +80,9 @@
                     </div>
                   </div>
                   <div class="result-row-sub">
+                    <div v-if="getCategoryDisplayPath(result.category_id)" class="result-category" :title="getCategoryDisplayPath(result.category_id)">{{ getCategoryDisplayPath(result.category_id) }}</div>
                     <div class="result-url" :title="result.url">{{ getDisplayUrl(result.url) }}</div>
+                    <div v-if="result.notes" class="result-notes" :title="result.notes">{{ result.notes }}</div>
                     <div v-if="result.description" class="result-desc" :title="result.description">{{ result.description }}</div>
                     <div v-if="result.tags" class="result-tags">
                       <span 
@@ -99,6 +107,8 @@
 <script setup>
 import { ref, computed } from 'vue'
 import { useBookmarks } from '../composables/useBookmarks'
+import { useSettings } from '../composables/useSettings'
+import { buildCategoryTree, getCategoryPath } from '../utils/categoryTree'
 
 const props = defineProps({
   bookmarks: {
@@ -109,10 +119,27 @@ const props = defineProps({
 
 const emit = defineEmits(['result-click'])
 
+const { categories } = useBookmarks()
+
 const searchQuery = ref('')
 const selectedEngine = ref(null)
 const showSearchModal = ref(false)
 const searchResults = ref([])
+const searchIconErrors = ref({})
+const searchIconSourceIndexes = ref({})
+
+const { iconSources, parseIconSourceUrl } = useSettings()
+
+const categoryMap = computed(() => {
+  const { map } = buildCategoryTree(categories.value)
+  return map
+})
+
+const getCategoryDisplayPath = (categoryId) => {
+  if (!categoryId || !categoryMap.value[categoryId]) return ''
+  const path = getCategoryPath(categoryId, categoryMap.value)
+  return path.map(c => c.name).join(' / ')
+}
 
 defineExpose({
   openSearchWithTags: (tags) => {
@@ -202,6 +229,8 @@ const searchInSite = (tags = null) => {
     )
   }
 
+  searchIconErrors.value = {}
+  searchIconSourceIndexes.value = {}
   searchResults.value = results
   showSearchModal.value = true
 }
@@ -229,9 +258,40 @@ const getDisplayUrl = (url) => {
   }
 }
 
-const handleIconError = (event) => {
-  event.target.style.display = 'none'
-  event.target.nextElementSibling.style.display = 'flex'
+const handleIconError = (event, resultId) => {
+  const sources = getSearchResultIconSources(props.bookmarks.find(b => b.id === resultId))
+  const currentIndex = searchIconSourceIndexes.value[resultId] || 0
+  if (currentIndex < sources.length - 1) {
+    searchIconSourceIndexes.value[resultId] = currentIndex + 1
+  } else {
+    searchIconErrors.value[resultId] = true
+  }
+}
+
+const getSearchResultIconSources = (bookmark) => {
+  if (!bookmark) return []
+  if (bookmark.icon && bookmark.icon.trim()) {
+    return []
+  }
+  try {
+    const enabledSources = iconSources.value.filter(s => s.enabled)
+    return enabledSources.map(source => parseIconSourceUrl(source.url, bookmark.url))
+  } catch {
+    return []
+  }
+}
+
+const getSearchResultIconUrl = (bookmark) => {
+  if (!bookmark) return ''
+  if (bookmark.icon && bookmark.icon.trim()) {
+    return bookmark.icon
+  }
+  const sources = getSearchResultIconSources(bookmark)
+  const index = searchIconSourceIndexes.value[bookmark.id] || 0
+  if (sources.length > 0 && index < sources.length) {
+    return sources[index]
+  }
+  return ''
 }
 
 const openUrl = (url) => {
@@ -473,7 +533,6 @@ const openUrl = (url) => {
   cursor: pointer;
   transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
   position: relative;
-  overflow: hidden;
 }
 
 .result-item::before {
@@ -483,6 +542,7 @@ const openUrl = (url) => {
   background: linear-gradient(135deg, rgba(57, 157, 255, 0.1), rgba(139, 92, 246, 0.05));
   opacity: 0;
   transition: opacity 0.3s ease;
+  pointer-events: none;
 }
 
 .result-item:hover {
@@ -511,6 +571,19 @@ const openUrl = (url) => {
   padding-left: 3.5rem;
   flex-wrap: wrap;
   min-height: 1.5rem;
+}
+
+.result-category {
+  font-size: 0.75rem;
+  color: #60a5fa;
+  background: rgba(57, 157, 255, 0.12);
+  padding: 2px 8px;
+  border-radius: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 200px;
+  flex-shrink: 0;
 }
 
 .result-icon {
@@ -557,6 +630,8 @@ const openUrl = (url) => {
   overflow: hidden;
   text-overflow: ellipsis;
   letter-spacing: -0.01em;
+  display: block;
+  width: 100%;
 }
 
 .result-url {
@@ -571,6 +646,21 @@ const openUrl = (url) => {
   text-overflow: ellipsis;
   max-width: 250px;
   flex-shrink: 0;
+  display: block;
+  width: 100%;
+}
+
+.result-notes {
+  font-size: 0.75rem;
+  color: #94a3b8;
+  font-style: italic;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 250px;
+  flex-shrink: 0;
+  display: block;
+  width: 100%;
 }
 
 .result-desc {
@@ -581,6 +671,8 @@ const openUrl = (url) => {
   text-overflow: ellipsis;
   max-width: 300px;
   flex-shrink: 1;
+  display: block;
+  width: 100%;
 }
 
 .result-tags {

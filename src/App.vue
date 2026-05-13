@@ -687,9 +687,31 @@ const handleSettingsTabChange = (tab) => {
 }
 
 onMounted(async () => {
+  // 监听窗口滚动，更新活动分类（必须在 await 之前注册 onUnmounted）
+  let scrollTimeout = null
+  const handleScroll = () => {
+    if (scrollTimeout) clearTimeout(scrollTimeout)
+    scrollTimeout = setTimeout(() => {
+      updateActiveCategoryFromScroll()
+    }, 100)
+  }
+  window.addEventListener('scroll', handleScroll, { passive: true })
+
+  // 监听窗口大小变化
+  window.addEventListener('resize', handleResize)
+  handleResize()
+
+  // 清理事件监听（必须在 await 之前注册）
+  onUnmounted(() => {
+    window.removeEventListener('scroll', handleScroll)
+    window.removeEventListener('resize', handleResize)
+    if (scrollResetTimer) clearTimeout(scrollResetTimer)
+    if (scrollTimeout) clearTimeout(scrollTimeout)
+  })
+
   // Load from cache immediately, fetch from API in background
   await fetchData({ background: true })
-  
+
   // 初始化时加载设置（无论是否登录）
   await loadSettingsFromDB()
   await loadThemeFromDB()
@@ -732,30 +754,7 @@ onMounted(async () => {
   watch(customTitle, (newTitle) => {
     document.title = newTitle
   }, { immediate: true })
-  
-  
-  // 监听窗口滚动，更新活动分类
-  let scrollTimeout = null
-  const handleScroll = () => {
-    if (scrollTimeout) clearTimeout(scrollTimeout)
-    scrollTimeout = setTimeout(() => {
-      updateActiveCategoryFromScroll()
-    }, 100)
-  }
-  window.addEventListener('scroll', handleScroll, { passive: true })
-  
-  // 监听窗口大小变化
-  window.addEventListener('resize', handleResize)
-  handleResize()
-  
-  // 清理事件监听
-  onUnmounted(() => {
-    window.removeEventListener('scroll', handleScroll)
-    window.removeEventListener('resize', handleResize)
-    if (scrollResetTimer) clearTimeout(scrollResetTimer)
-    if (scrollTimeout) clearTimeout(scrollTimeout)
-  })
-  
+
   // 初始化时调用一次滚动检测
   nextTick(() => {
     updateActiveCategoryFromScroll()
