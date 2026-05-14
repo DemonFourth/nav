@@ -99,47 +99,50 @@ function triggerAnimation() {
 }
 
 function getCardStyle(index) {
-  if (!animationClass.value) return {}
+  const style = {
+    backdropFilter: `blur(${navCardBlur.value}px)`,
+    WebkitBackdropFilter: `blur(${navCardBlur.value}px)`
+  }
   
+  if (!animationClass.value) return style
+   
   const isMobile = window.innerWidth <= 480
   if (isMobile) {
-    return { animationDelay: '0s' }
+    style.animationDelay = '0s'
+    return style
   }
   
   if (animationType.value === 'slideUp') {
-    return { animationDelay: `${index * 0.05}s` }
+    style.animationDelay = `${index * 0.05}s`
   } else if (animationType.value === 'radial') {
     const cols = window.innerWidth <= 768 ? 3 : (window.innerWidth <= 1200 ? 4 : 6)
     const row = Math.floor(index / cols)
     const col = index % cols
     const centerCol = Math.floor(cols / 2)
     const distance = Math.abs(col - centerCol) + row
-    return { animationDelay: `${distance * 0.08}s` }
+    style.animationDelay = `${distance * 0.08}s`
   } else if (animationType.value === 'fadeIn') {
-    return { animationDelay: `${Math.random() * 0.5}s` }
+    style.animationDelay = `${Math.random() * 0.5}s`
   } else if (animationType.value === 'slideLeft') {
     const cols = window.innerWidth <= 768 ? 3 : (window.innerWidth <= 1200 ? 4 : 6)
     const row = Math.floor(index / cols)
-    return { animationDelay: `${row * 0.1}s` }
+    style.animationDelay = `${row * 0.1}s`
   } else if (animationType.value === 'slideRight') {
     const cols = window.innerWidth <= 768 ? 3 : (window.innerWidth <= 1200 ? 4 : 6)
     const row = Math.floor(index / cols)
     const col = index % cols
-    return { animationDelay: `${(row + (cols - col - 1) * 0.02) * 0.08}s` }
+    style.animationDelay = `${(row + (cols - col - 1) * 0.02) * 0.08}s`
   } else if (animationType.value === 'convergeIn') {
     const cols = window.innerWidth <= 768 ? 3 : (window.innerWidth <= 1200 ? 4 : 6)
     const col = index % cols
     const centerCol = Math.floor(cols / 2)
     const distanceFromCenter = Math.abs(col - centerCol)
-    return { animationDelay: `${(cols - distanceFromCenter - 1) * 0.08}s` }
-  } else if (animationType.value === 'flipIn') {
-    const cols = window.innerWidth <= 768 ? 3 : (window.innerWidth <= 1200 ? 4 : 6)
-    const row = Math.floor(index / cols)
-    const col = index % cols
-    return { animationDelay: `${(row + col) * 0.06}s` }
+    style.animationDelay = `${(cols - distanceFromCenter - 1) * 0.08}s`
+  } else if (animationType.value === 'none') {
+    return style
   }
   
-  return {}
+return style
 }
 
 const getIconSources = (bookmark) => {
@@ -240,8 +243,6 @@ const handleShowDetail = (bookmark) => {
   justify-content: center;
   padding: 0.75rem 0.5rem;
   background: rgba(255, 255, 255, 0.15);
-  backdrop-filter: blur(v-bind(navCardBlur)px);
-  -webkit-backdrop-filter: blur(v-bind(navCardBlur)px);
   border-radius: 15px;
   border: 1px solid rgba(255, 255, 255, 0.12);
   cursor: pointer;
