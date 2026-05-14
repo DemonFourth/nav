@@ -105,6 +105,94 @@
                 </div>
 
                 <div class="setting-item">
+                  <div class="setting-label">自定义标题</div>
+                  <input
+                    type="text"
+                    class="setting-input"
+                    :value="customTitle"
+                    placeholder="导航站"
+                    @change="e => updateCustomTitle(e.target.value)"
+                  />
+                </div>
+
+                <div class="setting-item">
+                  <div class="setting-label">自定义页脚</div>
+                  <textarea
+                    class="setting-textarea"
+                    :value="footerContent"
+                    placeholder="输入页脚内容，支持 HTML"
+                    rows="3"
+                    @change="e => updateFooterContent(e.target.value)"
+                  ></textarea>
+                </div>
+
+                <div class="setting-item">
+                  <div class="setting-label">代理设置</div>
+                  <input
+                    type="text"
+                    class="setting-input"
+                    :value="proxyUrl"
+                    placeholder="https://your-proxy.com/icon"
+                    @change="e => updateProxyUrl(e.target.value)"
+                  />
+                </div>
+
+                <div class="setting-group">
+                  <div class="group-header">图标获取设置</div>
+                  <div class="icon-sources-list">
+                    <div
+                      v-for="(source, index) in iconSources"
+                      :key="source.id"
+                      class="icon-source-item"
+                    >
+                      <div class="source-info">
+                        <div class="source-name">{{ source.name || '未命名' }}</div>
+                        <div class="source-url">{{ source.url }}</div>
+                      </div>
+                      <div class="source-actions">
+                        <label class="toggle-switch small">
+                          <input
+                            type="checkbox"
+                            :checked="source.enabled"
+                            @change="() => toggleIconSourceEnabled(source.id)"
+                          />
+                          <span class="toggle-slider"></span>
+                        </label>
+                        <button
+                          class="btn-icon-test"
+                          title="测试"
+                          @click="() => testIconSourceHandler(source.url)"
+                        >
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/>
+                            <polyline points="14 2 14 8 20 8"/>
+                            <path d="m9 15 2 2 4-4"/>
+                          </svg>
+                        </button>
+                        <button
+                          class="btn-icon-remove"
+                          title="删除"
+                          @click="() => removeIconSource(source.id)"
+                        >
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M18 6L6 18M6 6l12 12"/>
+                          </svg>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="add-icon-source">
+                    <input
+                      v-model="newIconSourceUrl"
+                      type="text"
+                      class="setting-input"
+                      placeholder="输入图标源 URL"
+                    />
+                    <button class="btn-add-source" @click="addIconSourceHandler">添加</button>
+                  </div>
+                </div>
+
+                <div class="setting-item">
                   <div class="setting-label">头像</div>
                   <div class="avatar-setting">
                     <div class="avatar-preview" @click="triggerAvatarUpload">
@@ -416,6 +504,7 @@ const { success: toastSuccess, error: toastError } = useToast()
 
 const activeTab = ref('appearance')
 const avatarInput = ref(null)
+const newIconSourceUrl = ref('')
 
 const tabs = [
   { id: 'appearance', name: '外观' },
@@ -472,6 +561,28 @@ const handleAvatarChange = async (e) => {
 
 const clearAvatar = async () => {
   await updateAvatarUrl('')
+}
+
+const addIconSourceHandler = () => {
+  if (!newIconSourceUrl.value.trim()) {
+    toastError('请输入图标源 URL')
+    return
+  }
+  addIconSource(newIconSourceUrl.value.trim())
+  newIconSourceUrl.value = ''
+}
+
+const testIconSourceHandler = async (url) => {
+  if (!url) {
+    toastError('无效的图标源 URL')
+    return
+  }
+  const result = await testIconSource(url)
+  if (result.success) {
+    toastSuccess(`图标源测试成功 (${result.duration}ms)`)
+  } else {
+    toastError(result.error || '测试失败')
+  }
 }
 
 const loadAISettings = async () => {
@@ -1365,6 +1476,137 @@ watch(() => props.show, async (newVal) => {
 .toggle-switch input:checked + .toggle-slider::before {
   transform: translateX(20px);
   background: #60a5fa;
+}
+
+.group-header {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #94a3b8;
+  margin: 0 0 12px 0;
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.icon-sources-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.icon-source-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 8px;
+}
+
+.source-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.source-name {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: #e2e8f0;
+  margin-bottom: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.source-url {
+  font-size: 0.6875rem;
+  color: #64748b;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.source-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.btn-icon-test,
+.btn-icon-remove {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-icon-test {
+  background: rgba(59, 130, 246, 0.15);
+  color: #60a5fa;
+}
+
+.btn-icon-test:hover {
+  background: rgba(59, 130, 246, 0.25);
+}
+
+.btn-icon-remove {
+  background: rgba(239, 68, 68, 0.15);
+  color: #f87171;
+}
+
+.btn-icon-remove:hover {
+  background: rgba(239, 68, 68, 0.25);
+}
+
+.btn-icon-test svg,
+.btn-icon-remove svg {
+  width: 14px;
+  height: 14px;
+}
+
+.add-icon-source {
+  display: flex;
+  gap: 8px;
+}
+
+.add-icon-source .setting-input {
+  flex: 1;
+}
+
+.btn-add-source {
+  padding: 8px 16px;
+  background: rgba(59, 130, 246, 0.2);
+  color: #60a5fa;
+  border: 1px solid rgba(59, 130, 246, 0.3);
+  border-radius: 8px;
+  font-size: 0.8125rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.btn-add-source:hover {
+  background: rgba(59, 130, 246, 0.3);
+}
+
+.toggle-switch.small {
+  width: 36px;
+  height: 20px;
+}
+
+.toggle-switch.small .toggle-slider::before {
+  width: 14px;
+  height: 14px;
+}
+
+.toggle-switch.small input:checked + .toggle-slider::before {
+  transform: translateX(16px);
 }
 
 /* Modal Animation */
