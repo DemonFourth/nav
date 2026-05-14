@@ -10,9 +10,11 @@ const publicMode = ref(localStorage.getItem('publicMode') !== 'false')
 const randomWallpaper = ref(localStorage.getItem('randomWallpaper') === 'true')
 const wallpaperApi = ref(localStorage.getItem('wallpaperApi') || '')
 const navCardAnimation = ref(localStorage.getItem('navCardAnimation') !== 'false')
-const navCardBlur = ref(Number(localStorage.getItem('navCardBlur') || '4'))
-const navCardOpacity = ref(Number(localStorage.getItem('navCardOpacity') || '50'))
+const navCardBlur = ref(Number(localStorage.getItem('navCardBlur') || '0'))
+const navCardOpacity = ref(Number(localStorage.getItem('navCardOpacity') || '0'))
 const navWallpaper = ref(localStorage.getItem('navWallpaper') || 'https://main.ssss.nyc.mn/background.webp')
+const navWallpaperHistory = ref(JSON.parse(localStorage.getItem('navWallpaperHistory') || '[]'))
+const wallpaperApiHistory = ref(JSON.parse(localStorage.getItem('wallpaperApiHistory') || '[]'))
 const avatarUrl = ref(localStorage.getItem('avatarUrl') || '')
 const displayMode = ref(localStorage.getItem('displayMode') || 'default')
 
@@ -177,13 +179,21 @@ export function useSettings() {
     }
   }
 
+  const addToHistory = (arr, value, max = 5) => {
+    if (!value) return
+    const filtered = arr.filter(v => v !== value)
+    filtered.unshift(value)
+    return filtered.slice(0, max)
+  }
+
   const updateWallpaperApi = async (apiUrl) => {
     wallpaperApi.value = apiUrl || ''
     localStorage.setItem('wallpaperApi', wallpaperApi.value)
-
+    if (apiUrl) {
+      wallpaperApiHistory.value = addToHistory(wallpaperApiHistory.value, apiUrl)
+      localStorage.setItem('wallpaperApiHistory', JSON.stringify(wallpaperApiHistory.value))
+    }
     await saveSettingsToDB({ wallpaperApi: wallpaperApi.value })
-
-    // 如果壁纸已启用，重新应用
     if (randomWallpaper.value && wallpaperApi.value) {
       applyWallpaper()
     } else if (randomWallpaper.value && !wallpaperApi.value) {
@@ -209,6 +219,10 @@ export function useSettings() {
   const updateNavWallpaper = (url) => {
     navWallpaper.value = url || ''
     localStorage.setItem('navWallpaper', navWallpaper.value)
+    if (url) {
+      navWallpaperHistory.value = addToHistory(navWallpaperHistory.value, url)
+      localStorage.setItem('navWallpaperHistory', JSON.stringify(navWallpaperHistory.value))
+    }
   }
 
   const updateAvatarUrl = async (url) => {
@@ -645,6 +659,9 @@ export function useSettings() {
     setNavCardBlur,
     setNavCardOpacity,
     navCardOpacity,
+    navCardBlur,
+    navWallpaperHistory,
+    wallpaperApiHistory,
     loadSettingsFromDB
   }
 }

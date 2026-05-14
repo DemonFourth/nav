@@ -1,9 +1,11 @@
 const TOKEN_TTL = 15 * 60 * 1000;
 const TOKEN_RENEW_THRESHOLD = 5 * 60 * 1000; // 剩余5分钟时自动续期
+const CACHE_TTL = 5 * 60 * 1000; // 分类和标签缓存5分钟
 let settings = {};
 let categories = [];
 let tagItems = [];
 let allTags = [];
+let dataCache = { categories: [], tags: [], timestamp: 0 };
 
 function storageGet(area, keys) {
   return new Promise(resolve => chrome.storage[area].get(keys, resolve));
@@ -15,6 +17,27 @@ function storageSet(area, items) {
 
 function storageRemove(area, keys) {
   return new Promise(resolve => chrome.storage[area].remove(keys, resolve));
+}
+
+async function saveDataCache() {
+  await storageSet('local', {
+    dataCache: {
+      categories,
+      tags: allTags,
+      timestamp: Date.now()
+    }
+  });
+}
+
+async function loadDataCache() {
+  const result = await storageGet('local', 'dataCache');
+  if (result.dataCache && result.dataCache.timestamp && (Date.now() - result.dataCache.timestamp < CACHE_TTL)) {
+    dataCache = result.dataCache;
+    categories = dataCache.categories || [];
+    allTags = dataCache.tags || [];
+    return true;
+  }
+  return false;
 }
 
 function parseTokenExpiry(token) {
@@ -529,14 +552,6 @@ async function loadCategories() {
     
     categories = sortCategories(categories);
     
-    if (categories.length > 0) {
-      const categoryInput = document.getElementById('category-input');
-      if (categoryInput) {
-        categoryInput.value = categories[0].path || categories[0].name;
-        categoryInput.dataset.selectedId = String(categories[0].id);
-      }
-    }
-    
     return true;
   } catch (error) {
     console.error('Failed to load categories:', error);
@@ -848,7 +863,14 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
   tagsInput.addEventListener('blur', () => {
-    setTimeout(hideTagSuggestions, 200);
+    setTimeout(hideTagSuggestions, 300);
+  });
+  tagsInput.addEventListener('mousedown', (e) => {
+    e.preventDefault();
+    if (allTags.length > 0) {
+      renderTagSuggestions();
+    }
+    tagsInput.focus();
   });
   
   const categoryInput = document.getElementById('category-input');
