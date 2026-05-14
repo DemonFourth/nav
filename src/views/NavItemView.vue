@@ -17,6 +17,7 @@
         ref="navSearchRef"
         :bookmarks="allBookmarks"
         @search-results="handleSearchResults"
+        @clear-results="clearSearchResults"
       />
     </div>
 

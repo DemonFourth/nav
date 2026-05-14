@@ -16,8 +16,7 @@ body {
   background: var(--bg);
   color: var(--text);
   width: 320px;
-  height: 480px;
-  overflow: hidden;
+  min-height: 460px;
 }
 
 body.dark {
@@ -382,7 +381,6 @@ body.dark .select-dropdown {
 
 /* Tags Input Styles */
 .tags-input-container {
-  position: relative;
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
@@ -465,18 +463,16 @@ body.dark .tags-input-container:focus-within {
 
 /* Tag Suggestions Dropdown */
 .tags-suggestions {
-  position: absolute;
-  top: 100%;
-  left: 0;
-  right: 0;
-  margin-top: 4px;
+  position: fixed;
+  margin-top: 0;
   background: #fff;
   border: 1px solid rgba(148, 163, 184, 0.4);
   border-radius: 8px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-  z-index: 1000;
+  z-index: 10000;
   max-height: 200px;
   overflow-y: auto;
+  min-width: 200px;
 }
 
 body.dark .tags-suggestions {
@@ -505,8 +501,13 @@ body.dark .tags-suggestions {
 }
 
 /* Category Input Styles */
-.category-input-container {
-  position: relative;
+body.dark .category-input {
+  background: rgba(15, 23, 42, 0.9);
+  border-color: rgba(148, 163, 184, 0.2);
+}
+
+body.dark .category-input:focus {
+  border-color: var(--primary);
 }
 
 .category-input {
@@ -518,35 +519,21 @@ body.dark .tags-suggestions {
   background: rgba(255, 255, 255, 0.9);
   color: inherit;
   outline: none;
+  box-sizing: border-box;
   transition: border-color 0.2s ease;
 }
 
-.category-input:focus {
-  border-color: var(--primary);
-}
-
-body.dark .category-input {
-  background: rgba(15, 23, 42, 0.9);
-  border-color: rgba(148, 163, 184, 0.2);
-}
-
-body.dark .category-input:focus {
-  border-color: var(--primary);
-}
-
 .category-suggestions {
-  position: absolute;
-  top: 100%;
-  left: 0;
-  right: 0;
-  margin-top: 4px;
+  position: fixed;
+  margin-top: 0;
   background: #fff;
   border: 1px solid rgba(148, 163, 184, 0.4);
   border-radius: 8px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-  z-index: 1000;
+  z-index: 10000;
   max-height: 200px;
   overflow-y: auto;
+  min-width: 200px;
 }
 
 body.dark .category-suggestions {

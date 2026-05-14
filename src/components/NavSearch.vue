@@ -49,7 +49,7 @@ const props = defineProps({
   }
 })
 
-const emit = defineEmits(['search-results'])
+const emit = defineEmits(['search-results', 'clear-results'])
 
 const { categories } = useBookmarks()
 
@@ -125,6 +125,7 @@ const selectEngine = (engine) => {
 
 const clearSearch = () => {
   searchQuery.value = ''
+  emit('clear-results')
 }
 
 const handleSearch = () => {

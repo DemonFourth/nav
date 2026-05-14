@@ -332,6 +332,7 @@ function renderCategorySuggestions(query = '') {
     });
   });
   
+  fitSuggestionDropdown(document.getElementById('category-input'), suggestions);
   showCategorySuggestions();
 }
 
@@ -397,6 +398,20 @@ function hideTagSuggestions() {
   }
 }
 
+function fitSuggestionDropdown(triggerEl, dropdownEl) {
+  if (!triggerEl || !dropdownEl) return;
+  const triggerRect = triggerEl.getBoundingClientRect();
+  const popupHeight = window.innerHeight;
+  const popupWidth = window.innerWidth;
+  const spaceBelow = popupHeight - triggerRect.bottom - 4;
+  const maxHeight = Math.min(Math.max(spaceBelow, 60), 200);
+  dropdownEl.style.position = 'fixed';
+  dropdownEl.style.top = (triggerRect.bottom + 4) + 'px';
+  dropdownEl.style.left = triggerRect.left + 'px';
+  dropdownEl.style.width = triggerRect.width + 'px';
+  dropdownEl.style.maxHeight = maxHeight + 'px';
+}
+
 function renderTagSuggestions(query = '') {
   const suggestions = document.getElementById('tags-suggestions');
   if (!suggestions) return;
@@ -416,6 +431,8 @@ function renderTagSuggestions(query = '') {
   suggestions.innerHTML = availableTags.slice(0, 10).map(tag => 
     `<div class="tag-suggestion" data-tag="${tag}">${tag}</div>`
   ).join('');
+  
+  fitSuggestionDropdown(document.querySelector('.tags-input-container'), suggestions);
   
   suggestions.querySelectorAll('.tag-suggestion').forEach(el => {
     el.addEventListener('click', () => {
