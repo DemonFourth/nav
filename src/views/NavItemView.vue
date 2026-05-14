@@ -189,7 +189,7 @@ import { buildCategoryTree, getCategoryPath } from '../utils/categoryTree'
 
 const { categories, bookmarks, fetchData, searchTags, updateBookmark } = useBookmarks()
 const { isAuthenticated } = useAuth()
-const { customTitle, navWallpaper, iconSources, parseIconSourceUrl, showSearch } = useSettings()
+const { customTitle, navWallpaper, iconSources, parseIconSourceUrl, showSearch, randomWallpaper, wallpaperApi, applyWallpaper } = useSettings()
 const { error: errorToast } = useToast()
 
 const emit = defineEmits(['toggleStyle'])
@@ -263,6 +263,9 @@ const categoryName = computed(() => {
 
 const backgroundStyle = computed(() => {
   const style = {}
+  if (randomWallpaper.value) {
+    return style
+  }
   if (navWallpaper.value) {
     style.backgroundImage = `url(${navWallpaper.value})`
     style.backgroundSize = 'cover'
