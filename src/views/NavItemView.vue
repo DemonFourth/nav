@@ -11,7 +11,7 @@
       @open-settings="handleOpenSettings"
     />
 
-    <div v-if="showSearch" class="search-section">
+    <div v-show="showSearch" class="search-section">
       <NavSearch 
         ref="navSearchRef"
         :bookmarks="allBookmarks"
