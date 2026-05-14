@@ -803,8 +803,6 @@ async function saveBookmark(event) {
 }
 
 async function init() {
-  showSection('loading-section');
-  
   await loadSettings();
   
   if (!settings.serverUrl || !settings.authToken) {
@@ -812,22 +810,38 @@ async function init() {
     return;
   }
   
-  const [categoriesLoaded] = await Promise.all([loadCategories(), loadTags()]);
+  const cacheLoaded = await loadDataCache();
   
-  if (!categoriesLoaded) {
-    showSection('auth-section');
-    return;
+  if (cacheLoaded) {
+    showSection('form-section');
+    getTabInfo();
+    const [categoriesLoaded] = await Promise.all([loadCategories(), loadTags()]);
+    if (categoriesLoaded) {
+      saveDataCache();
+    }
+  } else {
+    showSection('loading-section');
+    const [categoriesLoaded] = await Promise.all([loadCategories(), loadTags()]);
+    if (!categoriesLoaded) {
+      showSection('auth-section');
+      return;
+    }
+    saveDataCache();
+    getTabInfo();
+    showSection('form-section');
   }
-  
+}
+
+async function getTabInfo() {
   const contextInfo = await maybeUseContextInfo();
   const tab = contextInfo || await getCurrentTab();
-  
   if (tab) {
-    document.getElementById('title').value = tab.title || '';
+    const titleEl = document.getElementById('title');
+    if (titleEl && !titleEl.value) {
+      titleEl.value = tab.title || '';
+    }
     document.getElementById('url').value = tab.url || '';
   }
-  
-  showSection('form-section');
 }
 
 document.addEventListener('DOMContentLoaded', () => {
