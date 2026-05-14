@@ -252,6 +252,96 @@ const toggleDisplayMode = () => {
 - 导航站风格下右侧按钮区独立于80%菜单区域，始终可见
 - 导航站模式支持完整的登录/登出功能和设置页面访问
 
+## 导航站搜索结果展示
+
+站内搜索（Google/Baidu/Bing/GitHub 除外）的结果**不再以弹窗显示**，而是在 `content-section` 卡片区域直接展示。
+
+### 触发搜索结果的方式
+
+| 触发方式 | 组件/位置 | 行为 |
+|----------|-----------|------|
+| 搜索框输入 + 回车 | `NavSearch.vue` → `searchInSite()` | 在 content-section 显示匹配书签 |
+| 点击卡片上的标签 | `NavCardGrid.vue` → `@tag-click` → `handleTagClick` | 通过 `openSearchWithTags([tag])` 触发标签搜索 |
+| 点击标签筛选栏的标签 | `NavItemView.vue` → `handleTagTabClick` | 同上，触发标签搜索 |
+| 点击搜索框的 X 清除按钮 | `NavSearch.vue` → `clearSearch()` | 清除搜索结果显示，恢复分类浏览 |
+
+### 释放搜索结果的时机
+
+当以下任一事件发生时，搜索结果被清除，恢复分类浏览模式：
+
+1. **点击顶部菜单分类** → `handleSelectMenu` → `clearSearchResults()`
+2. **点击子菜单** → `handleSelectSubMenu` → `clearSearchResults()`
+3. **点击搜索框 X 按钮** → `emit('clear-results')` → `clearSearchResults()`
+
+### 核心实现
+
+#### NavSearch.vue — 事件驱动
+
+```javascript
+// 搜索组件不再管理弹窗状态，改为 emit 事件
+const emit = defineEmits(['search-results', 'clear-results'])
+
+const searchInSite = (tags = null) => {
+  // ... 执行搜索 ...
+  searchResults.value = results
+  emit('search-results', results)  // 发送给父组件
+}
+
+const clearSearch = () => {
+  searchQuery.value = ''
+  emit('clear-results')  // 通知父组件清除搜索结果
+}
+
+// 暴露方法供外部调用（卡片标签点击、标签栏点击）
+defineExpose({
+  openSearchWithTags: (tags) => {
+    if (tags && tags.length > 0) {
+      searchQuery.value = tags.join(',')
+      searchInSite(tags)
+    }
+  }
+})
+```
+
+#### NavItemView.vue — 状态驱动
+
+```javascript
+// 搜索结果状态
+const searchResults = ref(null)
+
+// 搜索结果优先于分类书签
+const currentBookmarks = computed(() => {
+  if (searchResults.value) {
+    return searchResults.value  // 有搜索结果时直接返回
+  }
+  // 否则按分类 + 标签筛选返回书签
+  // ...
+})
+
+const clearSearchResults = () => {
+  searchResults.value = null
+  animationKey.value++
+}
+
+// 父组件监听 NavSearch 的事件
+// @search-results="handleSearchResults"  →  设置 searchResults
+// @clear-results="clearSearchResults"   →  清除搜索结果
+```
+
+### 相关文件
+
+| 文件 | 作用 |
+|------|------|
+| `src/components/NavSearch.vue` | 搜索组件，emit `search-results` 和 `clear-results`，暴露 `openSearchWithTags` |
+| `src/views/NavItemView.vue` | 管理 `searchResults` 状态，`currentBookmarks` 根据搜索/分类返回不同数据 |
+| `src/components/NavCardGrid.vue` | 书签卡片网格，接收 `currentBookmarks` 并展示 |
+
+### 后续开发提示
+
+- 如果需要区分"搜索结果显示"和"分类浏览"的视觉样式，可以在 `NavCardGrid` 中通过 `searchResults.value !== null` 判断
+- 搜索结果的排序默认跟随书签的 `position` 字段，如需自定义排序可修改 `currentBookmarks` 中的逻辑
+- `openSearchWithTags` 方法可被任何需要触发标签搜索的外部组件调用，只需通过 `ref` 访问 `navSearchRef.value.openSearchWithTags([tag])`
+
 ## 浏览器扩展
 
 ```bash
