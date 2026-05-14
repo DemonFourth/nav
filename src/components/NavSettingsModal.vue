@@ -155,7 +155,7 @@
                       class="icon-source-item"
                     >
                       <div class="source-info">
-                        <div class="source-name">{{ source.name || '未命名' }}</div>
+                        <div class="source-name">{{ source.name }}</div>
                         <div class="source-url">{{ source.url }}</div>
                       </div>
                       <div class="source-actions">
@@ -178,26 +178,8 @@
                             <path d="m9 15 2 2 4-4"/>
                           </svg>
                         </button>
-                        <button
-                          class="btn-icon-remove"
-                          title="删除"
-                          @click="() => removeIconSource(source.id)"
-                        >
-                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M18 6L6 18M6 6l12 12"/>
-                          </svg>
-                        </button>
                       </div>
                     </div>
-                  </div>
-                  <div class="add-icon-source">
-                    <input
-                      v-model="newIconSourceUrl"
-                      type="text"
-                      class="setting-input"
-                      placeholder="输入图标源 URL"
-                    />
-                    <button class="btn-add-source" @click="addIconSourceHandler">添加</button>
                   </div>
                 </div>
 
@@ -500,9 +482,9 @@ const {
   toggleSearch, toggleHideEmptyCategories, togglePublicMode,
   updateCustomTitle, updateFooterContent, toggleRandomWallpaper,
   updateWallpaperApi, updateAvatarUrl, toggleDisplayMode,
-  toggleNavCardAnimation, updateNavWallpaper, addIconSource,
-  removeIconSource, toggleIconSourceEnabled, toggleIconSourceLarger,
-  moveIconSource, updateProxyUrl
+  toggleNavCardAnimation, updateNavWallpaper,
+  toggleIconSourceEnabled, toggleIconSourceLarger,
+  moveIconSource, updateProxyUrl, testIconSource
 } = useSettings()
 
 const { isDark, setThemeMode } = useTheme()
@@ -513,7 +495,6 @@ const { success: toastSuccess, error: toastError } = useToast()
 
 const activeTab = ref('appearance')
 const avatarInput = ref(null)
-const newIconSourceUrl = ref('')
 
 const tabs = [
   { id: 'appearance', name: '外观' },
@@ -582,15 +563,6 @@ const handleRandomWallpaperToggle = () => {
 const handleNavWallpaperChange = (value) => {
   if (randomWallpaper.value) return
   updateNavWallpaper(value)
-}
-
-const addIconSourceHandler = () => {
-  if (!newIconSourceUrl.value.trim()) {
-    toastError('请输入图标源 URL')
-    return
-  }
-  addIconSource(newIconSourceUrl.value.trim())
-  newIconSourceUrl.value = ''
 }
 
 const testIconSourceHandler = async (url) => {
