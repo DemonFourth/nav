@@ -11,7 +11,7 @@
       @open-settings="handleOpenSettings"
     />
 
-    <div class="search-section">
+    <div v-if="showSearch" class="search-section">
       <NavSearch 
         ref="navSearchRef"
         :bookmarks="allBookmarks"
@@ -188,7 +188,7 @@ import { buildCategoryTree, getCategoryPath } from '../utils/categoryTree'
 
 const { categories, bookmarks, fetchData, searchTags, updateBookmark } = useBookmarks()
 const { isAuthenticated } = useAuth()
-const { customTitle, navWallpaper, iconSources, parseIconSourceUrl } = useSettings()
+const { customTitle, navWallpaper, iconSources, parseIconSourceUrl, showSearch } = useSettings()
 const { error: errorToast } = useToast()
 
 const emit = defineEmits(['toggleStyle'])

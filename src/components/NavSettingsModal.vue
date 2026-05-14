@@ -66,23 +66,43 @@
                   </label>
                 </div>
 
-                <div class="setting-item">
-                  <div class="setting-label">随机壁纸</div>
-                  <label class="toggle-switch">
-                    <input type="checkbox" :checked="randomWallpaper" @change="toggleRandomWallpaper" />
-                    <span class="toggle-slider"></span>
-                  </label>
-                </div>
+                <div class="setting-group">
+                  <div class="group-header">壁纸设置</div>
 
-                <div v-if="randomWallpaper" class="setting-item nested">
-                  <div class="setting-label">壁纸 API</div>
-                  <input
-                    type="text"
-                    class="setting-input"
-                    :value="wallpaperApi"
-                    placeholder="输入壁纸 API 地址"
-                    @change="e => updateWallpaperApi(e.target.value)"
-                  />
+                  <div class="setting-item">
+                    <div class="setting-label">随机壁纸</div>
+                    <label class="toggle-switch">
+                      <input
+                        type="checkbox"
+                        :checked="randomWallpaper"
+                        @change="handleRandomWallpaperToggle"
+                      />
+                      <span class="toggle-slider"></span>
+                    </label>
+                  </div>
+
+                  <div v-if="randomWallpaper" class="setting-item nested">
+                    <div class="setting-label">壁纸 API</div>
+                    <input
+                      type="text"
+                      class="setting-input"
+                      :value="wallpaperApi"
+                      placeholder="输入壁纸 API 地址"
+                      @change="e => updateWallpaperApi(e.target.value)"
+                    />
+                  </div>
+
+                  <div class="setting-item">
+                    <div class="setting-label">自定义壁纸</div>
+                    <input
+                      type="text"
+                      class="setting-input"
+                      :value="randomWallpaper ? '' : navWallpaper"
+                      placeholder="输入壁纸 URL"
+                      :disabled="randomWallpaper"
+                      @change="e => handleNavWallpaperChange(e.target.value)"
+                    />
+                  </div>
                 </div>
 
                 <div class="setting-item">
@@ -91,17 +111,6 @@
                     <input type="checkbox" :checked="navCardAnimation" @change="toggleNavCardAnimation" />
                     <span class="toggle-slider"></span>
                   </label>
-                </div>
-
-                <div class="setting-item">
-                  <div class="setting-label">导航壁纸</div>
-                  <input
-                    type="text"
-                    class="setting-input"
-                    :value="navWallpaper"
-                    placeholder="输入壁纸 URL"
-                    @change="e => updateNavWallpaper(e.target.value)"
-                  />
                 </div>
 
                 <div class="setting-item">
@@ -563,6 +572,18 @@ const clearAvatar = async () => {
   await updateAvatarUrl('')
 }
 
+const handleRandomWallpaperToggle = () => {
+  if (!randomWallpaper.value) {
+    updateNavWallpaper('')
+  }
+  toggleRandomWallpaper()
+}
+
+const handleNavWallpaperChange = (value) => {
+  if (randomWallpaper.value) return
+  updateNavWallpaper(value)
+}
+
 const addIconSourceHandler = () => {
   if (!newIconSourceUrl.value.trim()) {
     toastError('请输入图标源 URL')
@@ -817,6 +838,14 @@ watch(() => props.show, async (newVal) => {
   display: flex;
   flex-direction: column;
   gap: 16px;
+  padding: 16px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+}
+
+.setting-group .setting-item {
+  padding: 10px 12px;
 }
 
 .setting-item {
