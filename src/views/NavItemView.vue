@@ -16,8 +16,21 @@
         v-show="showSearch"
         ref="navSearchRef"
         :bookmarks="allBookmarks"
-        @result-click="handleSearchResultClick"
+        @search-results="handleSearchResults"
       />
+    </div>
+
+    <div class="category-tabs">
+      <button
+        v-for="tag in topTags"
+        :key="tag"
+        class="cat-tab"
+        :class="{ active: selectedFilterTag === tag }"
+        @click="handleTagTabClick(tag)"
+      >
+        {{ tag }}
+        <span class="cat-count">{{ getTagCount(tag) }}</span>
+      </button>
     </div>
 
     <div class="content-section">
@@ -218,6 +231,7 @@ const tagEditInput = ref(null)
 const selectOpen = ref(false)
 const selectSearch = ref('')
 const selectSearchInput = ref(null)
+const searchResults = ref(null)
 
 const allTags = computed(() => {
   if (!detailData.value.bookmark?.tags) return []
@@ -285,16 +299,62 @@ const menuTree = computed(() => {
 
 const allBookmarks = computed(() => bookmarks.value)
 
+const topTags = computed(() => {
+  const tagCount = {}
+  bookmarks.value.forEach(b => {
+    if (!b.tags) return
+    b.tags.split(',').map(t => t.trim()).filter(Boolean).forEach(t => {
+      tagCount[t] = (tagCount[t] || 0) + 1
+    })
+  })
+  return Object.entries(tagCount)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 10)
+    .map(([tag]) => tag)
+})
+
+const getTagCount = (tag) => {
+  return bookmarks.value.filter(b => b.tags && b.tags.split(',').map(t => t.trim()).includes(tag)).length
+}
+
+const handleTagTabClick = (tag) => {
+  if (navSearchRef.value && navSearchRef.value.openSearchWithTags) {
+    try {
+      navSearchRef.value.openSearchWithTags([tag])
+    } catch (e) {
+      console.warn('Tag search failed:', e)
+    }
+  }
+}
+
+const getCategoryCount = (categoryId) => {
+  return bookmarks.value.filter(b => b.category_id === categoryId).length
+}
+
 const currentBookmarks = computed(() => {
+  if (searchResults.value) {
+    return searchResults.value
+  }
+
   if (!activeMenu.value) {
     return []
   }
 
   const categoryId = activeSubMenu.value?.id || activeMenu.value.id
   
-  return bookmarks.value
+  let result = bookmarks.value
     .filter(b => b.category_id === categoryId)
     .sort((a, b) => a.position - b.position)
+
+  if (selectedFilterTag.value) {
+    result = result.filter(b => {
+      if (!b.tags) return false
+      const tags = b.tags.split(',').map(t => t.trim())
+      return tags.includes(selectedFilterTag.value)
+    })
+  }
+
+  return result
 })
 
 const handleToggleStyle = () => {
@@ -319,34 +379,38 @@ watch(menuTree, (newMenus) => {
   }
 })
 
+const clearSearchResults = () => {
+  searchResults.value = null
+}
+
 const handleSelectMenu = (menu) => {
+  clearSearchResults()
   activeMenu.value = menu
   activeSubMenu.value = null
+  selectedFilterTag.value = null
   animationKey.value++
 }
 
 const handleSelectSubMenu = (menu, sub) => {
+  clearSearchResults()
   activeMenu.value = menu
   activeSubMenu.value = sub
+  selectedFilterTag.value = null
   animationKey.value++
 }
 
-const handleSearchResultClick = (result) => {
-  const category = categories.value.find(c => c.id === result.category_id)
-  if (category) {
-    const parentCategory = findParentCategory(category.id)
-    if (parentCategory) {
-      handleSelectSubMenu(parentCategory, category)
-    } else {
-      handleSelectMenu(category)
-    }
-  }
+const handleSearchResults = (results) => {
+  searchResults.value = results
+  animationKey.value++
 }
 
 const handleTagClick = (tag) => {
-  selectedFilterTag.value = tag
-  if (navSearchRef.value) {
-    navSearchRef.value.openSearchWithTags([tag])
+  if (navSearchRef.value && navSearchRef.value.openSearchWithTags) {
+    try {
+      navSearchRef.value.openSearchWithTags([tag])
+    } catch (e) {
+      console.warn('Tag search failed:', e)
+    }
   }
 }
 
@@ -552,11 +616,87 @@ const handleSettingsAction = (action) => {
   background-color: transparent;
 }
 
+.nav-item-view ::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+
+.nav-item-view ::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.nav-item-view ::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 3px;
+}
+
+.nav-item-view ::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.15);
+}
+
 .search-section {
-  padding: 8.5rem 1rem 1.25rem;
+  padding: 8.5rem 1rem 0.5rem;
   position: relative;
   z-index: 2;
   background: transparent;
+}
+
+.category-tabs {
+  display: flex;
+  justify-content: center;
+  gap: 5px;
+  padding: 8px 10% 4px;
+  flex-wrap: wrap;
+  position: relative;
+  z-index: 2;
+}
+
+.cat-tab {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 0.68rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  font-family: inherit;
+  white-space: nowrap;
+}
+
+.cat-tab:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.cat-tab.active {
+  background: rgba(57, 157, 255, 0.1);
+  border-color: rgba(57, 157, 255, 0.2);
+  color: #60a5fa;
+}
+
+.cat-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+  font-size: 0.55rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.35);
+  line-height: 1;
+}
+
+.cat-tab.active .cat-count {
+  background: rgba(57, 157, 255, 0.15);
+  color: #60a5fa;
 }
 
 .content-section {
@@ -584,14 +724,33 @@ const handleSettingsAction = (action) => {
 }
 
 .detail-modal {
-  background: linear-gradient(165deg, rgba(30, 41, 59, 0.98) 0%, rgba(15, 23, 42, 0.98) 100%);
+  background: rgba(11, 15, 25, 0.92);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
   border-radius: 20px;
   width: 100%;
   max-width: 420px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
   box-shadow: 
-    0 0 0 1px rgba(255, 255, 255, 0.1),
-    0 25px 80px rgba(0, 0, 0, 0.5);
+    0 0 0 1px rgba(255, 255, 255, 0.04),
+    0 40px 120px -20px rgba(0, 0, 0, 0.8);
   overflow: hidden;
+  position: relative;
+}
+
+.detail-modal::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 20px;
+  background: linear-gradient(145deg, rgba(57, 157, 255, 0.03) 0%, rgba(99, 102, 241, 0.02) 30%, transparent 60%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.detail-modal > * {
+  position: relative;
+  z-index: 1;
 }
 
 .detail-header {

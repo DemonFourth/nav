@@ -32,8 +32,8 @@
         <div class="card-title">{{ bookmark.name }}</div>
         <div v-if="bookmark.tags && bookmark.tags.trim()" class="card-tags">
           <span 
-            v-for="(tag, index) in getVisibleTags(bookmark.tags)" 
-            :key="index"
+            v-for="(tag, tIdx) in getVisibleTags(bookmark.tags, bookmark.id)" 
+            :key="tIdx"
             class="tag-badge"
             @click.stop="handleTagClick(tag)"
           >
@@ -42,15 +42,18 @@
           <span 
             v-if="getRemainingCount(bookmark.tags) > 0" 
             class="tag-badge more-tags"
-            @click.stop="toggleExpand(index)"
+            @click.stop="toggleExpand(bookmark.id)"
           >
-            {{ expandedTagsIndex === index ? '收起' : `+${getRemainingCount(bookmark.tags)}` }}
+            {{ expandedBookmarks[bookmark.id] ? '收起' : `+${getRemainingCount(bookmark.tags)}` }}
           </span>
         </div>
       </div>
     </div>
 
     <div v-else class="empty-state">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2">
+        <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+      </svg>
       <p>该分类下暂无书签</p>
     </div>
   </div>
@@ -79,7 +82,7 @@ const iconErrors = ref({})
 const iconSourceIndexes = ref({})
 const animationClass = ref('')
 const animationType = ref('slideUp')
-const expandedTagsIndex = ref(null)
+const expandedBookmarks = ref({})
 const MAX_VISIBLE_TAGS = 3
 
 onMounted(() => {
@@ -91,11 +94,8 @@ function triggerAnimation() {
     animationClass.value = ''
     return
   }
-
-  const animations = ['slideUp', 'radial', 'fadeIn', 'slideLeft', 'slideRight', 'convergeIn', 'flipIn']
-  const randomIndex = Math.floor(Math.random() * animations.length)
-  animationType.value = animations[randomIndex]
-  animationClass.value = `animate-${animationType.value}`
+  animationType.value = 'slideUp'
+  animationClass.value = 'animate-slideUp'
 }
 
 function getCardStyle(index) {
@@ -104,46 +104,10 @@ function getCardStyle(index) {
     WebkitBackdropFilter: `blur(${navCardBlur.value}px)`,
     background: `rgba(255, 255, 255, ${navCardOpacity.value / 100})`
   }
-  
-  if (!animationClass.value) return style
-   
-  const isMobile = window.innerWidth <= 480
-  if (isMobile) {
-    style.animationDelay = '0s'
-    return style
+  if (animationClass.value) {
+    style.animationDelay = `${Math.min(0.03 + index * 0.035, 0.8)}s`
   }
-  
-  if (animationType.value === 'slideUp') {
-    style.animationDelay = `${index * 0.05}s`
-  } else if (animationType.value === 'radial') {
-    const cols = window.innerWidth <= 768 ? 3 : (window.innerWidth <= 1200 ? 4 : 6)
-    const row = Math.floor(index / cols)
-    const col = index % cols
-    const centerCol = Math.floor(cols / 2)
-    const distance = Math.abs(col - centerCol) + row
-    style.animationDelay = `${distance * 0.08}s`
-  } else if (animationType.value === 'fadeIn') {
-    style.animationDelay = `${Math.random() * 0.5}s`
-  } else if (animationType.value === 'slideLeft') {
-    const cols = window.innerWidth <= 768 ? 3 : (window.innerWidth <= 1200 ? 4 : 6)
-    const row = Math.floor(index / cols)
-    style.animationDelay = `${row * 0.1}s`
-  } else if (animationType.value === 'slideRight') {
-    const cols = window.innerWidth <= 768 ? 3 : (window.innerWidth <= 1200 ? 4 : 6)
-    const row = Math.floor(index / cols)
-    const col = index % cols
-    style.animationDelay = `${(row + (cols - col - 1) * 0.02) * 0.08}s`
-  } else if (animationType.value === 'convergeIn') {
-    const cols = window.innerWidth <= 768 ? 3 : (window.innerWidth <= 1200 ? 4 : 6)
-    const col = index % cols
-    const centerCol = Math.floor(cols / 2)
-    const distanceFromCenter = Math.abs(col - centerCol)
-    style.animationDelay = `${(cols - distanceFromCenter - 1) * 0.08}s`
-  } else if (animationType.value === 'none') {
-    return style
-  }
-  
-return style
+  return style
 }
 
 const getIconSources = (bookmark) => {
@@ -191,9 +155,9 @@ const parsedTags = (tagsStr) => {
   return tagsStr.split(',').map(t => t.trim()).filter(Boolean)
 }
 
-const getVisibleTags = (tagsStr) => {
+const getVisibleTags = (tagsStr, bookmarkId) => {
   const tags = parsedTags(tagsStr)
-  if (expandedTagsIndex.value !== null) {
+  if (expandedBookmarks.value[bookmarkId]) {
     return tags
   }
   return tags.slice(0, MAX_VISIBLE_TAGS)
@@ -204,11 +168,10 @@ const getRemainingCount = (tagsStr) => {
   return Math.max(0, tags.length - MAX_VISIBLE_TAGS)
 }
 
-const toggleExpand = (index) => {
-  if (expandedTagsIndex.value === index) {
-    expandedTagsIndex.value = null
-  } else {
-    expandedTagsIndex.value = index
+const toggleExpand = (bookmarkId) => {
+  expandedBookmarks.value = {
+    ...expandedBookmarks.value,
+    [bookmarkId]: !expandedBookmarks.value[bookmarkId]
   }
 }
 
@@ -235,28 +198,6 @@ const handleShowDetail = (bookmark) => {
   max-width: 80%;
   margin: 0 auto;
   width: 100%;
-}
-
-.nav-card {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 0.75rem 0.5rem;
-  border-radius: 15px;
-  border: 1px solid transparent;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  min-height: 100px;
-  height: auto;
-  position: relative;
-}
-
-.nav-card:hover {
-  background: rgba(255, 255, 255, 0.28);
-  transform: translateY(-2px);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.14);
-  border-color: rgba(255, 255, 255, 0.18);
 }
 
 .card-detail-btn {
@@ -303,6 +244,8 @@ const handleShowDetail = (bookmark) => {
   display: flex;
   align-items: center;
   justify-content: center;
+  transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
 
 .card-icon img {
@@ -324,6 +267,7 @@ const handleShowDetail = (bookmark) => {
 }
 
 .card-title {
+  cursor: pointer;
   padding-right: 4px;
   padding-left: 4px;
   font-size: 14px;
@@ -353,10 +297,10 @@ const handleShowDetail = (bookmark) => {
 }
 
 .tag-badge {
-  padding: 2px 6px;
-  background: transparent;
+  padding: 2px 7px;
+  background: rgba(96, 165, 250, 0.1);
   color: #60a5fa;
-  border: 1px solid rgba(96, 165, 250, 0.5);
+  border: 1px solid rgba(96, 165, 250, 0.2);
   border-radius: 4px;
   font-size: 10px;
   font-weight: 500;
@@ -365,173 +309,119 @@ const handleShowDetail = (bookmark) => {
 }
 
 .tag-badge:hover {
-  background: rgba(96, 165, 250, 0.15);
-  border-color: rgba(96, 165, 250, 0.8);
+  background: rgba(96, 165, 250, 0.22);
+  border-color: rgba(96, 165, 250, 0.5);
 }
 
 .tag-badge.more-tags {
   cursor: pointer;
-  opacity: 0.8;
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.5);
 }
 
 .tag-badge.more-tags:hover {
-  opacity: 1;
-  background: rgba(96, 165, 250, 0.25);
-}
-
-.empty-state p {
-  text-align: center;
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.8);
 }
 
 .empty-state {
-  display: grid;
-  place-items: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
   max-width: 80%;
   margin: 0 auto;
-  padding: 3rem 1rem;
-  color: #ffffff;
+  padding: 4rem 1rem;
+  color: rgba(255, 255, 255, 0.4);
   box-sizing: border-box;
   width: 100%;
+  gap: 12px;
 }
 
-/* 动画样式 */
+.empty-state svg {
+  width: 48px;
+  height: 48px;
+  opacity: 0.3;
+}
+
+.empty-state p {
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
 .animate-slideUp .nav-card {
-  animation: slideUpIn 0.6s ease-out forwards;
+  animation: slideUpIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
   opacity: 0;
-  transform: translateY(30px);
+  transform: translateY(20px);
 }
 
 @keyframes slideUpIn {
-  0% {
-    opacity: 0;
-    transform: translateY(30px);
-  }
-  100% {
-    opacity: 1;
-    transform: translateY(0);
-  }
+  to { opacity: 1; transform: translateY(0); }
 }
 
-.animate-radial .nav-card {
-  animation: radialIn 0.5s ease-out forwards;
+.nav-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 0.75rem 0.5rem;
+  border-radius: 15px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  cursor: pointer;
+  transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+  min-height: 100px;
+  height: auto;
+}
+
+.nav-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 15px;
+  background: linear-gradient(135deg, rgba(57, 157, 255, 0.03) 0%, rgba(99, 102, 241, 0.02) 50%, transparent 100%);
   opacity: 0;
-  transform: scale(0.3);
+  transition: opacity 0.4s;
+  pointer-events: none;
 }
 
-@keyframes radialIn {
-  0% {
-    opacity: 0;
-    transform: scale(0.3);
-  }
-  50% {
-    opacity: 1;
-    transform: scale(1.1);
-  }
-  100% {
-    opacity: 1;
-    transform: scale(1);
-  }
-}
-
-.animate-fadeIn .nav-card {
-  animation: fadeIn 0.6s ease-out forwards;
+.nav-card::after {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  border-radius: 16px;
+  background: conic-gradient(from 0deg at 50% 50%,
+    transparent 0deg, rgba(57, 157, 255, 0.12) 45deg,
+    transparent 90deg, transparent 270deg,
+    rgba(99, 102, 241, 0.08) 315deg, transparent 360deg
+  );
   opacity: 0;
+  transition: opacity 0.5s;
+  pointer-events: none;
+  mask: linear-gradient(#000, #000) content-box, linear-gradient(#000, #000);
+  mask-composite: exclude;
+  -webkit-mask: linear-gradient(#000, #000) content-box, linear-gradient(#000, #000);
+  -webkit-mask-composite: xor;
+  padding: 1px;
 }
 
-@keyframes fadeIn {
-  0% {
-    opacity: 0;
-    transform: translateY(10px);
-  }
-  100% {
-    opacity: 1;
-    transform: translateY(0);
-  }
+.nav-card:hover {
+  background: rgba(255, 255, 255, 0.1);
+  transform: translateY(-3px);
+  box-shadow: 0 12px 40px -8px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(57, 157, 255, 0.08);
+  border-color: rgba(57, 157, 255, 0.15);
 }
 
-.animate-slideLeft .nav-card {
-  animation: slideLeftIn 0.6s ease-out forwards;
-  opacity: 0;
-  transform: translateX(-50px);
+.nav-card:hover::before { opacity: 1; }
+.nav-card:hover::after { opacity: 1; }
+
+.nav-card:active {
+  transform: translateY(-1px) scale(0.98);
 }
 
-@keyframes slideLeftIn {
-  0% {
-    opacity: 0;
-    transform: translateX(-50px);
-  }
-  100% {
-    opacity: 1;
-    transform: translateX(0);
-  }
-}
-
-.animate-slideRight .nav-card {
-  animation: slideRightIn 0.6s ease-out forwards;
-  opacity: 0;
-  transform: translateX(50px);
-}
-
-@keyframes slideRightIn {
-  0% {
-    opacity: 0;
-    transform: translateX(50px);
-  }
-  100% {
-    opacity: 1;
-    transform: translateX(0);
-  }
-}
-
-.animate-convergeIn .nav-card {
-  animation: convergeIn 0.7s ease-out forwards;
-  opacity: 0;
-}
-
-.animate-convergeIn .nav-card:nth-child(6n+1),
-.animate-convergeIn .nav-card:nth-child(6n+6) {
-  transform: translateX(-80px);
-}
-
-.animate-convergeIn .nav-card:nth-child(6n+2),
-.animate-convergeIn .nav-card:nth-child(6n+5) {
-  transform: translateX(-40px);
-}
-
-.animate-convergeIn .nav-card:nth-child(6n+3),
-.animate-convergeIn .nav-card:nth-child(6n+4) {
-  transform: translateY(-30px);
-}
-
-@keyframes convergeIn {
-  0% {
-    opacity: 0;
-  }
-  100% {
-    opacity: 1;
-    transform: translate(0, 0);
-  }
-}
-
-.animate-flipIn .nav-card {
-  animation: flipIn 0.7s ease-out forwards;
-  opacity: 0;
-  transform: rotateY(-90deg);
-}
-
-@keyframes flipIn {
-  0% {
-    opacity: 0;
-    transform: rotateY(-90deg);
-  }
-  50% {
-    opacity: 1;
-    transform: rotateY(-45deg);
-  }
-  100% {
-    opacity: 1;
-    transform: rotateY(0deg);
-  }
+.nav-card:hover .card-icon {
+  transform: scale(1.08);
 }
 
 @media (max-width: 768px) {
@@ -546,7 +436,7 @@ const handleShowDetail = (bookmark) => {
     padding: 0.625rem 0.4rem;
   }
   
-  .card-icon {
+.card-icon {
     width: 32px;
     height: 32px;
   }
@@ -560,24 +450,14 @@ const handleShowDetail = (bookmark) => {
   .cards-container {
     grid-template-columns: repeat(3, 1fr);
   }
-  
   .animate-slideUp .nav-card {
-    animation-duration: 0.4s;
-  }
-  
-  .animate-radial .nav-card {
-    animation-duration: 0.4s;
-  }
-  
-  .animate-slideUp .nav-card,
-  .animate-radial .nav-card {
+    animation-duration: 0.35s;
     animation-delay: 0s !important;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .animate-slideUp .nav-card,
-  .animate-radial .nav-card {
+  .animate-slideUp .nav-card {
     animation: none;
     opacity: 1;
     transform: none;
