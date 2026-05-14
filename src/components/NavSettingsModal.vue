@@ -170,8 +170,8 @@
                       :key="result.id"
                       class="test-result-item"
                     >
-                      <div class="test-source-name">
-                        {{ result.name }}
+                      <div class="test-source-header">
+                        <span class="test-source-name">{{ result.name }}</span>
                         <span v-if="!result.enabled" class="status-disabled">(未启用)</span>
                       </div>
                       <div class="test-result-lines">
@@ -190,7 +190,7 @@
                           <span v-else class="status-disabled">未测试</span>
                         </div>
                       </div>
-                      <div v-if="result.direct.testedUrl" class="result-url">{{ result.direct.testedUrl }}</div>
+                      <div v-if="result.direct.testedUrl" class="test-source-url">{{ result.direct.testedUrl }}</div>
                     </div>
                   </div>
                 </div>
@@ -1737,11 +1737,17 @@ watch(() => props.show, async (newVal) => {
   border-radius: 8px;
 }
 
+.test-source-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
 .test-source-name {
   font-size: 0.8125rem;
   font-weight: 500;
   color: #e2e8f0;
-  margin-bottom: 6px;
 }
 
 .test-result-lines {
@@ -1762,7 +1768,7 @@ watch(() => props.show, async (newVal) => {
   min-width: 32px;
 }
 
-.result-url {
+.test-source-url {
   font-size: 0.625rem;
   color: #64748b;
   margin-top: 4px;
