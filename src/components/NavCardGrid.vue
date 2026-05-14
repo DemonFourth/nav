@@ -73,7 +73,7 @@ const props = defineProps({
 
 const emit = defineEmits(['tag-click', 'show-detail'])
 
-const { iconSources, parseIconSourceUrl, navCardAnimation, navCardBlur } = useSettings()
+const { iconSources, parseIconSourceUrl, navCardAnimation, navCardBlur, navCardOpacity } = useSettings()
 
 const iconErrors = ref({})
 const iconSourceIndexes = ref({})
@@ -101,7 +101,8 @@ function triggerAnimation() {
 function getCardStyle(index) {
   const style = {
     backdropFilter: `blur(${navCardBlur.value}px)`,
-    WebkitBackdropFilter: `blur(${navCardBlur.value}px)`
+    WebkitBackdropFilter: `blur(${navCardBlur.value}px)`,
+    background: `rgba(255, 255, 255, ${navCardOpacity.value / 100})`
   }
   
   if (!animationClass.value) return style
@@ -242,7 +243,6 @@ const handleShowDetail = (bookmark) => {
   align-items: center;
   justify-content: center;
   padding: 0.75rem 0.5rem;
-  background: rgba(255, 255, 255, 0.15);
   border-radius: 15px;
   border: 1px solid rgba(255, 255, 255, 0.12);
   cursor: pointer;

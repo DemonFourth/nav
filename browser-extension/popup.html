@@ -39,21 +39,10 @@
         </div>
 
         <div class="form-group">
-          <label for="category">分类 *</label>
-          <div class="searchable-select" id="category-select">
-            <div class="select-trigger">
-              <span class="select-value">选择分类...</span>
-              <svg class="select-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M6 9l6 6 6-6"/>
-              </svg>
-            </div>
-            <div class="select-dropdown hidden">
-              <input type="text" class="select-search" placeholder="搜索分类...">
-              <div class="select-options"></div>
-            </div>
-            <select id="category" required class="hidden">
-              <option value="">选择分类...</option>
-            </select>
+          <label>分类 *</label>
+          <div class="category-input-container">
+            <input type="text" id="category-input" class="category-input" placeholder="选择分类..." autocomplete="off">
+            <div class="category-suggestions hidden" id="category-suggestions"></div>
           </div>
         </div>
 
@@ -61,7 +50,8 @@
           <label for="tags-input">标签</label>
           <div class="tags-input-container">
             <div class="tags-list" id="tags-list"></div>
-            <input type="text" id="tags-input" placeholder="输入标签后回车添加">
+            <input type="text" id="tags-input" placeholder="输入标签后回车添加" autocomplete="off">
+            <div class="tags-suggestions hidden" id="tags-suggestions"></div>
           </div>
         </div>
 

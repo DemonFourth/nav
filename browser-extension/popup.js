@@ -3,6 +3,7 @@ const TOKEN_RENEW_THRESHOLD = 5 * 60 * 1000; // 剩余5分钟时自动续期
 let settings = {};
 let categories = [];
 let tagItems = [];
+let allTags = [];
 
 function storageGet(area, keys) {
   return new Promise(resolve => chrome.storage[area].get(keys, resolve));
@@ -262,13 +263,53 @@ function renderCategoryOptions(cats, keyword = '') {
 }
 
 function selectCategory(id, path) {
-  const nativeSelect = document.getElementById('category');
-  const selectValue = document.querySelector('.select-value');
+  const input = document.getElementById('category-input');
+  const suggestions = document.getElementById('category-suggestions');
   
-  nativeSelect.value = String(id);
-  selectValue.textContent = path;
+  if (input) input.value = path;
+  hideCategorySuggestions();
+}
+
+function showCategorySuggestions() {
+  const suggestions = document.getElementById('category-suggestions');
+  if (suggestions) suggestions.classList.remove('hidden');
+}
+
+function hideCategorySuggestions() {
+  const suggestions = document.getElementById('category-suggestions');
+  if (suggestions) suggestions.classList.add('hidden');
+}
+
+function renderCategorySuggestions(query = '') {
+  const suggestions = document.getElementById('category-suggestions');
+  if (!suggestions) return;
   
-  closeSelectDropdown();
+  const queryLower = query.toLowerCase();
+  const filtered = categories.filter(cat => {
+    const path = cat?.path || cat?.name || '';
+    return !query || path.toLowerCase().includes(queryLower);
+  });
+  
+  if (filtered.length === 0) {
+    suggestions.innerHTML = '<div class="suggestion-no-results">无匹配分类</div>';
+    showCategorySuggestions();
+    return;
+  }
+  
+  suggestions.innerHTML = filtered.slice(0, 10).map(cat => {
+    const displayPath = cat?.path || cat?.name || '未命名分类';
+    return `<div class="category-suggestion" data-id="${cat.id}" data-path="${displayPath}">${displayPath}</div>`;
+  }).join('');
+  
+  suggestions.querySelectorAll('.category-suggestion').forEach(el => {
+    el.addEventListener('click', () => {
+      selectCategory(el.dataset.id, el.dataset.path);
+      const input = document.getElementById('category-input');
+      if (input) input.value = el.dataset.path;
+    });
+  });
+  
+  showCategorySuggestions();
 }
 
 function addTag(tag) {
@@ -308,9 +349,61 @@ function handleTagInputKeydown(e) {
   if (e.key === 'Enter') {
     e.preventDefault();
     const input = e.target;
-    addTag(input.value);
-    input.value = '';
+    const value = input.value.trim();
+    if (value) {
+      addTag(value);
+      input.value = '';
+    }
+    hideTagSuggestions();
+  } else if (e.key === 'Escape') {
+    hideTagSuggestions();
   }
+}
+
+function showTagSuggestions() {
+  const suggestions = document.getElementById('tags-suggestions');
+  if (suggestions) {
+    suggestions.classList.remove('hidden');
+  }
+}
+
+function hideTagSuggestions() {
+  const suggestions = document.getElementById('tags-suggestions');
+  if (suggestions) {
+    suggestions.classList.add('hidden');
+  }
+}
+
+function renderTagSuggestions(query = '') {
+  const suggestions = document.getElementById('tags-suggestions');
+  if (!suggestions) return;
+  
+  const queryLower = query.toLowerCase();
+  const availableTags = allTags.filter(tag => 
+    !tagItems.includes(tag) && 
+    (!query || tag.toLowerCase().includes(queryLower))
+  );
+  
+  if (availableTags.length === 0) {
+    suggestions.innerHTML = '';
+    hideTagSuggestions();
+    return;
+  }
+  
+  suggestions.innerHTML = availableTags.slice(0, 10).map(tag => 
+    `<div class="tag-suggestion" data-tag="${tag}">${tag}</div>`
+  ).join('');
+  
+  suggestions.querySelectorAll('.tag-suggestion').forEach(el => {
+    el.addEventListener('click', () => {
+      addTag(el.dataset.tag);
+      const input = document.getElementById('tags-input');
+      if (input) input.value = '';
+      hideTagSuggestions();
+    });
+  });
+  
+  showTagSuggestions();
 }
 
 function openSelectDropdown() {
@@ -459,6 +552,48 @@ async function loadCategories() {
   } catch (error) {
     console.error('Failed to load categories:', error);
     initSelectDropdown();
+    return false;
+  }
+}
+
+async function loadTags() {
+  try {
+    await ensureTokenValid();
+    
+    const headers = new Headers();
+    headers.set('Content-Type', 'application/json');
+    if (settings.authToken) {
+      headers.set('Authorization', `Bearer ${settings.authToken}`);
+    }
+
+    const response = await fetch(`${settings.serverUrl}/api/bookmarks?limit=1000`, {
+      method: 'GET',
+      headers
+    });
+    
+    if (!response.ok) {
+      return false;
+    }
+    
+    const result = await response.json();
+    const bookmarks = result.data || [];
+    
+    const tagSet = new Set();
+    bookmarks.forEach(bm => {
+      if (bm.tags) {
+        bm.tags.split(',').forEach(tag => {
+          const trimmed = tag.trim();
+          if (trimmed) {
+            tagSet.add(trimmed);
+          }
+        });
+      }
+    });
+    
+    allTags = Array.from(tagSet).sort();
+    return true;
+  } catch (error) {
+    console.error('Failed to load tags:', error);
     return false;
   }
 }
@@ -673,7 +808,7 @@ async function init() {
     return;
   }
   
-  const categoriesLoaded = await loadCategories();
+  const [categoriesLoaded] = await Promise.all([loadCategories(), loadTags()]);
   
   if (!categoriesLoaded) {
     showSection('auth-section');
@@ -708,7 +843,24 @@ document.addEventListener('DOMContentLoaded', () => {
   
   document.getElementById('ai-category-btn').addEventListener('click', suggestCategory);
   
-  document.getElementById('tags-input').addEventListener('keydown', handleTagInputKeydown);
+  const tagsInput = document.getElementById('tags-input');
+  tagsInput.addEventListener('keydown', handleTagInputKeydown);
+  tagsInput.addEventListener('input', (e) => {
+    const value = e.target.value;
+    if (value.trim()) {
+      renderTagSuggestions(value);
+    } else {
+      renderTagSuggestions();
+    }
+  });
+  tagsInput.addEventListener('focus', () => {
+    if (allTags.length > 0) {
+      renderTagSuggestions();
+    }
+  });
+  tagsInput.addEventListener('blur', () => {
+    setTimeout(hideTagSuggestions, 200);
+  });
 });
 
 chrome.storage.onChanged.addListener((changes, area) => {

@@ -381,6 +381,7 @@ body.dark .select-dropdown {
 
 /* Tags Input Styles */
 .tags-input-container {
+  position: relative;
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
@@ -459,4 +460,45 @@ body.dark .tags-input-container:focus-within {
 #tags-input::placeholder,
 .tag-input::placeholder {
   color: var(--text-muted);
+}
+
+/* Tag Suggestions Dropdown */
+.tags-suggestions {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  margin-top: 4px;
+  background: #fff;
+  border: 1px solid rgba(148, 163, 184, 0.4);
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  z-index: 1000;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+body.dark .tags-suggestions {
+  background: rgba(30, 41, 59, 0.98);
+  border-color: rgba(148, 163, 184, 0.2);
+}
+
+.tag-suggestion {
+  padding: 8px 12px;
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--text);
+  transition: background 0.15s ease;
+}
+
+.tag-suggestion:hover {
+  background: rgba(43, 108, 176, 0.1);
+}
+
+.tag-suggestion:first-child {
+  border-radius: 7px 7px 0 0;
+}
+
+.tag-suggestion:last-child {
+  border-radius: 0 0 7px 7px;
 }

@@ -11,6 +11,7 @@ const randomWallpaper = ref(localStorage.getItem('randomWallpaper') === 'true')
 const wallpaperApi = ref(localStorage.getItem('wallpaperApi') || '')
 const navCardAnimation = ref(localStorage.getItem('navCardAnimation') !== 'false')
 const navCardBlur = ref(Number(localStorage.getItem('navCardBlur') || '4'))
+const navCardOpacity = ref(Number(localStorage.getItem('navCardOpacity') || '15'))
 const navWallpaper = ref(localStorage.getItem('navWallpaper') || 'https://main.ssss.nyc.mn/background.webp')
 const avatarUrl = ref(localStorage.getItem('avatarUrl') || '')
 const displayMode = ref(localStorage.getItem('displayMode') || 'default')
@@ -198,6 +199,11 @@ export function useSettings() {
   const setNavCardBlur = (value) => {
     navCardBlur.value = value
     localStorage.setItem('navCardBlur', value.toString())
+  }
+
+  const setNavCardOpacity = (value) => {
+    navCardOpacity.value = value
+    localStorage.setItem('navCardOpacity', value.toString())
   }
 
   const updateNavWallpaper = (url) => {
@@ -637,6 +643,8 @@ export function useSettings() {
     applyWallpaper,
     removeWallpaper,
     setNavCardBlur,
+    setNavCardOpacity,
+    navCardOpacity,
     loadSettingsFromDB
   }
 }

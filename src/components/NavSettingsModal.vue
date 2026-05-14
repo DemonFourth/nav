@@ -133,6 +133,26 @@
                   </div>
                 </div>
 
+                <div class="setting-item blur-slider-item">
+                  <div class="setting-label">卡片透明度</div>
+                  <div class="blur-slider-container">
+                    <input
+                      type="range"
+                      min="5"
+                      max="50"
+                      :value="navCardOpacity"
+                      @mousedown="sliderActive = true"
+                      @touchstart="sliderActive = true"
+                      @mouseup="sliderActive = false"
+                      @touchend="sliderActive = false"
+                      @mouseleave="sliderActive = false"
+                      @input="e => setNavCardOpacity(Number(e.target.value))"
+                      class="blur-slider"
+                    />
+                    <span class="blur-value">{{ navCardOpacity }}%</span>
+                  </div>
+                </div>
+
                 <div class="setting-item">
                   <div class="setting-label">自定义标题</div>
                   <input
@@ -514,11 +534,11 @@ const emit = defineEmits(['close', 'action'])
 const {
   themeMode, showSearch, hideEmptyCategories, publicMode,
   customTitle, avatarUrl, footerContent, randomWallpaper, wallpaperApi,
-  displayMode, navCardAnimation, navCardBlur, navWallpaper, iconSources, proxyUrl,
+  displayMode, navCardAnimation, navCardBlur, navCardOpacity, navWallpaper, iconSources, proxyUrl,
   toggleSearch, toggleHideEmptyCategories, togglePublicMode,
   updateCustomTitle, updateFooterContent, toggleRandomWallpaper,
   updateWallpaperApi, updateAvatarUrl, toggleDisplayMode,
-  toggleNavCardAnimation, updateNavWallpaper, setNavCardBlur,
+  toggleNavCardAnimation, updateNavWallpaper, setNavCardBlur, setNavCardOpacity,
   toggleIconSourceEnabled, toggleIconSourceLarger,
   moveIconSource, updateProxyUrl
 } = useSettings()
