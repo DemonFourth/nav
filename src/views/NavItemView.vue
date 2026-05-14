@@ -176,11 +176,13 @@ import NavCardGrid from '../components/NavCardGrid.vue'
 import { useBookmarks } from '../composables/useBookmarks'
 import { useSettings } from '../composables/useSettings'
 import { useAuth } from '../composables/useAuth'
+import { useToast } from '../composables/useToast'
 import { buildCategoryTree, getCategoryPath } from '../utils/categoryTree'
 
 const { categories, bookmarks, fetchData, searchTags, updateBookmark } = useBookmarks()
 const { isAuthenticated } = useAuth()
 const { customTitle, navWallpaper, iconSources, parseIconSourceUrl } = useSettings()
+const { error: errorToast } = useToast()
 
 const emit = defineEmits(['open-settings'])
 
@@ -411,19 +413,12 @@ const handleInputBackspace = () => {
 const saveBookmark = async () => {
   if (!detailData.value.bookmark?.id) return
   if (!isAuthenticated.value) return
-  
+
+  const originalBookmark = { ...detailData.value.bookmark }
+
   try {
     const tagsStr = tagItems.value.join(',')
-    await updateBookmark(detailData.value.bookmark.id, {
-      name: detailData.value.bookmark.name,
-      url: detailData.value.bookmark.url,
-      category_id: editForm.value.category_id,
-      description: editForm.value.description,
-      tags: tagsStr,
-      notes: editForm.value.notes,
-      is_private: editForm.value.is_private
-    })
-    
+
     bookmarks.value = bookmarks.value.map(b => {
       if (b.id === detailData.value.bookmark.id) {
         return {
@@ -437,10 +432,36 @@ const saveBookmark = async () => {
       }
       return b
     })
-    
+
+    const result = await updateBookmark(detailData.value.bookmark.id, {
+      name: detailData.value.bookmark.name,
+      url: detailData.value.bookmark.url,
+      category_id: editForm.value.category_id,
+      description: editForm.value.description,
+      tags: tagsStr,
+      notes: editForm.value.notes,
+      is_private: editForm.value.is_private
+    })
+
+    if (!result.success) {
+      bookmarks.value = bookmarks.value.map(b => {
+        if (b.id === originalBookmark.id) return originalBookmark
+        return b
+      })
+      if (result.error) {
+        errorToast(result.error)
+      }
+      return
+    }
+
     closeDetailModal()
   } catch (error) {
+    bookmarks.value = bookmarks.value.map(b => {
+      if (b.id === originalBookmark.id) return originalBookmark
+      return b
+    })
     console.error('Failed to update bookmark:', error)
+    errorToast('保存失败，请重试')
   }
 }
 

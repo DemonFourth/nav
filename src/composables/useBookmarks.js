@@ -232,7 +232,7 @@ export function useBookmarks() {
       }
 
       if (result.success) {
-        await fetchData({ forceRefresh: true })
+        fetchData({ forceRefresh: true })
         return { success: true }
       }
       return { success: false, error: result.error || '更新失败' }

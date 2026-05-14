@@ -109,6 +109,55 @@ src/
 - 使用 `computed()` 处理派生状态
 - 父组件通过 props 接收状态，通过 emit 发送事件
 
+### 乐观更新 + 回滚机制
+
+项目采用**乐观更新**模式，在 API 请求返回前先更新本地状态，提升响应速度。
+
+#### 核心流程（以 `saveBookmark` 为例）
+
+```
+1. 保存原始状态快照（originalBookmark）
+2. 立即更新本地 bookmarks.value（乐观更新）
+3. 发送 PUT 请求 await updateBookmark()
+4. 请求失败 → 回滚 + toast 提示错误
+   请求成功 → closeDetailModal()
+5. fetchData 在后台静默同步（不阻塞 UI）
+```
+
+#### Rollback 机制
+
+mutation 操作（如 `saveBookmark`）在 `try/catch` 中捕获失败：
+
+```javascript
+// 失败时回滚到原始状态
+bookmarks.value = bookmarks.value.map(b => {
+  if (b.id === originalBookmark.id) return originalBookmark
+  return b
+})
+errorToast(result.error || '保存失败，请重试')
+```
+
+#### 后台静默同步
+
+`updateBookmark` 成功后调用 `fetchData({ forceRefresh: true })` **不 await**，让它在后台运行：
+
+```javascript
+if (result.success) {
+  fetchData({ forceRefresh: true })  // 非阻塞，后台同步
+  return { success: true }
+}
+```
+
+这样用户感知到的响应是：弹窗秒关，数据最终一致性由后台 fetch 保证。
+
+#### 已知风险
+
+| 风险 | 处理方式 |
+|------|----------|
+| 服务器更新失败但本地已乐观更新 | catch 中回滚 + toast |
+| 并发冲突（多 Tab 同时修改） | 无特殊处理，下次 fetchData 覆盖 |
+| 网络异常 | 回滚 + toast 提示"保存失败，请重试" |
+
 ### 响应式设计
 - 使用 CSS 媒体查询设置断点（768px、1024px）
 - 采用桌面端优先，移动端覆盖的方式
