@@ -165,14 +165,21 @@
         </div>
       </Transition>
     </Teleport>
+
+    <NavSettingsModal
+      :show="showNavSettings"
+      @close="showNavSettings = false"
+      @action="handleSettingsAction"
+    />
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, watch, nextTick } from 'vue'
 import NavBar from '../components/NavBar.vue'
 import NavSearch from '../components/NavSearch.vue'
 import NavCardGrid from '../components/NavCardGrid.vue'
+import NavSettingsModal from '../components/NavSettingsModal.vue'
 import { useBookmarks } from '../composables/useBookmarks'
 import { useSettings } from '../composables/useSettings'
 import { useAuth } from '../composables/useAuth'
@@ -184,13 +191,14 @@ const { isAuthenticated } = useAuth()
 const { customTitle, navWallpaper, iconSources, parseIconSourceUrl } = useSettings()
 const { error: errorToast } = useToast()
 
-const emit = defineEmits(['open-settings'])
+const emit = defineEmits(['toggleStyle'])
 
 const activeMenu = ref(null)
 const activeSubMenu = ref(null)
 const animationKey = ref(0)
 const navSearchRef = ref(null)
 const showDetailModal = ref(false)
+const showNavSettings = ref(false)
 const detailData = ref({ tag: null, bookmark: null })
 const selectedFilterTag = ref(null)
 const detailIconError = ref(false)
@@ -290,7 +298,7 @@ const handleToggleStyle = () => {
 }
 
 const handleOpenSettings = () => {
-  emit('open-settings')
+  showNavSettings.value = true
 }
 
 onMounted(async () => {
@@ -523,6 +531,11 @@ const handleDetailIconError = () => {
   } else {
     detailIconError.value = true
   }
+}
+
+const handleSettingsAction = (action) => {
+  console.log('Settings action:', action)
+  showNavSettings.value = false
 }
 </script>
 
