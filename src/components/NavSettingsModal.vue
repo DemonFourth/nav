@@ -170,17 +170,27 @@
                       :key="result.id"
                       class="test-result-item"
                     >
-                      <div class="test-source-info">
-                        <span class="source-name">{{ result.name }}</span>
+                      <div class="test-source-name">
+                        {{ result.name }}
                         <span v-if="!result.enabled" class="status-disabled">(未启用)</span>
                       </div>
-                      <div class="test-result-row">
-                        <span v-if="result.loading" class="status-loading">⟳ 测试中</span>
-                        <span v-else-if="result.success" class="status-success">✓ {{ result.size }} {{ result.duration }}ms</span>
-                        <span v-else-if="result.error" class="status-error">✗ {{ result.error }}</span>
-                        <span v-else class="status-disabled">待测试</span>
+                      <div class="test-result-lines">
+                        <div class="test-result-line">
+                          <span class="result-label">直接:</span>
+                          <span v-if="!result.enabled" class="status-disabled">⊘ 未启用</span>
+                          <span v-else-if="result.direct.loading" class="status-loading">⟳ 测试中</span>
+                          <span v-else-if="result.direct.success" class="status-success">✓ {{ result.direct.size }} {{ result.direct.duration }}ms</span>
+                          <span v-else class="status-error">✗ {{ result.direct.error }}</span>
+                        </div>
+                        <div v-if="proxyUrl" class="test-result-line">
+                          <span class="result-label">代理:</span>
+                          <span v-if="result.proxy.loading" class="status-loading">⟳ 测试中</span>
+                          <span v-else-if="result.proxy.success" class="status-success">✓ {{ result.proxy.size }} {{ result.proxy.duration }}ms</span>
+                          <span v-else-if="result.proxy.testedUrl" class="status-error">✗ {{ result.proxy.error }}</span>
+                          <span v-else class="status-disabled">未测试</span>
+                        </div>
                       </div>
-                      <div v-if="result.testedUrl" class="result-url">{{ result.testedUrl }}</div>
+                      <div v-if="result.direct.testedUrl" class="result-url">{{ result.direct.testedUrl }}</div>
                     </div>
                   </div>
                 </div>
@@ -579,12 +589,8 @@ const handleTestAll = async () => {
     name: source.name,
     url: source.url,
     enabled: source.enabled,
-    loading: true,
-    success: false,
-    error: null,
-    size: null,
-    duration: null,
-    testedUrl: null
+    direct: { loading: true, success: false, error: null, size: null, duration: null, testedUrl: null },
+    proxy: { loading: false, success: false, error: null, size: null, duration: null, testedUrl: null }
   }))
 
   try {
@@ -600,26 +606,55 @@ const handleTestAll = async () => {
         iconUrl += iconUrl.includes('?') ? '&larger=true' : '?larger=true'
       }
 
-      result.testedUrl = iconUrl
-      const startTime = Date.now()
+      result.direct.testedUrl = iconUrl
 
-      try {
-        const img = new Image()
-        await new Promise((resolve, reject) => {
-          img.onload = resolve
-          img.onerror = () => reject(new Error('加载失败'))
-          img.src = iconUrl
-        })
-
-        result.success = true
-        result.size = `${img.width}x${img.height}`
-        result.duration = Date.now() - startTime
-      } catch (err) {
-        result.success = false
-        result.error = err.message || '请求失败'
-        result.duration = Date.now() - startTime
+      if (!result.enabled) {
+        result.direct.loading = false
+        result.direct.success = false
+        result.direct.error = '未启用'
+      } else {
+        const startTime = Date.now()
+        try {
+          const img = new Image()
+          await new Promise((resolve, reject) => {
+            img.onload = resolve
+            img.onerror = () => reject(new Error('加载失败'))
+            img.src = iconUrl
+          })
+          result.direct.success = true
+          result.direct.size = `${img.width}x${img.height}`
+          result.direct.duration = Date.now() - startTime
+        } catch (err) {
+          result.direct.success = false
+          result.direct.error = err.message || '请求失败'
+          result.direct.duration = Date.now() - startTime
+        }
+        result.direct.loading = false
       }
-      result.loading = false
+
+      if (proxyUrl.value) {
+        result.proxy.loading = true
+        const proxyIconUrl = proxyUrl.value + encodeURIComponent(iconUrl)
+        result.proxy.testedUrl = proxyIconUrl
+
+        const startTime2 = Date.now()
+        try {
+          const img2 = new Image()
+          await new Promise((resolve, reject) => {
+            img2.onload = resolve
+            img2.onerror = () => reject(new Error('加载失败'))
+            img2.src = proxyIconUrl
+          })
+          result.proxy.success = true
+          result.proxy.size = `${img2.width}x${img2.height}`
+          result.proxy.duration = Date.now() - startTime2
+        } catch (err) {
+          result.proxy.success = false
+          result.proxy.error = err.message || '请求失败'
+          result.proxy.duration = Date.now() - startTime2
+        }
+        result.proxy.loading = false
+      }
     }))
   } finally {
     isTesting.value = false
@@ -1702,24 +1737,29 @@ watch(() => props.show, async (newVal) => {
   border-radius: 8px;
 }
 
-.test-source-info {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 6px;
-}
-
-.test-source-info .source-name {
+.test-source-name {
   font-size: 0.8125rem;
   font-weight: 500;
   color: #e2e8f0;
+  margin-bottom: 6px;
 }
 
-.test-result-row {
+.test-result-lines {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.test-result-line {
   display: flex;
   align-items: center;
   gap: 8px;
   font-size: 0.75rem;
+}
+
+.result-label {
+  color: #64748b;
+  min-width: 32px;
 }
 
 .result-url {
