@@ -721,7 +721,7 @@
 </template>
 
 <script setup>
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, onMounted } from 'vue'
 import { useSettings } from '@/composables/useSettings'
 import { useTheme } from '@/composables/useTheme'
 import { useAuth } from '@/composables/useAuth'
@@ -814,7 +814,29 @@ const themeModes = [
 
 const totalBookmarks = computed(() => bookmarks.value.length)
 const privateBookmarks = computed(() => bookmarks.value.filter(b => b.is_private).length)
-const emptyCategoryCount = computed(() => categories.value.filter(c => !c.parent_id && (!c.bookmarks || c.bookmarks.length === 0)).length)
+const emptyCategoryCount = ref(0)
+
+const checkEmptyCategories = async () => {
+  try {
+    const response = await fetch('/api/cleanup-empty-categories', {
+      headers: { 'Authorization': `Bearer ${localStorage.getItem('authToken') || ''}` }
+    })
+    const result = await response.json()
+    if (result.success) {
+      emptyCategoryCount.value = result.count || 0
+    }
+  } catch (error) {
+    console.error('Failed to check empty categories:', error)
+  }
+}
+
+watch(() => categories.value, () => {
+  checkEmptyCategories()
+}, { deep: true })
+
+onMounted(() => {
+  checkEmptyCategories()
+})
 
 const versionInfo = computed(() => {
   const stored = localStorage.getItem('version')
