@@ -148,37 +148,39 @@
 
                 <div class="setting-group">
                   <div class="group-header">图标获取设置</div>
-                  <div class="icon-sources-list">
-                    <div
-                      v-for="(source, index) in iconSources"
-                      :key="source.id"
-                      class="icon-source-item"
+                  <div class="icon-test-controls">
+                    <input
+                      v-model="testDomain"
+                      type="text"
+                      placeholder="输入域名，如：google.com"
+                      class="setting-input"
+                      @keyup.enter="handleTestAll"
+                    />
+                    <button
+                      class="btn-test-all"
+                      @click="handleTestAll"
+                      :disabled="isTesting || !testDomain.trim()"
                     >
-                      <div class="source-info">
-                        <div class="source-name">{{ source.name }}</div>
-                        <div class="source-url">{{ source.url }}</div>
+                      {{ isTesting ? '测试中...' : '测试全部' }}
+                    </button>
+                  </div>
+                  <div v-if="testResults.length > 0" class="test-results">
+                    <div
+                      v-for="result in testResults"
+                      :key="result.id"
+                      class="test-result-item"
+                    >
+                      <div class="test-source-info">
+                        <span class="source-name">{{ result.name }}</span>
+                        <span v-if="!result.enabled" class="status-disabled">(未启用)</span>
                       </div>
-                      <div class="source-actions">
-                        <label class="toggle-switch small">
-                          <input
-                            type="checkbox"
-                            :checked="source.enabled"
-                            @change="() => toggleIconSourceEnabled(source.id)"
-                          />
-                          <span class="toggle-slider"></span>
-                        </label>
-                        <button
-                          class="btn-icon-test"
-                          title="测试"
-                          @click="() => testIconSourceHandler(source.url)"
-                        >
-                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/>
-                            <polyline points="14 2 14 8 20 8"/>
-                            <path d="m9 15 2 2 4-4"/>
-                          </svg>
-                        </button>
+                      <div class="test-result-row">
+                        <span v-if="result.loading" class="status-loading">⟳ 测试中</span>
+                        <span v-else-if="result.success" class="status-success">✓ {{ result.size }} {{ result.duration }}ms</span>
+                        <span v-else-if="result.error" class="status-error">✗ {{ result.error }}</span>
+                        <span v-else class="status-disabled">待测试</span>
                       </div>
+                      <div v-if="result.testedUrl" class="result-url">{{ result.testedUrl }}</div>
                     </div>
                   </div>
                 </div>
@@ -484,7 +486,7 @@ const {
   updateWallpaperApi, updateAvatarUrl, toggleDisplayMode,
   toggleNavCardAnimation, updateNavWallpaper,
   toggleIconSourceEnabled, toggleIconSourceLarger,
-  moveIconSource, updateProxyUrl, testIconSource
+  moveIconSource, updateProxyUrl
 } = useSettings()
 
 const { isDark, setThemeMode } = useTheme()
@@ -495,6 +497,9 @@ const { success: toastSuccess, error: toastError } = useToast()
 
 const activeTab = ref('appearance')
 const avatarInput = ref(null)
+const testDomain = ref('')
+const isTesting = ref(false)
+const testResults = ref([])
 
 const tabs = [
   { id: 'appearance', name: '外观' },
@@ -565,16 +570,59 @@ const handleNavWallpaperChange = (value) => {
   updateNavWallpaper(value)
 }
 
-const testIconSourceHandler = async (url) => {
-  if (!url) {
-    toastError('无效的图标源 URL')
-    return
-  }
-  const result = await testIconSource(url)
-  if (result.success) {
-    toastSuccess(`图标源测试成功 (${result.duration}ms)`)
-  } else {
-    toastError(result.error || '测试失败')
+const handleTestAll = async () => {
+  if (!testDomain.value.trim()) return
+
+  isTesting.value = true
+  testResults.value = iconSources.value.map(source => ({
+    id: source.id,
+    name: source.name,
+    url: source.url,
+    enabled: source.enabled,
+    loading: true,
+    success: false,
+    error: null,
+    size: null,
+    duration: null,
+    testedUrl: null
+  }))
+
+  try {
+    await Promise.all(testResults.value.map(async (result) => {
+      const source = iconSources.value.find(s => s.id === result.id)
+      const useLarger = source?.useLarger || false
+
+      let iconUrl = result.url
+        .replace('{domain}', testDomain.value)
+        .replace('{origin}', `https://${testDomain.value}`)
+
+      if (useLarger) {
+        iconUrl += iconUrl.includes('?') ? '&larger=true' : '?larger=true'
+      }
+
+      result.testedUrl = iconUrl
+      const startTime = Date.now()
+
+      try {
+        const img = new Image()
+        await new Promise((resolve, reject) => {
+          img.onload = resolve
+          img.onerror = () => reject(new Error('加载失败'))
+          img.src = iconUrl
+        })
+
+        result.success = true
+        result.size = `${img.width}x${img.height}`
+        result.duration = Date.now() - startTime
+      } catch (err) {
+        result.success = false
+        result.error = err.message || '请求失败'
+        result.duration = Date.now() - startTime
+      }
+      result.loading = false
+    }))
+  } finally {
+    isTesting.value = false
   }
 }
 
@@ -1608,6 +1656,93 @@ watch(() => props.show, async (newVal) => {
 
 .toggle-switch.small input:checked + .toggle-slider::before {
   transform: translateX(16px);
+}
+
+.icon-test-controls {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.icon-test-controls .setting-input {
+  flex: 1;
+}
+
+.btn-test-all {
+  padding: 8px 16px;
+  background: rgba(59, 130, 246, 0.2);
+  color: #60a5fa;
+  border: 1px solid rgba(59, 130, 246, 0.3);
+  border-radius: 8px;
+  font-size: 0.8125rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.btn-test-all:hover:not(:disabled) {
+  background: rgba(59, 130, 246, 0.3);
+}
+
+.btn-test-all:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.test-results {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.test-result-item {
+  padding: 10px 12px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 8px;
+}
+
+.test-source-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.test-source-info .source-name {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: #e2e8f0;
+}
+
+.test-result-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.75rem;
+}
+
+.result-url {
+  font-size: 0.625rem;
+  color: #64748b;
+  margin-top: 4px;
+  word-break: break-all;
+}
+
+.status-success {
+  color: #4ade80;
+}
+
+.status-error {
+  color: #f87171;
+}
+
+.status-loading {
+  color: #60a5fa;
+}
+
+.status-disabled {
+  color: #64748b;
 }
 
 /* Modal Animation */
