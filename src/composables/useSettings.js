@@ -16,7 +16,7 @@ const displayMode = ref(localStorage.getItem('displayMode') || 'default')
 
 // 图标源配置
 const defaultIconSources = [
-  { id: '1', name: 'Favicon.im (大)', url: 'https://favicon.im/{domain}', enabled: true, useLarger: false },
+  { id: '1', name: 'Favicon.im', url: 'https://favicon.im/{domain}', enabled: true, useLarger: false },
   { id: '2', name: 'Icon Horse', url: 'https://icon.horse/icon/{domain}', enabled: true, useLarger: false },
   { id: '3', name: 'Favicon Extractor', url: 'https://www.faviconextractor.com/favicon/{domain}', enabled: true, useLarger: false },
   { id: '4', name: 'DuckDuckGo', url: 'https://icons.duckduckgo.com/ip3/{domain}.ico', enabled: false, useLarger: false },

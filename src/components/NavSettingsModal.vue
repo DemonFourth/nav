@@ -903,6 +903,18 @@ watch(() => props.show, async (newVal) => {
   border-radius: 12px;
 }
 
+.setting-group .group-header {
+  margin-bottom: 4px;
+}
+
+.setting-group .icon-test-controls {
+  margin-bottom: 4px;
+}
+
+.setting-group .test-results {
+  margin-top: 4px;
+}
+
 .setting-group .setting-item {
   padding: 10px 12px;
 }
