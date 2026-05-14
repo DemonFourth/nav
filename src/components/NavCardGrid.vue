@@ -244,7 +244,7 @@ const handleShowDetail = (bookmark) => {
   justify-content: center;
   padding: 0.75rem 0.5rem;
   border-radius: 15px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  border: 1px solid transparent;
   cursor: pointer;
   transition: all 0.2s ease;
   min-height: 100px;

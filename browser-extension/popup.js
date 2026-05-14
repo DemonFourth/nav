@@ -861,8 +861,29 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
   categoryInput.addEventListener('blur', () => {
-    setTimeout(hideCategorySuggestions, 200);
+    setTimeout(hideCategorySuggestions, 300);
   });
+  categoryInput.addEventListener('mousedown', (e) => {
+    e.preventDefault();
+    if (categories.length > 0) {
+      renderCategorySuggestions();
+    }
+    categoryInput.focus();
+  });
+});
+
+document.addEventListener('mousedown', (e) => {
+  const tagsInput = document.getElementById('tags-input');
+  const tagsSuggestions = document.getElementById('tags-suggestions');
+  const categoryInput = document.getElementById('category-input');
+  const categorySuggestions = document.getElementById('category-suggestions');
+  
+  if (tagsInput && !tagsInput.contains(e.target) && tagsSuggestions && !tagsSuggestions.contains(e.target)) {
+    hideTagSuggestions();
+  }
+  if (categoryInput && !categoryInput.contains(e.target) && categorySuggestions && !categorySuggestions.contains(e.target)) {
+    hideCategorySuggestions();
+  }
 });
 
 chrome.storage.onChanged.addListener((changes, area) => {
