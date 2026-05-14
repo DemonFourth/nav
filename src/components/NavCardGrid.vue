@@ -9,7 +9,7 @@
         @click="handleCardClick(bookmark)"
         :title="bookmark.name + '\n' + bookmark.url"
       >
-        <button class="card-detail-btn" @click.stop="handleShowDetail(bookmark)" title="查看详情">
+        <button v-if="isAuthenticated" class="card-detail-btn" @click.stop="handleShowDetail(bookmark)" title="查看详情">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <circle cx="12" cy="12" r="10"/>
             <line x1="12" y1="16" x2="12" y2="12"/>
@@ -64,6 +64,10 @@ const props = defineProps({
   bookmarks: {
     type: Array,
     default: () => []
+  },
+  isAuthenticated: {
+    type: Boolean,
+    default: false
   }
 })
 

@@ -23,6 +23,7 @@
       <NavCardGrid 
         :key="animationKey" 
         :bookmarks="currentBookmarks"
+        :isAuthenticated="isAuthenticated"
         @tag-click="handleTagClick"
         @show-detail="handleShowDetail"
       />
@@ -174,9 +175,11 @@ import NavSearch from '../components/NavSearch.vue'
 import NavCardGrid from '../components/NavCardGrid.vue'
 import { useBookmarks } from '../composables/useBookmarks'
 import { useSettings } from '../composables/useSettings'
+import { useAuth } from '../composables/useAuth'
 import { buildCategoryTree, getCategoryPath } from '../utils/categoryTree'
 
 const { categories, bookmarks, fetchData, searchTags, updateBookmark } = useBookmarks()
+const { isAuthenticated } = useAuth()
 const { customTitle, navWallpaper, iconSources, parseIconSourceUrl } = useSettings()
 
 const emit = defineEmits(['open-settings'])
@@ -407,10 +410,13 @@ const handleInputBackspace = () => {
 
 const saveBookmark = async () => {
   if (!detailData.value.bookmark?.id) return
+  if (!isAuthenticated.value) return
   
   try {
     const tagsStr = tagItems.value.join(',')
     await updateBookmark(detailData.value.bookmark.id, {
+      name: detailData.value.bookmark.name,
+      url: detailData.value.bookmark.url,
       category_id: editForm.value.category_id,
       description: editForm.value.description,
       tags: tagsStr,
