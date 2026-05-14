@@ -871,10 +871,12 @@ document.addEventListener('DOMContentLoaded', () => {
       renderTagSuggestions();
     }
   });
-  tagsInput.addEventListener('focus', () => {
+  tagsInput.addEventListener('mousedown', (e) => {
+    e.preventDefault();
     if (allTags.length > 0) {
       renderTagSuggestions();
     }
+    tagsInput.focus();
   });
   tagsInput.addEventListener('blur', () => {
     setTimeout(hideTagSuggestions, 300);
@@ -890,11 +892,6 @@ document.addEventListener('DOMContentLoaded', () => {
   const categoryInput = document.getElementById('category-input');
   categoryInput.addEventListener('input', (e) => {
     renderCategorySuggestions(e.target.value);
-  });
-  categoryInput.addEventListener('focus', () => {
-    if (categories.length > 0) {
-      renderCategorySuggestions();
-    }
   });
   categoryInput.addEventListener('blur', () => {
     setTimeout(hideCategorySuggestions, 300);

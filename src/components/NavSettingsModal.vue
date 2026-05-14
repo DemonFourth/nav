@@ -83,25 +83,53 @@
 
                   <div v-if="randomWallpaper" class="setting-item nested">
                     <div class="setting-label">壁纸 API</div>
-                    <input
-                      type="text"
-                      class="setting-input"
-                      :value="wallpaperApi"
-                      placeholder="输入壁纸 API 地址"
-                      @change="e => updateWallpaperApi(e.target.value)"
-                    />
+                    <div class="history-input-wrap">
+                      <input
+                        type="text"
+                        class="setting-input"
+                        :value="wallpaperApi"
+                        placeholder="输入壁纸 API 地址"
+                        @change="e => updateWallpaperApi(e.target.value)"
+                        @focus="showApiHistory = true"
+                        @blur="onApiHistoryBlur"
+                      />
+                      <div v-if="showApiHistory && wallpaperApiHistory.length > 0" class="history-dropdown">
+                        <div
+                          v-for="(item, i) in wallpaperApiHistory"
+                          :key="i"
+                          class="history-item"
+                          @mousedown.prevent="selectApiHistory(item)"
+                        >
+                          {{ item }}
+                        </div>
+                      </div>
+                    </div>
                   </div>
 
                   <div class="setting-item">
                     <div class="setting-label">自定义壁纸</div>
-                    <input
-                      type="text"
-                      class="setting-input"
-                      :value="randomWallpaper ? '' : navWallpaper"
-                      placeholder="输入壁纸 URL"
-                      :disabled="randomWallpaper"
-                      @change="e => handleNavWallpaperChange(e.target.value)"
-                    />
+                    <div class="history-input-wrap">
+                      <input
+                        type="text"
+                        class="setting-input"
+                        :value="randomWallpaper ? '' : navWallpaper"
+                        placeholder="输入壁纸 URL"
+                        :disabled="randomWallpaper"
+                        @change="e => handleNavWallpaperChange(e.target.value)"
+                        @focus="showWallpaperHistory = true"
+                        @blur="onWallpaperHistoryBlur"
+                      />
+                      <div v-if="showWallpaperHistory && navWallpaperHistory.length > 0" class="history-dropdown">
+                        <div
+                          v-for="(item, i) in navWallpaperHistory"
+                          :key="i"
+                          class="history-item"
+                          @mousedown.prevent="selectWallpaperHistory(item)"
+                        >
+                          {{ item }}
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </div>
 
@@ -542,7 +570,8 @@ const {
   updateWallpaperApi, updateAvatarUrl, toggleDisplayMode,
   toggleNavCardAnimation, updateNavWallpaper, setNavCardBlur, setNavCardOpacity,
   toggleIconSourceEnabled, toggleIconSourceLarger,
-  moveIconSource, updateProxyUrl
+  moveIconSource, updateProxyUrl,
+  navWallpaperHistory, wallpaperApiHistory
 } = useSettings()
 
 const { isDark, setThemeMode } = useTheme()
@@ -554,6 +583,8 @@ const { success: toastSuccess, error: toastError } = useToast()
 const activeTab = ref('appearance')
 const avatarInput = ref(null)
 const sliderActive = ref(false)
+const showApiHistory = ref(false)
+const showWallpaperHistory = ref(false)
 const testDomain = ref('')
 const isTesting = ref(false)
 const testResults = ref([])
@@ -630,6 +661,24 @@ const handleRandomWallpaperToggle = () => {
 const handleNavWallpaperChange = (value) => {
   if (randomWallpaper.value) return
   updateNavWallpaper(value)
+}
+
+const onApiHistoryBlur = () => {
+  setTimeout(() => { showApiHistory.value = false }, 200)
+}
+
+const onWallpaperHistoryBlur = () => {
+  setTimeout(() => { showWallpaperHistory.value = false }, 200)
+}
+
+const selectApiHistory = (item) => {
+  updateWallpaperApi(item)
+  showApiHistory.value = false
+}
+
+const selectWallpaperHistory = (item) => {
+  updateNavWallpaper(item)
+  showWallpaperHistory.value = false
 }
 
 const handleTestAll = async () => {
@@ -1074,7 +1123,7 @@ watch(() => props.show, async (newVal) => {
 
 .setting-input {
   flex: 1;
-  max-width: 280px;
+  max-width: 420px;
   padding: 8px 12px;
   background: rgba(255, 255, 255, 0.05);
   border: 1px solid rgba(255, 255, 255, 0.1);
@@ -1894,6 +1943,52 @@ watch(() => props.show, async (newVal) => {
   color: #94a3b8;
   min-width: 36px;
   text-align: right;
+}
+
+.history-input-wrap {
+  position: relative;
+  flex: 1;
+  max-width: 420px;
+}
+
+.history-input-wrap .setting-input {
+  max-width: 100%;
+  width: 100%;
+}
+
+.history-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 100;
+  background: #1e293b;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  margin-top: 4px;
+  max-height: 180px;
+  overflow-y: auto;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+}
+
+.history-item {
+  padding: 8px 12px;
+  font-size: 0.75rem;
+  color: #cbd5e1;
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.history-item:last-child {
+  border-bottom: none;
+}
+
+.history-item:hover {
+  background: rgba(59, 130, 246, 0.15);
+  color: #60a5fa;
 }
 
 /* Modal Animation */

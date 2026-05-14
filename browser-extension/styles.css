@@ -16,7 +16,8 @@ body {
   background: var(--bg);
   color: var(--text);
   width: 320px;
-  min-height: 460px;
+  height: 480px;
+  overflow: hidden;
 }
 
 body.dark {
