@@ -165,32 +165,37 @@
                     </button>
                   </div>
                   <div v-if="testResults.length > 0" class="test-results">
-                    <div
-                      v-for="result in testResults"
-                      :key="result.id"
-                      class="test-result-item"
-                    >
-                      <div class="test-source-header">
-                        <span class="test-source-name">{{ result.name }}</span>
-                        <span v-if="result.direct.testedUrl" class="test-source-url">{{ result.direct.testedUrl }}</span>
-                      </div>
-                      <div class="test-result-lines">
-                        <div class="test-result-line">
-                          <span class="result-label">直接:</span>
-                          <span v-if="!result.enabled" class="status-disabled">⊘ 未启用</span>
-                          <span v-else-if="result.direct.loading" class="status-loading">⟳ 测试中</span>
-                          <span v-else-if="result.direct.success" class="status-success">✓ {{ result.direct.size }} {{ result.direct.duration }}ms</span>
-                          <span v-else class="status-error">✗ {{ result.direct.error }}</span>
-                        </div>
-                        <div v-if="proxyUrl" class="test-result-line">
-                          <span class="result-label">代理:</span>
-                          <span v-if="result.proxy.loading" class="status-loading">⟳ 测试中</span>
-                          <span v-else-if="result.proxy.success" class="status-success">✓ {{ result.proxy.size }} {{ result.proxy.duration }}ms</span>
-                          <span v-else-if="result.proxy.testedUrl" class="status-error">✗ {{ result.proxy.error }}</span>
-                          <span v-else class="status-disabled">未测试</span>
-                        </div>
-                      </div>
-                    </div>
+                    <table class="test-table">
+                      <thead>
+                        <tr>
+                          <th>图标源</th>
+                          <th>直连</th>
+                          <th v-if="proxyUrl">代理</th>
+                          <th>URL</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr v-for="result in testResults" :key="result.id">
+                          <td class="source-name-cell">
+                            {{ result.name }}
+                            <span v-if="!result.enabled" class="status-disabled">(未启用)</span>
+                          </td>
+                          <td>
+                            <span v-if="!result.enabled" class="status-disabled">⊘</span>
+                            <span v-else-if="result.direct.loading" class="status-loading">⟳</span>
+                            <span v-else-if="result.direct.success" class="status-success">✓ {{ result.direct.size }} {{ result.direct.duration }}ms</span>
+                            <span v-else class="status-error">✗ {{ result.direct.error }}</span>
+                          </td>
+                          <td v-if="proxyUrl">
+                            <span v-if="result.proxy.loading" class="status-loading">⟳</span>
+                            <span v-else-if="result.proxy.success" class="status-success">✓ {{ result.proxy.size }} {{ result.proxy.duration }}ms</span>
+                            <span v-else-if="result.proxy.testedUrl" class="status-error">✗ {{ result.proxy.error }}</span>
+                            <span v-else class="status-disabled">-</span>
+                          </td>
+                          <td class="url-cell">{{ result.direct.testedUrl }}</td>
+                        </tr>
+                      </tbody>
+                    </table>
                   </div>
                 </div>
 
@@ -1724,66 +1729,47 @@ watch(() => props.show, async (newVal) => {
 }
 
 .test-results {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
+  overflow-x: auto;
 }
 
-.test-result-item {
-  padding: 10px 12px;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: 8px;
-}
-
-.test-source-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 6px;
-}
-
-.test-source-name {
-  font-size: 0.8125rem;
-  font-weight: 500;
-  color: #e2e8f0;
-  flex-shrink: 0;
-}
-
-.test-source-url {
-  font-size: 0.625rem;
-  color: #64748b;
-  max-width: 55%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  text-align: right;
-}
-
-.test-result-lines {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.test-result-line {
-  display: flex;
-  align-items: center;
-  gap: 8px;
+.test-table {
+  width: 100%;
+  border-collapse: collapse;
   font-size: 0.75rem;
 }
 
-.result-label {
-  color: #64748b;
-  min-width: 32px;
+.test-table th {
+  text-align: left;
+  padding: 8px 10px;
+  background: rgba(255, 255, 255, 0.05);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  color: #94a3b8;
+  font-weight: 500;
+  white-space: nowrap;
 }
 
-.test-source-url {
+.test-table td {
+  padding: 10px 10px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  color: #e2e8f0;
+}
+
+.test-table tr:last-child td {
+  border-bottom: none;
+}
+
+.source-name-cell {
+  font-weight: 500;
+  color: #e2e8f0;
+}
+
+.url-cell {
   font-size: 0.625rem;
   color: #64748b;
-  margin-top: 4px;
-  word-break: break-all;
+  max-width: 250px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .status-success {
