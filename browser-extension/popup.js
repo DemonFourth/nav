@@ -529,29 +529,17 @@ async function loadCategories() {
     
     categories = sortCategories(categories);
     
-    const nativeSelect = document.getElementById('category');
-    nativeSelect.innerHTML = '<option value="">选择分类...</option>';
-    
-    categories.forEach(cat => {
-      const option = document.createElement('option');
-      option.value = String(cat.id);
-      option.textContent = cat.path || cat.name || '未命名分类';
-      nativeSelect.appendChild(option);
-    });
-    
     if (categories.length > 0) {
-      nativeSelect.value = String(categories[0].id);
-      const selectValue = document.querySelector('.select-value');
-      if (selectValue) {
-        selectValue.textContent = categories[0].path || categories[0].name;
+      const categoryInput = document.getElementById('category-input');
+      if (categoryInput) {
+        categoryInput.value = categories[0].path || categories[0].name;
+        categoryInput.dataset.selectedId = String(categories[0].id);
       }
     }
     
-    initSelectDropdown();
     return true;
   } catch (error) {
     console.error('Failed to load categories:', error);
-    initSelectDropdown();
     return false;
   }
 }
@@ -741,7 +729,8 @@ async function saveBookmark(event) {
   const title = document.getElementById('title').value.trim();
   const url = document.getElementById('url').value.trim();
   const description = document.getElementById('description').value.trim();
-  const categoryId = document.getElementById('category').value;
+  const categoryInput = document.getElementById('category-input');
+  const categoryId = categoryInput?.dataset?.selectedId || '';
   const isPrivate = document.getElementById('is-private').checked;
   
   if (!title || !url || !categoryId) {
@@ -860,6 +849,19 @@ document.addEventListener('DOMContentLoaded', () => {
   });
   tagsInput.addEventListener('blur', () => {
     setTimeout(hideTagSuggestions, 200);
+  });
+  
+  const categoryInput = document.getElementById('category-input');
+  categoryInput.addEventListener('input', (e) => {
+    renderCategorySuggestions(e.target.value);
+  });
+  categoryInput.addEventListener('focus', () => {
+    if (categories.length > 0) {
+      renderCategorySuggestions();
+    }
+  });
+  categoryInput.addEventListener('blur', () => {
+    setTimeout(hideCategorySuggestions, 200);
   });
 });
 

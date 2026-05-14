@@ -138,8 +138,8 @@
                   <div class="blur-slider-container">
                     <input
                       type="range"
-                      min="5"
-                      max="50"
+                      min="0"
+                      max="100"
                       :value="navCardOpacity"
                       @mousedown="sliderActive = true"
                       @touchstart="sliderActive = true"
