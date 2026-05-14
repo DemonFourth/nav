@@ -1,7 +1,7 @@
 <template>
   <Teleport to="body">
     <Transition name="modal">
-      <div v-if="show" class="nav-settings-overlay" @click="handleClose">
+      <div v-if="show" class="nav-settings-overlay" :class="{ 'slider-active': sliderActive }" @click="handleClose">
         <div class="nav-settings-modal" @click.stop>
           <div class="settings-header">
             <h2 class="settings-title">设置</h2>
@@ -111,6 +111,26 @@
                     <input type="checkbox" :checked="navCardAnimation" @change="toggleNavCardAnimation" />
                     <span class="toggle-slider"></span>
                   </label>
+                </div>
+
+                <div class="setting-item blur-slider-item">
+                  <div class="setting-label">卡片毛玻璃</div>
+                  <div class="blur-slider-container">
+                    <input
+                      type="range"
+                      min="0"
+                      max="20"
+                      :value="navCardBlur"
+                      @mousedown="sliderActive = true"
+                      @touchstart="sliderActive = true"
+                      @mouseup="sliderActive = false"
+                      @touchend="sliderActive = false"
+                      @mouseleave="sliderActive = false"
+                      @input="e => setNavCardBlur(Number(e.target.value))"
+                      class="blur-slider"
+                    />
+                    <span class="blur-value">{{ navCardBlur }}px</span>
+                  </div>
                 </div>
 
                 <div class="setting-item">
@@ -494,11 +514,11 @@ const emit = defineEmits(['close', 'action'])
 const {
   themeMode, showSearch, hideEmptyCategories, publicMode,
   customTitle, avatarUrl, footerContent, randomWallpaper, wallpaperApi,
-  displayMode, navCardAnimation, navWallpaper, iconSources, proxyUrl,
+  displayMode, navCardAnimation, navCardBlur, navWallpaper, iconSources, proxyUrl,
   toggleSearch, toggleHideEmptyCategories, togglePublicMode,
   updateCustomTitle, updateFooterContent, toggleRandomWallpaper,
   updateWallpaperApi, updateAvatarUrl, toggleDisplayMode,
-  toggleNavCardAnimation, updateNavWallpaper,
+  toggleNavCardAnimation, updateNavWallpaper, setNavCardBlur,
   toggleIconSourceEnabled, toggleIconSourceLarger,
   moveIconSource, updateProxyUrl
 } = useSettings()
@@ -511,6 +531,7 @@ const { success: toastSuccess, error: toastError } = useToast()
 
 const activeTab = ref('appearance')
 const avatarInput = ref(null)
+const sliderActive = ref(false)
 const testDomain = ref('')
 const isTesting = ref(false)
 const testResults = ref([])
@@ -1798,6 +1819,54 @@ watch(() => props.show, async (newVal) => {
 
 .status-disabled {
   color: #64748b;
+}
+
+.nav-settings-overlay.slider-active {
+  opacity: 0.15 !important;
+  pointer-events: none;
+}
+
+.blur-slider-item {
+  flex-wrap: wrap;
+}
+
+.blur-slider-container {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+  width: 100%;
+}
+
+.blur-slider {
+  flex: 1;
+  height: 6px;
+  -webkit-appearance: none;
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 3px;
+  outline: none;
+  cursor: pointer;
+}
+
+.blur-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 18px;
+  height: 18px;
+  background: #60a5fa;
+  border-radius: 50%;
+  cursor: pointer;
+  transition: transform 0.15s;
+}
+
+.blur-slider::-webkit-slider-thumb:hover {
+  transform: scale(1.2);
+}
+
+.blur-value {
+  font-size: 0.75rem;
+  color: #94a3b8;
+  min-width: 36px;
+  text-align: right;
 }
 
 /* Modal Animation */

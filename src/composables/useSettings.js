@@ -10,6 +10,7 @@ const publicMode = ref(localStorage.getItem('publicMode') !== 'false')
 const randomWallpaper = ref(localStorage.getItem('randomWallpaper') === 'true')
 const wallpaperApi = ref(localStorage.getItem('wallpaperApi') || '')
 const navCardAnimation = ref(localStorage.getItem('navCardAnimation') !== 'false')
+const navCardBlur = ref(Number(localStorage.getItem('navCardBlur') || '4'))
 const navWallpaper = ref(localStorage.getItem('navWallpaper') || 'https://main.ssss.nyc.mn/background.webp')
 const avatarUrl = ref(localStorage.getItem('avatarUrl') || '')
 const displayMode = ref(localStorage.getItem('displayMode') || 'default')
@@ -192,6 +193,11 @@ export function useSettings() {
   const toggleNavCardAnimation = () => {
     navCardAnimation.value = !navCardAnimation.value
     localStorage.setItem('navCardAnimation', navCardAnimation.value.toString())
+  }
+
+  const setNavCardBlur = (value) => {
+    navCardBlur.value = value
+    localStorage.setItem('navCardBlur', value.toString())
   }
 
   const updateNavWallpaper = (url) => {
@@ -606,6 +612,7 @@ export function useSettings() {
     displayMode,
     iconSources,
     proxyUrl,
+    navCardBlur,
     toggleSearch,
     toggleHideEmptyCategories,
     updateCustomTitle,
@@ -629,6 +636,7 @@ export function useSettings() {
     fetchIconWithFallback,
     applyWallpaper,
     removeWallpaper,
+    setNavCardBlur,
     loadSettingsFromDB
   }
 }

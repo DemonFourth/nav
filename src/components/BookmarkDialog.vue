@@ -61,12 +61,38 @@
           <div class="form-group">
             <label>分类 *</label>
             <div class="category-input-group">
-              <select v-model="form.category_id">
-                <option value="">请选择分类</option>
-                <option v-for="cat in categoryOptions" :key="cat.id" :value="cat.id">
-                  {{ cat.displayName }}
-                </option>
-              </select>
+              <div class="custom-select" :class="{ open: selectOpen }">
+                <div class="select-trigger" @click="selectOpen = !selectOpen">
+                  <span class="select-value">{{ selectedCategoryName || '请选择分类' }}</span>
+                  <svg class="select-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M6 9l6 6 6-6"/>
+                  </svg>
+                </div>
+                <div v-if="selectOpen" class="select-dropdown">
+                  <input 
+                    v-model="selectSearch"
+                    type="text"
+                    class="select-search"
+                    placeholder="搜索分类..."
+                    @click.stop
+                    ref="selectSearchInput"
+                  />
+                  <div class="select-options">
+                    <div 
+                      v-for="cat in filteredCategoryOptions" 
+                      :key="cat.id"
+                      class="select-option"
+                      :class="{ selected: cat.id === form.category_id }"
+                      @click="selectCategory(cat)"
+                    >
+                      {{ cat.displayName }}
+                    </div>
+                    <div v-if="filteredCategoryOptions.length === 0" class="select-no-results">
+                      未找到分类
+                    </div>
+                  </div>
+                </div>
+              </div>
               <button
                 v-if="aiEnabled && categoryOptions.length"
                 type="button"
@@ -89,8 +115,39 @@
           
           <div class="form-group">
             <label>标签</label>
-            <input v-model="form.tags" type="text" placeholder="用逗号分隔多个标签，例如：工作,学习,开发">
-            <p class="field-hint">💡 可以添加多个标签，用逗号分隔</p>
+            <div class="tags-input-container">
+              <div class="tags-list">
+                <span 
+                  v-for="(tag, index) in tagItems" 
+                  :key="index"
+                  class="tag-item"
+                  :class="{ editing: editingTagIndex === index }"
+                  @dblclick="startEditTag(index)"
+                >
+                  <input 
+                    v-if="editingTagIndex === index"
+                    v-model="tagItems[index]"
+                    type="text"
+                    class="tag-edit-input"
+                    @keydown.enter="finishEditTag"
+                    @keydown.backspace="handleTagBackspace(index)"
+                    @blur="finishEditTag"
+                    ref="tagEditInput"
+                  />
+                  <span v-else>{{ tag }}</span>
+                  <button v-if="editingTagIndex !== index" class="tag-remove" @click="removeTag(index)">×</button>
+                </span>
+              </div>
+              <input 
+                v-model="newTagInput"
+                type="text"
+                class="tag-input"
+                placeholder="输入标签后回车添加"
+                @keydown.enter.prevent="addTag"
+                @keydown.backspace="handleInputBackspace"
+              />
+            </div>
+            <p class="field-hint">💡 双击标签可编辑，回车保存</p>
           </div>
           
           <div class="form-group">
@@ -127,7 +184,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, nextTick } from 'vue'
 import { useBookmarks } from '../composables/useBookmarks'
 import { useToast } from '../composables/useToast'
 import { useAI } from '../composables/useAI'
@@ -145,6 +202,13 @@ const fetching = ref(false)
 const generatingDesc = ref(false)
 const suggestingCategory = ref(false)
 const aiSuggestion = ref('')
+const selectOpen = ref(false)
+const selectSearch = ref('')
+const tagItems = ref([])
+const newTagInput = ref('')
+const editingTagIndex = ref(null)
+const tagEditInput = ref(null)
+const selectSearchInput = ref(null)
 
 const form = ref({
   name: '',
@@ -168,6 +232,63 @@ const categoryOptions = computed(() => {
   }))
 })
 
+const selectedCategoryName = computed(() => {
+  if (!form.value.category_id) return ''
+  const cat = categoryOptions.value.find(c => c.id === form.value.category_id)
+  return cat?.displayName || ''
+})
+
+const filteredCategoryOptions = computed(() => {
+  if (!selectSearch.value) return categoryOptions.value
+  const query = selectSearch.value.toLowerCase()
+  return categoryOptions.value.filter(cat =>
+    cat.displayName.toLowerCase().includes(query)
+  )
+})
+
+const selectCategory = (cat) => {
+  form.value.category_id = cat.id
+  selectOpen.value = false
+  selectSearch.value = ''
+}
+
+const addTag = () => {
+  const tag = newTagInput.value.trim()
+  if (tag && !tagItems.value.includes(tag)) {
+    tagItems.value.push(tag)
+    newTagInput.value = ''
+  }
+}
+
+const removeTag = (index) => {
+  tagItems.value.splice(index, 1)
+}
+
+const startEditTag = (index) => {
+  editingTagIndex.value = index
+  nextTick(() => {
+    if (tagEditInput.value && tagEditInput.value[index]) {
+      tagEditInput.value[index].focus()
+    }
+  })
+}
+
+const finishEditTag = () => {
+  editingTagIndex.value = null
+}
+
+const handleTagBackspace = (index) => {
+  if (editingTagIndex.value === null && newTagInput.value === '' && tagItems.value.length > 0) {
+    tagItems.value.pop()
+  }
+}
+
+const handleInputBackspace = () => {
+  if (newTagInput.value === '' && tagItems.value.length > 0 && editingTagIndex.value === null) {
+    tagItems.value.pop()
+  }
+}
+
 const open = (bookmark = null, options = {}) => {
   if (bookmark) {
     isEdit.value = true
@@ -182,6 +303,7 @@ const open = (bookmark = null, options = {}) => {
       tags: bookmark.tags || '',
       notes: bookmark.notes || ''
     }
+    tagItems.value = bookmark.tags ? bookmark.tags.split(',').map(t => t.trim()).filter(Boolean) : []
   } else {
     isEdit.value = false
     editId.value = null
@@ -196,10 +318,15 @@ const open = (bookmark = null, options = {}) => {
       tags: '',
       notes: ''
     }
+    tagItems.value = []
   }
   
   error.value = ''
   aiSuggestion.value = ''
+  selectOpen.value = false
+  selectSearch.value = ''
+  newTagInput.value = ''
+  editingTagIndex.value = null
   show.value = true
 }
 
@@ -208,6 +335,10 @@ const close = () => {
   aiSuggestion.value = ''
   generatingDesc.value = false
   suggestingCategory.value = false
+  selectOpen.value = false
+  selectSearch.value = ''
+  newTagInput.value = ''
+  editingTagIndex.value = null
 }
 
 const fetchMetadata = async () => {
@@ -343,7 +474,8 @@ const handleSubmit = async () => {
   const payload = {
     ...form.value,
     category_id: parsedCategoryId,
-    is_private: !!form.value.is_private
+    is_private: !!form.value.is_private,
+    tags: tagItems.value.join(',')
   }
   
   const result = isEdit.value
@@ -515,6 +647,181 @@ defineExpose({
   font-size: 0.8rem;
   color: var(--text-secondary);
   line-height: 1.4;
+}
+
+.custom-select {
+  position: relative;
+  flex: 1;
+}
+
+.select-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.65rem 0.875rem;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.select-trigger:hover {
+  border-color: var(--primary);
+}
+
+.custom-select.open .select-trigger {
+  border-color: var(--primary);
+}
+
+.select-value {
+  color: var(--text);
+  font-size: 0.9rem;
+}
+
+.select-trigger .select-value:empty::before {
+  content: '请选择分类';
+  color: var(--text-secondary);
+}
+
+.select-arrow {
+  width: 16px;
+  height: 16px;
+  stroke-width: 2;
+  color: var(--text-secondary);
+  transition: transform 0.2s;
+}
+
+.custom-select.open .select-arrow {
+  transform: rotate(180deg);
+}
+
+.select-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  margin-top: 0.25rem;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  z-index: 1000;
+}
+
+.select-search {
+  width: 100%;
+  padding: 0.65rem 0.875rem;
+  border: none;
+  border-bottom: 1px solid var(--border);
+  background: transparent;
+  font-size: 0.9rem;
+  color: var(--text);
+  outline: none;
+}
+
+.select-options {
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.select-option {
+  padding: 0.65rem 0.875rem;
+  cursor: pointer;
+  transition: var(--transition);
+  color: var(--text);
+}
+
+.select-option:hover {
+  background: var(--bg-secondary);
+}
+
+.select-option.selected {
+  background: var(--primary);
+  color: white;
+}
+
+.select-no-results {
+  padding: 0.65rem 0.875rem;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  text-align: center;
+}
+
+.tags-input-container {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.tags-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  min-height: 32px;
+}
+
+.tag-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.3rem 0.5rem;
+  background: var(--primary);
+  color: white;
+  border-radius: var(--radius-sm);
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+.tag-item.editing {
+  background: var(--bg-secondary);
+  color: var(--text);
+}
+
+.tag-edit-input {
+  width: 80px;
+  padding: 0.2rem 0.4rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: 0.8rem;
+  background: white;
+  color: var(--text);
+}
+
+.tag-remove {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  background: rgba(255, 255, 255, 0.3);
+  border: none;
+  border-radius: 50%;
+  color: white;
+  cursor: pointer;
+  font-size: 0.9rem;
+  line-height: 1;
+}
+
+.tag-remove:hover {
+  background: rgba(255, 255, 255, 0.5);
+}
+
+.tag-input {
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: 0.9rem;
+  background: var(--bg);
+  color: var(--text);
+  outline: none;
+  transition: var(--transition);
+}
+
+.tag-input:focus {
+  border-color: var(--primary);
 }
 
 /* Mobile optimization */

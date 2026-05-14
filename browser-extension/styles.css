@@ -378,3 +378,86 @@ body.dark .select-dropdown {
   font-size: 14px;
   color: var(--text-muted);
 }
+
+/* Tags Input Styles */
+.tags-input-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 6px 10px;
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(148, 163, 184, 0.4);
+  border-radius: 8px;
+  min-height: 34px;
+  align-items: center;
+  transition: border-color 0.2s ease;
+}
+
+.tags-input-container:focus-within {
+  border-color: var(--primary);
+}
+
+body.dark .tags-input-container {
+  background: rgba(15, 23, 42, 0.9);
+  border-color: rgba(148, 163, 184, 0.2);
+}
+
+body.dark .tags-input-container:focus-within {
+  border-color: var(--primary);
+}
+
+.tags-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.tag-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  background: var(--primary);
+  color: white;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.tag-remove {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  padding: 0;
+  background: rgba(255, 255, 255, 0.3);
+  border: none;
+  border-radius: 50%;
+  color: white;
+  cursor: pointer;
+  font-size: 12px;
+  line-height: 1;
+  transition: background 0.15s ease;
+}
+
+.tag-remove:hover {
+  background: rgba(255, 255, 255, 0.5);
+}
+
+#tags-input,
+.tag-input {
+  flex: 1;
+  min-width: 120px;
+  padding: 4px 0;
+  border: none;
+  font-size: 14px;
+  background: transparent;
+  color: inherit;
+  outline: none;
+}
+
+#tags-input::placeholder,
+.tag-input::placeholder {
+  color: var(--text-muted);
+}

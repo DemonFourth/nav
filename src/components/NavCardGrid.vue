@@ -73,7 +73,7 @@ const props = defineProps({
 
 const emit = defineEmits(['tag-click', 'show-detail'])
 
-const { iconSources, parseIconSourceUrl, navCardAnimation } = useSettings()
+const { iconSources, parseIconSourceUrl, navCardAnimation, navCardBlur } = useSettings()
 
 const iconErrors = ref({})
 const iconSourceIndexes = ref({})
@@ -240,8 +240,8 @@ const handleShowDetail = (bookmark) => {
   justify-content: center;
   padding: 0.75rem 0.5rem;
   background: rgba(255, 255, 255, 0.15);
-  backdrop-filter: blur(4px);
-  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(v-bind(navCardBlur)px);
+  -webkit-backdrop-filter: blur(v-bind(navCardBlur)px);
   border-radius: 15px;
   border: 1px solid rgba(255, 255, 255, 0.12);
   cursor: pointer;

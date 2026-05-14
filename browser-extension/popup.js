@@ -2,6 +2,7 @@ const TOKEN_TTL = 15 * 60 * 1000;
 const TOKEN_RENEW_THRESHOLD = 5 * 60 * 1000; // 剩余5分钟时自动续期
 let settings = {};
 let categories = [];
+let tagItems = [];
 
 function storageGet(area, keys) {
   return new Promise(resolve => chrome.storage[area].get(keys, resolve));
@@ -268,6 +269,48 @@ function selectCategory(id, path) {
   selectValue.textContent = path;
   
   closeSelectDropdown();
+}
+
+function addTag(tag) {
+  const trimmed = tag.trim();
+  if (trimmed && !tagItems.includes(trimmed)) {
+    tagItems.push(trimmed);
+    renderTags();
+  }
+}
+
+function removeTag(index) {
+  tagItems.splice(index, 1);
+  renderTags();
+}
+
+function renderTags() {
+  const tagsList = document.getElementById('tags-list');
+  if (!tagsList) return;
+  
+  tagsList.innerHTML = '';
+  tagItems.forEach((tag, index) => {
+    const span = document.createElement('span');
+    span.className = 'tag-item';
+    span.innerHTML = `${tag}<button type="button" class="tag-remove" data-index="${index}">×</button>`;
+    tagsList.appendChild(span);
+  });
+  
+  document.querySelectorAll('.tag-remove').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      removeTag(parseInt(btn.dataset.index, 10));
+    });
+  });
+}
+
+function handleTagInputKeydown(e) {
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    const input = e.target;
+    addTag(input.value);
+    input.value = '';
+  }
 }
 
 function openSelectDropdown() {
@@ -589,7 +632,8 @@ async function saveBookmark(event) {
         description: description || null,
         icon: null,
         category_id: parseInt(categoryId, 10),
-        is_private: isPrivate
+        is_private: isPrivate,
+        tags: tagItems.join(',')
       })
     });
     
@@ -663,6 +707,8 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('ai-btn').addEventListener('click', generateDescription);
   
   document.getElementById('ai-category-btn').addEventListener('click', suggestCategory);
+  
+  document.getElementById('tags-input').addEventListener('keydown', handleTagInputKeydown);
 });
 
 chrome.storage.onChanged.addListener((changes, area) => {
