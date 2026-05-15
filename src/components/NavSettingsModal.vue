@@ -5,7 +5,7 @@
         <div class="nav-settings-modal" @click.stop>
           <aside class="settings-sidebar">
             <div class="sidebar-header">
-              <span class="sidebar-title">{{ $t?.('settings') || '设置' }}</span>
+              <span class="sidebar-title">设置</span>
               <button class="sidebar-close" @click="handleClose">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
                   <path d="M18 6L6 18M6 6l12 12"/>
@@ -420,7 +420,7 @@
                   </div>
                   <div class="category-tree-menu">
                     <div v-if="dragState.draggingId" class="drag-hint-menu">{{ dragHintText }}</div>
-                    <div v-for="category in categoryTree" :key="category.id" class="tree-section-menu">
+                    <div v-for="(category, idx) in categoryTree" :key="category.id" class="tree-section-menu">
                       <!-- Root Category -->
                       <div
                         class="tree-item-menu root-item-menu"
@@ -1070,6 +1070,7 @@ const {
   pendingChanges,
   formOriginal,
   initialDataSnapshot,
+  captureInitialSnapshot,
   resetForm,
   applyFormChanges,
   confirmDelete,
@@ -1191,6 +1192,18 @@ const checkEmptyCategories = async () => {
 
 watch(() => categories.value, () => {
   checkEmptyCategories()
+  // Auto capture initial snapshot when data loads and snapshot is empty
+  if (categories.value.length > 0 && initialDataSnapshot.value.length === 0) {
+    captureInitialSnapshot()
+  }
+  // Auto expand root categories to show second level
+  if (categories.value.length > 0 && expandedCategoryIds.value.length === 0) {
+    categoryTree.value.forEach(cat => {
+      if (cat.children?.length > 0 && !expandedCategoryIds.value.includes(cat.id)) {
+        expandedCategoryIds.value.push(cat.id)
+      }
+    })
+  }
 }, { deep: true })
 
 onMounted(() => {

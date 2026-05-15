@@ -246,18 +246,22 @@ export function useCategoryEditor() {
     )
   }
 
-  // Move child item (local only)
+  // Move child item (local only) - works on categories.value directly
   function moveChildItem(parentId, childId, direction) {
-    const parent = categoryTree.value.find(c => c.id === parentId)
-    if (!parent?.children) return
-    const idx = parent.children.findIndex(c => c.id === childId)
+    const siblings = categories.value
+      .filter(c => (c.parent_id ?? null) === (parentId ?? null))
+      .sort((a, b) => a.position - b.position)
+    const idx = siblings.findIndex(c => c.id === childId)
     const newIdx = idx + direction
-    if (newIdx < 0 || newIdx >= parent.children.length) return
+    if (newIdx < 0 || newIdx >= siblings.length) return
 
     const oldPos = idx + 1
-    const [item] = parent.children.splice(idx, 1)
-    parent.children.splice(newIdx, 0, item)
+    // Swap positions
+    const tempPos = siblings[idx].position
+    siblings[idx].position = siblings[newIdx].position
+    siblings[newIdx].position = tempPos
 
+    const item = siblings[idx]
     recordChange({
       type: 'reorder',
       id: childId,
@@ -273,17 +277,22 @@ export function useCategoryEditor() {
     return parent.children?.findIndex(c => c.id === child.id) ?? -1
   }
 
-  // Move root item position
+  // Move root item position - works on categories.value directly
   function moveRootItem(id, direction) {
-    const tree = categoryTree.value
-    const idx = tree.findIndex(c => c.id === id)
+    const siblings = categories.value
+      .filter(c => c.parent_id == null)
+      .sort((a, b) => a.position - b.position)
+    const idx = siblings.findIndex(c => c.id === id)
     const newIdx = idx + direction
-    if (newIdx < 0 || newIdx >= tree.length) return
+    if (newIdx < 0 || newIdx >= siblings.length) return
 
     const oldPos = idx + 1
-    const [item] = tree.splice(idx, 1)
-    tree.splice(newIdx, 0, item)
+    // Swap positions
+    const tempPos = siblings[idx].position
+    siblings[idx].position = siblings[newIdx].position
+    siblings[newIdx].position = tempPos
 
+    const item = siblings[idx]
     recordChange({
       type: 'reorder',
       id,
@@ -346,29 +355,25 @@ export function useCategoryEditor() {
       return
     }
 
-    const draggedItem = findItem(draggingId)
-    if (!draggedItem) {
+    const draggedCat = categories.value.find(c => c.id === draggingId)
+    if (!draggedCat) {
       onDragEnd()
       return
     }
 
-    const oldParent = findParent(draggingId)
-    const oldParentId = oldParent ? oldParent.id : null
+    const oldParentId = draggedCat.parent_id ?? null
     const oldPath = getPath(draggingId)
-
-    // Remove from old position
-    removeItemById(draggingId)
 
     let newParentId = null
     let newPos = 0
 
     if (position === 'child') {
       // Make it a child of target
-      if (!category.children) category.children = []
-      category.children.push(draggedItem)
-      draggedItem.parent_id = targetId
       newParentId = targetId
-      newPos = category.children.length
+      const siblings = categories.value
+        .filter(c => (c.parent_id ?? null) === targetId)
+        .sort((a, b) => a.position - b.position)
+      newPos = siblings.length + 1
 
       // Auto-expand target
       if (!expandedCategoryIds.value.includes(targetId)) {
@@ -376,17 +381,42 @@ export function useCategoryEditor() {
       }
     } else {
       // Insert before or after target
-      const targetParent = findParentOf(targetId)
-      const siblings = targetParent ? targetParent.children : categoryTree.value
-
+      const targetCat = categories.value.find(c => c.id === targetId)
+      newParentId = targetCat?.parent_id ?? null
+      const siblings = categories.value
+        .filter(c => (c.parent_id ?? null) === newParentId)
+        .sort((a, b) => a.position - b.position)
       const targetIdx = siblings.findIndex(s => s.id === targetId)
+      // If dragging item is in the same sibling group, adjust index
+      const isSameGroup = (draggedCat.parent_id ?? null) === newParentId
       const insertIdx = position === 'before' ? targetIdx : targetIdx + 1
-
-      siblings.splice(insertIdx, 0, draggedItem)
-      draggedItem.parent_id = targetParent ? targetParent.id : null
-      newParentId = targetParent ? targetParent.id : null
-      newPos = insertIdx + 1
+      newPos = isSameGroup && insertIdx > siblings.findIndex(s => s.id === draggingId)
+        ? insertIdx
+        : insertIdx + 1
     }
+
+    // Update the dragged category directly in categories.value
+    draggedCat.parent_id = newParentId
+    draggedCat.position = newPos
+
+    // Recalculate positions for affected sibling groups
+    // Old parent siblings
+    const oldSiblings = categories.value
+      .filter(c => (c.parent_id ?? null) === oldParentId && c.id !== draggingId)
+      .sort((a, b) => a.position - b.position)
+    oldSiblings.forEach((c, i) => { c.position = i + 1 })
+
+    // New parent siblings
+    const newSiblings = categories.value
+      .filter(c => (c.parent_id ?? null) === newParentId && c.id !== draggingId)
+      .sort((a, b) => a.position - b.position)
+    newSiblings.forEach((c, i) => { c.position = i + 1 })
+
+    // Re-sort to ensure correct order
+    const finalSiblings = categories.value
+      .filter(c => (c.parent_id ?? null) === newParentId)
+      .sort((a, b) => a.position - b.position)
+    finalSiblings.forEach((c, i) => { c.position = i + 1 })
 
     const newPath = getPath(draggingId)
 
@@ -396,24 +426,25 @@ export function useCategoryEditor() {
       recordChange({
         type: 'move',
         id: draggingId,
-        name: draggedItem.name,
+        name: draggedCat.name,
         oldParentId,
         newParentId,
         oldPath,
         newPath
       })
     } else {
+      const oldIdx = oldSiblings.findIndex(s => s.id === draggingId)
       recordChange({
         type: 'reorder',
         id: draggingId,
-        name: draggedItem.name,
+        name: draggedCat.name,
         parentId: newParentId,
-        oldPos: editForm.position,
+        oldPos: oldIdx + 1,
         newPos
       })
     }
 
-    toastSuccess(`已移动 "${draggedItem.name}"`)
+    toastSuccess(`已移动 "${draggedCat.name}"`)
     onDragEnd()
   }
 
@@ -433,15 +464,15 @@ export function useCategoryEditor() {
     editForm.maxPosition = siblings.length
   }
 
-  // Apply form changes (local only + record pending)
+  // Apply form changes (local only + record pending) - works on categories.value directly
   function applyFormChanges() {
     if (!selectedCategoryId.value) return
 
-    const item = findItem(selectedCategoryId.value)
+    const item = categories.value.find(c => c.id === selectedCategoryId.value)
     if (!item) return
 
     const oldName = item.name
-    const oldParentId = item.parent_id || null
+    const oldParentId = item.parent_id ?? null
     const newName = editForm.name
     const newParentId = editForm.parentId
 
@@ -486,7 +517,7 @@ export function useCategoryEditor() {
     toastSuccess('已应用更改')
   }
 
-  // Confirm add category (local only)
+  // Confirm add category (local only) - works on categories.value directly
   async function confirmAddCategory(name, parentId = null) {
     if (!name || !name.trim()) {
       toastError('分类名称不能为空')
@@ -496,28 +527,24 @@ export function useCategoryEditor() {
     // Create a temp ID for the new category
     const tempId = 'temp_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7)
 
+    // Calculate position
+    const siblings = categories.value
+      .filter(c => (c.parent_id ?? null) === (parentId ?? null))
+      .sort((a, b) => a.position - b.position)
+    const newPos = siblings.length + 1
+
     const newCategory = {
       id: tempId,
       name: name.trim(),
       parent_id: parentId,
-      position: 0,
-      is_private: false,
-      children: []
+      position: newPos,
+      is_private: false
     }
 
-    if (parentId) {
-      const parent = findItem(parentId)
-      if (parent) {
-        if (!parent.children) parent.children = []
-        parent.children.push(newCategory)
-        newCategory.position = parent.children.length
-        if (!expandedCategoryIds.value.includes(parentId)) {
-          expandedCategoryIds.value.push(parentId)
-        }
-      }
-    } else {
-      categories.value.push(newCategory)
-      newCategory.position = categories.value.length
+    categories.value.push(newCategory)
+
+    if (parentId && !expandedCategoryIds.value.includes(parentId)) {
+      expandedCategoryIds.value.push(parentId)
     }
 
     recordChange({
@@ -532,20 +559,34 @@ export function useCategoryEditor() {
     return { success: true, id: tempId }
   }
 
-  // Confirm delete (local only)
+  // Confirm delete (local only) - works on categories.value directly
   async function confirmDelete(id) {
     if (!id) return { success: false }
 
-    const item = findItem(id)
+    const item = categories.value.find(c => c.id === id)
     if (!item) return { success: false }
 
-    const childCount = item.children?.length || 0
+    // Count descendants using tree for display
+    const treeItem = findItem(id)
+    const childCount = treeItem?.children?.length || 0
+
     if (!confirm(`确定要删除分类 "${item.name}" 吗？${childCount > 0 ? `此分类下有 ${childCount} 个子分类，它们也会被一并删除。` : ''}此操作不可恢复。`)) {
       return { success: false }
     }
 
     const itemPath = getPath(id)
-    removeItemById(id)
+
+    // Collect all IDs to delete (item + descendants)
+    const idsToDelete = new Set()
+    function collectDescendants(catId) {
+      idsToDelete.add(catId)
+      const children = categories.value.filter(c => (c.parent_id ?? null) === catId)
+      children.forEach(c => collectDescendants(c.id))
+    }
+    collectDescendants(id)
+
+    // Remove from categories.value
+    categories.value = categories.value.filter(c => !idsToDelete.has(c.id))
 
     recordChange({
       type: 'delete',
@@ -574,18 +615,18 @@ export function useCategoryEditor() {
     const rollbackSnapshot = deepClone(categories.value)
 
     try {
-      // Build reorder payload: flatten category tree
+      // Build reorder payload: flatten category tree with computed positions
       function flattenTree(tree, result = []) {
-        for (const node of tree) {
+        tree.forEach((node, idx) => {
           result.push({
             id: node.id,
-            position: node.position,
+            position: idx + 1,
             parent_id: node.parent_id || null
           })
           if (node.children?.length) {
             flattenTree(node.children, result)
           }
-        }
+        })
         return result
       }
 
@@ -702,6 +743,7 @@ export function useCategoryEditor() {
     pendingChanges,
     formOriginal,
     initialDataSnapshot,
+    captureInitialSnapshot,
     resetForm,
     applyFormChanges,
     confirmDelete,
