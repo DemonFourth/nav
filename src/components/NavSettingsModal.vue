@@ -2601,16 +2601,28 @@ textarea.setting-input {
 }
 
 .item-expand-menu {
-  background: none;
-  border: none;
-  padding: 2px;
-  cursor: pointer;
-  color: var(--text-muted);
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--nav-bg-tertiary);
+  border: 1px solid var(--card-border);
+  padding: 0;
   display: flex;
+  align-items: center;
+  justify-content: center;
   flex-shrink: 0;
+  transition: all 0.2s;
+}
+
+.item-expand-menu:hover {
+  background: var(--accent-alpha-10);
+  border-color: var(--accent);
+  color: var(--accent);
 }
 
 .item-expand-menu svg {
+  width: 10px;
+  height: 10px;
   transition: transform 0.2s;
 }
 

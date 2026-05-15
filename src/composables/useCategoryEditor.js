@@ -258,15 +258,16 @@ export function useCategoryEditor() {
     if (newIdx < 0 || newIdx >= siblings.length) return
 
     const oldPos = idx + 1
-    // Swap positions
-    const tempPos = siblings[idx].position
-    siblings[idx].position = siblings[newIdx].position
-    siblings[newIdx].position = tempPos
+
+    // Reorder: splice out and insert at new position, then recalculate all positions
+    const [moved] = siblings.splice(idx, 1)
+    siblings.splice(newIdx, 0, moved)
+    siblings.forEach((c, i) => { c.position = i + 1 })
 
     // Trigger Vue reactivity
     categories.value = [...categories.value]
 
-    const item = siblings[idx]
+    const item = moved
     recordChange({
       type: 'reorder',
       id: childId,
@@ -292,15 +293,16 @@ export function useCategoryEditor() {
     if (newIdx < 0 || newIdx >= siblings.length) return
 
     const oldPos = idx + 1
-    // Swap positions
-    const tempPos = siblings[idx].position
-    siblings[idx].position = siblings[newIdx].position
-    siblings[newIdx].position = tempPos
+
+    // Reorder: splice out and insert at new position, then recalculate all positions
+    const [moved] = siblings.splice(idx, 1)
+    siblings.splice(newIdx, 0, moved)
+    siblings.forEach((c, i) => { c.position = i + 1 })
 
     // Trigger Vue reactivity
     categories.value = [...categories.value]
 
-    const item = siblings[idx]
+    const item = moved
     recordChange({
       type: 'reorder',
       id,
