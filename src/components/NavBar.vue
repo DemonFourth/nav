@@ -14,7 +14,7 @@
               <button 
                 class="menu-trigger"
                 :class="{ active: activeMenu?.id === menu.id }"
-                @click="$emit('select-menu', menu)"
+                @click="handleSelectMenu(menu)"
               >
                 <span class="menu-text">{{ menu.name }}</span>
                 <svg 
@@ -41,7 +41,7 @@
                   :key="sub.id"
                   :item="sub"
                   :active-id="activeSubMenu?.id"
-                  @select="(item) => $emit('select-submenu', menu, item)"
+                  @select="(item) => handleSelectSubmenu(menu, item)"
                 />
               </div>
             </div>
@@ -131,10 +131,28 @@ const { isAuthenticated, username, logout } = useAuth()
 
 const hoveredMenuId = ref(null)
 const hideTimeout = ref(null)
+const autoCloseTimeout = ref(null)
 const showUserMenu = ref(false)
 const loginModalRef = ref(null)
 
+const cancelAutoClose = () => {
+  if (autoCloseTimeout.value) {
+    clearTimeout(autoCloseTimeout.value)
+    autoCloseTimeout.value = null
+  }
+}
+
+const scheduleAutoClose = () => {
+  cancelAutoClose()
+  if (window.innerWidth <= 768) {
+    autoCloseTimeout.value = setTimeout(() => {
+      hoveredMenuId.value = null
+    }, 2000)
+  }
+}
+
 const showSubMenu = (menuId) => {
+  cancelAutoClose()
   if (hideTimeout.value) {
     clearTimeout(hideTimeout.value)
     hideTimeout.value = null
@@ -143,6 +161,7 @@ const showSubMenu = (menuId) => {
 }
 
 const keepSubmenu = (menuId) => {
+  cancelAutoClose()
   if (hideTimeout.value) {
     clearTimeout(hideTimeout.value)
     hideTimeout.value = null
@@ -156,6 +175,22 @@ const hideSubMenu = (menuId) => {
       hoveredMenuId.value = null
     }
   }, 150)
+}
+
+const handleSelectMenu = (menu) => {
+  emit('select-menu', menu)
+  scheduleAutoClose()
+  if (window.innerWidth <= 768) {
+    hoveredMenuId.value = menu.id
+  }
+}
+
+const handleSelectSubmenu = (menu, item) => {
+  emit('select-submenu', menu, item)
+  scheduleAutoClose()
+  if (window.innerWidth <= 768) {
+    hoveredMenuId.value = menu.id
+  }
 }
 
 const toggleUserMenu = () => {
@@ -194,11 +229,11 @@ const vClickOutside = {
   right: 0;
   z-index: 100;
   display: flex;
-  background: rgba(15, 23, 42, 0.55);
+  background: var(--nav-glass);
   backdrop-filter: blur(20px) saturate(1.4);
   -webkit-backdrop-filter: blur(20px) saturate(1.4);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  border-bottom: 1px solid var(--nav-border);
+  box-shadow: inset 0 1px 0 var(--nav-border);
 }
 
 .nav-left-space { flex: 0 0 10%; }
@@ -234,18 +269,20 @@ const vClickOutside = {
   background: transparent;
   border: none;
   border-radius: 8px;
-  color: rgba(255, 255, 255, 0.75);
+  color: var(--nav-text);
   font-size: 0.9375rem;
   font-weight: 500;
   cursor: pointer;
   transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
   white-space: nowrap;
   position: relative;
+  opacity: 0.75;
 }
 
 .menu-trigger:hover {
-  background: rgba(255, 255, 255, 0.08);
-  color: #ffffff;
+  background: var(--nav-card-bg);
+  color: var(--nav-text);
+  opacity: 1;
 }
 
 .menu-trigger:active {
@@ -253,8 +290,9 @@ const vClickOutside = {
 }
 
 .menu-trigger.active {
-  background: rgba(57, 157, 255, 0.15);
-  color: #60a5fa;
+  background: color-mix(in srgb, var(--nav-primary) 18%, transparent);
+  color: var(--nav-primary);
+  opacity: 1;
 }
 
 .menu-text {
@@ -278,12 +316,12 @@ const vClickOutside = {
   left: 50%;
   transform: translateX(-50%) translateY(-4px);
   min-width: 140px;
-  background: rgba(15, 23, 42, 0.94);
+  background: var(--nav-glass);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
   border-radius: 14px;
-  box-shadow: 0 20px 60px -12px rgba(0, 0, 0, 0.6);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 20px 60px -12px var(--shadow-xl);
+  border: 1px solid var(--nav-border);
   padding: 6px;
   z-index: 200;
   opacity: 0;
@@ -308,10 +346,10 @@ const vClickOutside = {
 .nav-icon-btn {
   width: 34px;
   height: 34px;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--nav-card-bg);
+  border: 1px solid var(--nav-border);
   border-radius: 10px;
-  color: rgba(255, 255, 255, 0.6);
+  color: var(--nav-text-secondary);
   cursor: pointer;
   transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
   display: flex;
@@ -320,9 +358,9 @@ const vClickOutside = {
 }
 
 .nav-icon-btn:hover {
-  background: rgba(255, 255, 255, 0.12);
-  color: #ffffff;
-  border-color: rgba(255, 255, 255, 0.15);
+  background: var(--nav-card-hover);
+  color: var(--nav-text);
+  border-color: var(--nav-text-secondary);
 }
 
 .nav-icon-btn:active { transform: scale(0.93); }
@@ -336,10 +374,10 @@ const vClickOutside = {
   align-items: center;
   gap: 5px;
   padding: 6px 14px;
-  background: rgba(57, 157, 255, 0.12);
-  border: 1px solid rgba(57, 157, 255, 0.2);
+  background: color-mix(in srgb, var(--nav-primary) 15%, transparent);
+  border: 1px solid color-mix(in srgb, var(--nav-primary) 30%, transparent);
   border-radius: 999px;
-  color: #60a5fa;
+  color: var(--nav-primary);
   font-size: 0.8125rem;
   font-weight: 600;
   cursor: pointer;
@@ -347,8 +385,8 @@ const vClickOutside = {
 }
 
 .nav-auth-btn:hover {
-  background: rgba(57, 157, 255, 0.22);
-  border-color: rgba(57, 157, 255, 0.35);
+  background: color-mix(in srgb, var(--nav-primary) 25%, transparent);
+  border-color: color-mix(in srgb, var(--nav-primary) 45%, transparent);
 }
 
 .nav-auth-btn:active { transform: scale(0.97); }
@@ -365,18 +403,18 @@ const vClickOutside = {
   width: 34px;
   height: 34px;
   border-radius: 50%;
-  border: 2px solid rgba(57, 157, 255, 0.3);
+  border: 2px solid color-mix(in srgb, var(--nav-primary) 40%, transparent);
   cursor: pointer;
   transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
   display: flex;
   align-items: center;
   justify-content: center;
   overflow: hidden;
-  background: linear-gradient(135deg, #399dff, #6366f1);
+  background: linear-gradient(135deg, var(--nav-primary), var(--primary));
 }
 
 .nav-avatar-btn:hover {
-  border-color: #60a5fa;
+  border-color: var(--nav-primary);
   transform: scale(1.08);
 }
 
@@ -394,12 +432,12 @@ const vClickOutside = {
   top: calc(100% + 8px);
   right: 0;
   min-width: 150px;
-  background: rgba(15, 23, 42, 0.94);
+  background: var(--nav-glass);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
   border-radius: 14px;
-  box-shadow: 0 20px 60px -12px rgba(0, 0, 0, 0.6);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 20px 60px -12px var(--shadow-xl);
+  border: 1px solid var(--nav-border);
   padding: 6px;
   z-index: 200;
 }
@@ -413,17 +451,19 @@ const vClickOutside = {
   background: transparent;
   border: none;
   border-radius: 8px;
-  color: rgba(255, 255, 255, 0.8);
+  color: var(--nav-text);
   font-size: 0.8125rem;
   text-align: left;
   cursor: pointer;
   transition: all 0.15s;
   font-family: inherit;
+  opacity: 0.8;
 }
 
 .dropdown-item:hover {
-  background: rgba(57, 157, 255, 0.12);
-  color: #60a5fa;
+  background: color-mix(in srgb, var(--nav-primary) 15%, transparent);
+  color: var(--nav-primary);
+  opacity: 1;
 }
 
 .dropdown-item svg { width: 15px; height: 15px; flex-shrink: 0; }
@@ -443,8 +483,11 @@ const vClickOutside = {
   .nav-bar-container { padding: 0.4rem 0.5rem; }
   .menu-trigger { padding: 0.35rem 0.6rem; font-size: 0.8125rem; }
   .submenu-dropdown {
-    position: fixed;
-    left: 1rem; right: 1rem;
+    position: absolute;
+    left: 0;
+    right: auto;
+    min-width: 180px;
+    max-width: min(280px, 90vw);
     transform: none;
     max-height: 60vh;
     overflow-y: auto;

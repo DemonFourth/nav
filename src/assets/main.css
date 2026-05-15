@@ -113,6 +113,16 @@
   --safe-right: env(safe-area-inset-right, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
   --safe-left: env(safe-area-inset-left, 0px);
+
+  /* 导航站配色 - 浅色模式 */
+  --nav-primary: #399dff;
+  --nav-bg: #f8fafc;
+  --nav-card-bg: rgba(255, 255, 255, 0.85);
+  --nav-card-hover: rgba(255, 255, 255, 1.0);
+  --nav-text: #1e293b;
+  --nav-text-secondary: #64748b;
+  --nav-border: rgba(0, 0, 0, 0.1);
+  --nav-glass: rgba(255, 255, 255, 0.8);
 }
 
 html.dark {
@@ -205,7 +215,7 @@ html.light {
   --primary-light: #a5b4fc;
   --primary-50: #eef2ff;
   --primary-100: #e0e7ff;
-  
+
   --success: #10b981;
   --success-light: #34d399;
   --warning: #f59e0b;
@@ -214,22 +224,32 @@ html.light {
   --error-light: #f87171;
   --info: #3b82f6;
   --info-light: #60a5fa;
-  
+
   --bg: #ffffff;
   --bg-secondary: #f8fafc;
   --bg-tertiary: #f1f5f9;
   --bg-hover: #f8fafc;
-  
+
   --text: #1e293b;
   --text-secondary: #64748b;
   --text-tertiary: #94a3b8;
-  
+
   --border: #e2e8f0;
   --border-light: #f1f5f9;
   --shadow: rgba(0, 0, 0, 0.1);
   --shadow-md: rgba(0, 0, 0, 0.12);
   --shadow-lg: rgba(0, 0, 0, 0.15);
   --shadow-xl: rgba(0, 0, 0, 0.25);
+
+  /* 导航站配色 - 浅色模式 */
+  --nav-primary: #399dff;
+  --nav-bg: #f8fafc;
+  --nav-card-bg: rgba(255, 255, 255, 0.85);
+  --nav-card-hover: rgba(255, 255, 255, 1.0);
+  --nav-text: #1e293b;
+  --nav-text-secondary: #64748b;
+  --nav-border: rgba(0, 0, 0, 0.1);
+  --nav-glass: rgba(255, 255, 255, 0.8);
 }
 
 /* 主题切换动画 */

@@ -1724,93 +1724,48 @@ watch(showAddDialog, (val) => {
 <style scoped>
 /* ===== CSS Variables ===== */
 .nav-settings-overlay {
-  --ov-bg: rgba(11, 15, 25, 0.92);
-  --ov-border: rgba(255, 255, 255, 0.06);
-  --ov-glow-1: rgba(16, 185, 129, 0.03);
-  --ov-glow-2: rgba(6, 182, 212, 0.02);
-  --ov-shadow: 0 0 0 1px rgba(255,255,255,0.04), 0 40px 120px -20px rgba(0,0,0,0.8);
+  --ov-bg: color-mix(in srgb, var(--bg) 88%, transparent);
+  --ov-border: var(--border);
+  --ov-glow-1: color-mix(in srgb, var(--success) 6%, transparent);
+  --ov-glow-2: color-mix(in srgb, var(--info) 4%, transparent);
+  --ov-shadow: 0 0 0 1px color-mix(in srgb, var(--shadow) 35%, transparent), 0 40px 120px -20px var(--shadow-xl);
 
-  --sidebar-border: rgba(255, 255, 255, 0.05);
-  --text-primary: #f1f5f9;
-  --text-secondary: #64748b;
-  --text-muted: #475569;
-  --nav-text: #64748b;
-  --nav-text-hover: #e2e8f0;
-  --nav-bg-hover: rgba(255, 255, 255, 0.04);
-  --nav-active-bg: rgba(16, 185, 129, 0.08);
-  --nav-active-text: #34d399;
-  --nav-indicator: #34d399;
+  --sidebar-border: var(--border);
+  --text-primary: var(--text);
+  --text-secondary: var(--text-secondary);
+  --text-muted: var(--text-tertiary);
+  --nav-text: var(--text-secondary);
+  --nav-text-hover: var(--text);
+  --nav-bg-hover: var(--bg-hover);
+  --nav-active-bg: color-mix(in srgb, var(--success) 10%, transparent);
+  --nav-active-text: var(--success);
+  --nav-indicator: var(--success);
 
-  --card-bg: rgba(255, 255, 255, 0.02);
-  --card-border: rgba(255, 255, 255, 0.06);
-  --card-border-hover: rgba(255, 255, 255, 0.09);
-  --card-shadow-hover: 0 8px 32px -12px rgba(0,0,0,0.4);
-  --card-hover-bg: rgba(255, 255, 255, 0.035);
+  --card-bg: color-mix(in srgb, var(--bg) 78%, transparent);
+  --card-border: var(--border);
+  --card-border-hover: var(--border-light);
+  --card-shadow-hover: 0 8px 32px -12px var(--shadow-md);
+  --card-hover-bg: color-mix(in srgb, var(--bg-secondary) 92%, transparent);
 
-  --toggle-bg: rgba(255, 255, 255, 0.08);
-  --toggle-dot: #475569;
-  --toggle-active-bg: rgba(16, 185, 129, 0.35);
-  --toggle-active-dot: #34d399;
+  --toggle-bg: var(--bg-tertiary);
+  --toggle-dot: var(--text-tertiary);
+  --toggle-active-bg: color-mix(in srgb, var(--success) 28%, transparent);
+  --toggle-active-dot: var(--success);
 
-  --input-bg: rgba(255, 255, 255, 0.04);
-  --input-border: rgba(255, 255, 255, 0.07);
-  --input-text: #e2e8f0;
-  --input-placeholder: #475569;
+  --input-bg: var(--bg-secondary);
+  --input-border: var(--border);
+  --input-text: var(--text);
+  --input-placeholder: var(--text-tertiary);
 
-  --accent: #34d399;
-  --accent-bg: rgba(16, 185, 129, 0.12);
-  --accent-border: rgba(16, 185, 129, 0.2);
+  --accent: var(--success);
+  --accent-bg: color-mix(in srgb, var(--success) 12%, transparent);
+  --accent-border: color-mix(in srgb, var(--success) 22%, transparent);
 
-  --slider-track: rgba(255, 255, 255, 0.08);
-  --slider-thumb: #34d399;
+  --slider-track: var(--bg-tertiary);
+  --slider-thumb: var(--success);
 
-  --row-divider: rgba(255, 255, 255, 0.04);
-  --scrollbar-thumb: rgba(255, 255, 255, 0.08);
-}
-
-:global(html.light) .nav-settings-overlay {
-  --ov-bg: rgba(255, 255, 255, 0.88);
-  --ov-border: rgba(0, 0, 0, 0.06);
-  --ov-glow-1: rgba(16, 185, 129, 0.04);
-  --ov-glow-2: rgba(6, 182, 212, 0.03);
-  --ov-shadow: 0 0 0 1px rgba(0,0,0,0.04), 0 40px 120px -20px rgba(0,0,0,0.15);
-
-  --sidebar-border: rgba(0, 0, 0, 0.06);
-  --text-primary: #0f172a;
-  --text-secondary: #64748b;
-  --text-muted: #94a3b8;
-  --nav-text: #475569;
-  --nav-text-hover: #0f172a;
-  --nav-bg-hover: rgba(0, 0, 0, 0.04);
-  --nav-active-bg: rgba(16, 185, 129, 0.08);
-  --nav-active-text: #059669;
-  --nav-indicator: #10b981;
-
-  --card-bg: rgba(255, 255, 255, 0.7);
-  --card-border: rgba(0, 0, 0, 0.06);
-  --card-border-hover: rgba(0, 0, 0, 0.1);
-  --card-shadow-hover: 0 8px 32px -12px rgba(0,0,0,0.1);
-  --card-hover-bg: rgba(255, 255, 255, 0.85);
-
-  --toggle-bg: rgba(0, 0, 0, 0.08);
-  --toggle-dot: #94a3b8;
-  --toggle-active-bg: rgba(16, 185, 129, 0.3);
-  --toggle-active-dot: #10b981;
-
-  --input-bg: rgba(0, 0, 0, 0.03);
-  --input-border: rgba(0, 0, 0, 0.08);
-  --input-text: #0f172a;
-  --input-placeholder: #94a3b8;
-
-  --accent: #10b981;
-  --accent-bg: rgba(16, 185, 129, 0.1);
-  --accent-border: rgba(16, 185, 129, 0.2);
-
-  --slider-track: rgba(0, 0, 0, 0.08);
-  --slider-thumb: #10b981;
-
-  --row-divider: rgba(0, 0, 0, 0.04);
-  --scrollbar-thumb: rgba(0, 0, 0, 0.08);
+  --row-divider: var(--border-light);
+  --scrollbar-thumb: var(--border);
 }
 
 .nav-settings-overlay {
@@ -1895,9 +1850,9 @@ watch(showAddDialog, (val) => {
 }
 
 .sidebar-close:hover {
-  background: rgba(239, 68, 68, 0.12);
-  border-color: rgba(239, 68, 68, 0.2);
-  color: #f87171;
+  background: color-mix(in srgb, var(--error) 14%, transparent);
+  border-color: color-mix(in srgb, var(--error) 22%, transparent);
+  color: var(--error);
 }
 
 .sidebar-close svg { width: 14px; height: 14px; }
@@ -2250,7 +2205,7 @@ textarea.setting-input {
 
 .source-name { font-weight: 500; }
 .status-ok { color: var(--accent); }
-.status-fail { color: #f87171; }
+.status-fail { color: var(--error); }
 .status-loading { color: var(--accent); opacity: 0.7; }
 .status-disabled { color: var(--text-muted); }
 .url-cell {
@@ -2657,7 +2612,7 @@ textarea.setting-input {
 .move-btn:hover:not(:disabled) {
   background: var(--accent);
   border-color: var(--accent);
-  color: white;
+  color: var(--ov-bg);
 }
 
 .move-btn:disabled {
@@ -2742,7 +2697,7 @@ textarea.setting-input {
 .icon-btn-menu:hover:not(:disabled) {
   background: var(--accent);
   border-color: var(--accent);
-  color: white;
+  color: var(--ov-bg);
 }
 
 .icon-btn-menu:disabled {
@@ -2789,7 +2744,7 @@ textarea.setting-input {
   border: none;
   border-radius: 8px;
   background: var(--accent);
-  color: white;
+  color: var(--ov-bg);
   font-size: 0.8125rem;
   font-weight: 500;
   cursor: pointer;
@@ -2897,12 +2852,12 @@ textarea.setting-input {
   left: 0;
   right: 0;
   margin-top: 4px;
-  background: rgba(15, 23, 42, 0.98);
-  border: 1px solid var(--card-border);
+  background: var(--nav-bg);
+  border: 1px solid var(--nav-border);
   border-radius: 10px;
   overflow: hidden;
   z-index: 10;
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 12px 40px var(--shadow-xl);
 }
 
 .history-item {
@@ -3207,33 +3162,33 @@ textarea.setting-input {
   transition: all 0.2s;
 }
 .btn-discard:hover {
-  background: rgba(239, 68, 68, 0.1);
-  border-color: rgba(239, 68, 68, 0.2);
-  color: #f87171;
+  background: color-mix(in srgb, var(--error) 12%, transparent);
+  border-color: color-mix(in srgb, var(--error) 22%, transparent);
+  color: var(--error);
 }
 
 /* ===== Dialogs ===== */
 .dialog-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.5);
+  background: var(--nav-glass);
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 10000;
 }
 .dialog-menu {
-  background: var(--ov-bg, rgba(11, 15, 25, 0.95));
+  background: var(--nav-bg);
   backdrop-filter: blur(24px);
   -webkit-backdrop-filter: blur(24px);
-  border: 1px solid var(--ov-border, rgba(255, 255, 255, 0.06));
+  border: 1px solid var(--nav-border);
   border-radius: 16px;
   width: 90%;
   max-width: 440px;
   max-height: 80vh;
   display: flex;
   flex-direction: column;
-  box-shadow: 0 24px 48px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 24px 48px var(--shadow-xl);
 }
 .dialog-save {
   max-width: 520px;
@@ -3268,8 +3223,8 @@ textarea.setting-input {
   transition: all 0.2s;
 }
 .dialog-close:hover {
-  background: rgba(239, 68, 68, 0.1);
-  color: #f87171;
+  background: color-mix(in srgb, var(--error) 12%, transparent);
+  color: var(--error);
 }
 .dialog-body {
   padding: 1.25rem;
@@ -3295,8 +3250,8 @@ textarea.setting-input {
 }
 .delete-warning {
   font-size: 0.8rem;
-  color: #f87171;
-  background: rgba(239, 68, 68, 0.08);
+  color: var(--error);
+  background: color-mix(in srgb, var(--error) 10%, transparent);
   padding: 10px 12px;
   border-radius: 8px;
   margin: 0;
@@ -3329,24 +3284,24 @@ textarea.setting-input {
   margin-bottom: 0;
 }
 .change-create {
-  background: rgba(16, 185, 129, 0.08);
-  border-left: 3px solid #10b981;
+  background: color-mix(in srgb, var(--success) 10%, transparent);
+  border-left: 3px solid var(--success);
 }
 .change-rename {
-  background: rgba(99, 102, 241, 0.08);
-  border-left: 3px solid #6366f1;
+  background: color-mix(in srgb, var(--primary) 10%, transparent);
+  border-left: 3px solid var(--primary);
 }
 .change-reorder {
-  background: rgba(245, 158, 11, 0.08);
-  border-left: 3px solid #f59e0b;
+  background: color-mix(in srgb, var(--warning) 10%, transparent);
+  border-left: 3px solid var(--warning);
 }
 .change-move {
-  background: rgba(59, 130, 246, 0.08);
-  border-left: 3px solid #3b82f6;
+  background: color-mix(in srgb, var(--info) 10%, transparent);
+  border-left: 3px solid var(--info);
 }
 .change-delete {
-  background: rgba(239, 68, 68, 0.08);
-  border-left: 3px solid #ef4444;
+  background: color-mix(in srgb, var(--error) 10%, transparent);
+  border-left: 3px solid var(--error);
 }
 .change-type {
   font-size: 0.7rem;
@@ -3356,11 +3311,11 @@ textarea.setting-input {
   white-space: nowrap;
   flex-shrink: 0;
 }
-.change-create .change-type { color: #10b981; background: rgba(16, 185, 129, 0.15); }
-.change-rename .change-type { color: #6366f1; background: rgba(99, 102, 241, 0.15); }
-.change-reorder .change-type { color: #f59e0b; background: rgba(245, 158, 11, 0.15); }
-.change-move .change-type { color: #3b82f6; background: rgba(59, 130, 246, 0.15); }
-.change-delete .change-type { color: #ef4444; background: rgba(239, 68, 68, 0.15); }
+.change-create .change-type { color: var(--success); background: color-mix(in srgb, var(--success) 18%, transparent); }
+.change-rename .change-type { color: var(--primary); background: color-mix(in srgb, var(--primary) 18%, transparent); }
+.change-reorder .change-type { color: var(--warning); background: color-mix(in srgb, var(--warning) 18%, transparent); }
+.change-move .change-type { color: var(--info); background: color-mix(in srgb, var(--info) 18%, transparent); }
+.change-delete .change-type { color: var(--error); background: color-mix(in srgb, var(--error) 18%, transparent); }
 .change-desc {
   color: var(--text-primary);
   line-height: 1.4;
@@ -3533,9 +3488,9 @@ textarea.setting-input {
   color: var(--text-primary);
 }
 .bookmark-action-delete:hover {
-  background: rgba(239, 68, 68, 0.1);
-  border-color: rgba(239, 68, 68, 0.2);
-  color: #f87171;
+  background: color-mix(in srgb, var(--error) 12%, transparent);
+  border-color: color-mix(in srgb, var(--error) 22%, transparent);
+  color: var(--error);
 }
 .bookmark-empty {
   padding: 3rem 1rem;

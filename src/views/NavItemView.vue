@@ -288,7 +288,7 @@ const backgroundStyle = computed(() => {
     style.backgroundRepeat = 'no-repeat'
     style.backgroundAttachment = 'fixed'
   } else {
-    style.backgroundColor = '#222'
+    style.backgroundColor = 'var(--nav-bg)'
   }
   return style
 })
@@ -627,12 +627,12 @@ const handleSettingsAction = (action) => {
 }
 
 .nav-item-view ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--nav-border);
   border-radius: 3px;
 }
 
 .nav-item-view ::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.15);
+  background: var(--nav-border);
 }
 
 .search-section {
@@ -658,9 +658,9 @@ const handleSettingsAction = (action) => {
   gap: 4px;
   padding: 3px 10px;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  color: rgba(255, 255, 255, 0.5);
+  background: var(--nav-card-bg);
+  border: 1px solid var(--nav-border);
+  color: var(--nav-text-secondary);
   font-size: 0.68rem;
   font-weight: 500;
   cursor: pointer;
@@ -670,14 +670,14 @@ const handleSettingsAction = (action) => {
 }
 
 .cat-tab:hover {
-  background: rgba(255, 255, 255, 0.08);
-  color: rgba(255, 255, 255, 0.8);
+  background: var(--nav-card-hover);
+  color: var(--nav-text);
 }
 
 .cat-tab.active {
-  background: rgba(57, 157, 255, 0.1);
-  border-color: rgba(57, 157, 255, 0.2);
-  color: #60a5fa;
+  background: color-mix(in srgb, var(--nav-primary) 15%, transparent);
+  border-color: color-mix(in srgb, var(--nav-primary) 30%, transparent);
+  color: var(--nav-primary);
 }
 
 .cat-count {
@@ -688,16 +688,16 @@ const handleSettingsAction = (action) => {
   height: 16px;
   padding: 0 4px;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.06);
+  background: var(--nav-border);
   font-size: 0.55rem;
   font-weight: 600;
-  color: rgba(255, 255, 255, 0.35);
+  color: var(--nav-text-secondary);
   line-height: 1;
 }
 
 .cat-tab.active .cat-count {
-  background: rgba(57, 157, 255, 0.15);
-  color: #60a5fa;
+  background: color-mix(in srgb, var(--nav-primary) 20%, transparent);
+  color: var(--nav-primary);
 }
 
 .content-section {
@@ -714,7 +714,7 @@ const handleSettingsAction = (action) => {
 .detail-modal-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.75);
+  background: var(--nav-glass);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
   display: flex;
@@ -725,16 +725,16 @@ const handleSettingsAction = (action) => {
 }
 
 .detail-modal {
-  background: rgba(11, 15, 25, 0.92);
+  background: var(--nav-bg);
   backdrop-filter: blur(24px);
   -webkit-backdrop-filter: blur(24px);
   border-radius: 20px;
   width: 100%;
   max-width: 420px;
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  box-shadow: 
-    0 0 0 1px rgba(255, 255, 255, 0.04),
-    0 40px 120px -20px rgba(0, 0, 0, 0.8);
+  border: 1px solid var(--nav-border);
+  box-shadow:
+    0 0 0 1px var(--nav-border),
+    0 40px 120px -20px var(--shadow-xl);
   overflow: hidden;
   position: relative;
 }
@@ -759,7 +759,7 @@ const handleSettingsAction = (action) => {
   align-items: center;
   gap: 16px;
   padding: 24px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  border-bottom: 1px solid var(--nav-border);
 }
 
 .detail-icon {
@@ -801,7 +801,7 @@ const handleSettingsAction = (action) => {
 .detail-title {
   font-size: 1.25rem;
   font-weight: 700;
-  color: #f1f5f9;
+  color: var(--nav-text);
   margin-bottom: 4px;
   white-space: nowrap;
   overflow: hidden;
@@ -810,7 +810,7 @@ const handleSettingsAction = (action) => {
 
 .detail-url {
   font-size: 0.8125rem;
-  color: #64748b;
+  color: var(--nav-text-secondary);
   font-family: 'SF Mono', Monaco, monospace;
 }
 
@@ -818,9 +818,9 @@ const handleSettingsAction = (action) => {
   width: 36px;
   height: 36px;
   border-radius: 10px;
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  color: #94a3b8;
+  background: var(--nav-card-bg);
+  border: 1px solid var(--nav-border);
+  color: var(--nav-text-secondary);
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -830,9 +830,9 @@ const handleSettingsAction = (action) => {
 }
 
 .detail-close:hover {
-  background: rgba(239, 68, 68, 0.2);
-  border-color: rgba(239, 68, 68, 0.4);
-  color: #f87171;
+  background: color-mix(in srgb, var(--error) 20%, transparent);
+  border-color: color-mix(in srgb, var(--error) 40%, transparent);
+  color: var(--error);
   transform: rotate(90deg);
 }
 
@@ -856,7 +856,7 @@ const handleSettingsAction = (action) => {
 .detail-section-title {
   font-size: 0.6875rem;
   font-weight: 600;
-  color: #64748b;
+  color: var(--nav-text-secondary);
   text-transform: uppercase;
   letter-spacing: 0.08em;
   margin-bottom: 10px;
@@ -870,9 +870,9 @@ const handleSettingsAction = (action) => {
 
 .detail-tag {
   padding: 6px 14px;
-  background: rgba(57, 157, 255, 0.1);
-  color: #60a5fa;
-  border: 1px solid rgba(57, 157, 255, 0.25);
+  background: color-mix(in srgb, var(--nav-primary) 15%, transparent);
+  color: var(--nav-primary);
+  border: 1px solid color-mix(in srgb, var(--nav-primary) 30%, transparent);
   border-radius: 8px;
   font-size: 0.8125rem;
   font-weight: 500;
@@ -881,33 +881,33 @@ const handleSettingsAction = (action) => {
 }
 
 .detail-tag:hover {
-  background: rgba(57, 157, 255, 0.2);
-  border-color: rgba(57, 157, 255, 0.5);
+  background: color-mix(in srgb, var(--nav-primary) 25%, transparent);
+  border-color: color-mix(in srgb, var(--nav-primary) 50%, transparent);
   transform: translateY(-1px);
 }
 
 .detail-tag.active {
-  background: rgba(57, 157, 255, 0.3);
-  border-color: #60a5fa;
+  background: color-mix(in srgb, var(--nav-primary) 35%, transparent);
+  border-color: var(--nav-primary);
 }
 
 .detail-description {
   font-size: 0.875rem;
-  color: #94a3b8;
+  color: var(--nav-text-secondary);
   line-height: 1.6;
   padding: 14px;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: var(--nav-card-bg);
+  border: 1px solid var(--nav-border);
   border-radius: 10px;
 }
 
 .detail-notes {
   font-size: 0.875rem;
-  color: #94a3b8;
+  color: var(--nav-text-secondary);
   line-height: 1.6;
   padding: 14px;
-  background: rgba(139, 92, 246, 0.05);
-  border: 1px solid rgba(139, 92, 246, 0.15);
+  background: color-mix(in srgb, var(--primary) 8%, transparent);
+  border: 1px solid color-mix(in srgb, var(--primary) 20%, transparent);
   border-radius: 10px;
   font-style: italic;
 }
@@ -917,17 +917,17 @@ const handleSettingsAction = (action) => {
   align-items: center;
   gap: 8px;
   font-size: 0.875rem;
-  color: #94a3b8;
+  color: var(--nav-text-secondary);
   padding: 10px 14px;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: var(--nav-card-bg);
+  border: 1px solid var(--nav-border);
   border-radius: 10px;
 }
 
 .detail-category svg {
   width: 16px;
   height: 16px;
-  color: #60a5fa;
+  color: var(--nav-primary);
 }
 
 .detail-private {
@@ -935,10 +935,10 @@ const handleSettingsAction = (action) => {
   align-items: center;
   gap: 8px;
   font-size: 0.8125rem;
-  color: #fbbf24;
+  color: var(--warning);
   padding: 10px 14px;
-  background: rgba(251, 191, 36, 0.1);
-  border: 1px solid rgba(251, 191, 36, 0.2);
+  background: color-mix(in srgb, var(--warning) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--warning) 25%, transparent);
   border-radius: 10px;
 }
 
@@ -950,32 +950,32 @@ const handleSettingsAction = (action) => {
 .detail-input {
   width: 100%;
   padding: 10px 14px;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: var(--nav-card-bg);
+  border: 1px solid var(--nav-border);
   border-radius: 8px;
-  color: #f1f5f9;
+  color: var(--nav-text);
   font-size: 0.875rem;
   transition: all 0.2s;
   outline: none;
 }
 
 .detail-input:focus {
-  border-color: rgba(57, 157, 255, 0.5);
-  background: rgba(255, 255, 255, 0.08);
-  box-shadow: 0 0 0 3px rgba(57, 157, 255, 0.1);
+  border-color: color-mix(in srgb, var(--nav-primary) 50%, transparent);
+  background: var(--nav-card-hover);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--nav-primary) 15%, transparent);
 }
 
 .detail-input::placeholder {
-  color: #475569;
+  color: var(--nav-text-secondary);
 }
 
 .detail-textarea {
   width: 100%;
   padding: 10px 14px;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: var(--nav-card-bg);
+  border: 1px solid var(--nav-border);
   border-radius: 8px;
-  color: #f1f5f9;
+  color: var(--nav-text);
   font-size: 0.875rem;
   transition: all 0.2s;
   outline: none;
@@ -986,13 +986,13 @@ const handleSettingsAction = (action) => {
 }
 
 .detail-textarea:focus {
-  border-color: rgba(57, 157, 255, 0.5);
-  background: rgba(255, 255, 255, 0.08);
-  box-shadow: 0 0 0 3px rgba(57, 157, 255, 0.1);
+  border-color: color-mix(in srgb, var(--nav-primary) 50%, transparent);
+  background: var(--nav-card-hover);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--nav-primary) 15%, transparent);
 }
 
 .detail-textarea::placeholder {
-  color: #475569;
+  color: var(--nav-text-secondary);
 }
 
 .detail-checkbox {
@@ -1014,7 +1014,7 @@ const handleSettingsAction = (action) => {
   align-items: center;
   gap: 8px;
   font-size: 0.875rem;
-  color: #94a3b8;
+  color: var(--nav-text-secondary);
 }
 
 .detail-checkbox .checkbox-label svg {
@@ -1026,7 +1026,7 @@ const handleSettingsAction = (action) => {
   display: flex;
   gap: 12px;
   padding: 20px 24px;
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  border-top: 1px solid var(--nav-border);
 }
 
 .detail-btn {
@@ -1045,25 +1045,25 @@ const handleSettingsAction = (action) => {
 }
 
 .detail-btn.primary {
-  background: linear-gradient(135deg, #399dff, #0066cc);
+  background: linear-gradient(135deg, var(--nav-primary), var(--primary-dark));
   color: white;
-  box-shadow: 0 4px 16px rgba(57, 157, 255, 0.3);
+  box-shadow: 0 4px 16px color-mix(in srgb, var(--nav-primary) 35%, transparent);
 }
 
 .detail-btn.primary:hover {
   transform: translateY(-2px);
-  box-shadow: 0 8px 24px rgba(57, 157, 255, 0.4);
+  box-shadow: 0 8px 24px color-mix(in srgb, var(--nav-primary) 45%, transparent);
 }
 
 .detail-btn.secondary {
-  background: rgba(255, 255, 255, 0.08);
-  color: #f1f5f9;
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: var(--nav-card-bg);
+  color: var(--nav-text);
+  border: 1px solid var(--nav-border);
 }
 
 .detail-btn.secondary:hover {
-  background: rgba(255, 255, 255, 0.12);
-  border-color: rgba(255, 255, 255, 0.2);
+  background: var(--nav-card-hover);
+  border-color: var(--nav-text-secondary);
 }
 
 .detail-btn svg {
@@ -1074,10 +1074,10 @@ const handleSettingsAction = (action) => {
 .detail-select {
   width: 100%;
   padding: 10px 14px;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: var(--nav-card-bg);
+  border: 1px solid var(--nav-border);
   border-radius: 8px;
-  color: #f1f5f9;
+  color: var(--nav-text);
   font-size: 0.875rem;
   transition: all 0.2s;
   outline: none;
@@ -1090,14 +1090,14 @@ const handleSettingsAction = (action) => {
 }
 
 .detail-select:focus {
-  border-color: rgba(57, 157, 255, 0.5);
-  background-color: rgba(255, 255, 255, 0.08);
-  box-shadow: 0 0 0 3px rgba(57, 157, 255, 0.1);
+  border-color: color-mix(in srgb, var(--nav-primary) 50%, transparent);
+  background-color: var(--nav-card-hover);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--nav-primary) 15%, transparent);
 }
 
 .detail-select option {
-  background: #1e293b;
-  color: #f1f5f9;
+  background: var(--nav-bg);
+  color: var(--nav-text);
   padding: 10px;
 }
 
@@ -1110,35 +1110,35 @@ const handleSettingsAction = (action) => {
   align-items: center;
   justify-content: space-between;
   padding: 10px 14px;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: var(--nav-card-bg);
+  border: 1px solid var(--nav-border);
   border-radius: 8px;
   cursor: pointer;
   transition: all 0.2s;
 }
 
 .select-trigger:hover {
-  border-color: rgba(255, 255, 255, 0.2);
+  border-color: var(--nav-text-secondary);
 }
 
 .custom-select.open .select-trigger {
-  border-color: rgba(57, 157, 255, 0.5);
-  background: rgba(255, 255, 255, 0.08);
+  border-color: color-mix(in srgb, var(--nav-primary) 50%, transparent);
+  background: var(--nav-card-hover);
 }
 
 .select-value {
-  color: #f1f5f9;
+  color: var(--nav-text);
   font-size: 0.875rem;
 }
 
 .select-value.placeholder {
-  color: #475569;
+  color: var(--nav-text-secondary);
 }
 
 .select-arrow {
   width: 16px;
   height: 16px;
-  color: #64748b;
+  color: var(--nav-text-secondary);
   transition: transform 0.2s;
 }
 
@@ -1151,10 +1151,10 @@ const handleSettingsAction = (action) => {
   top: calc(100% + 4px);
   left: 0;
   right: 0;
-  background: #1e293b;
-  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: var(--nav-bg);
+  border: 1px solid var(--nav-border);
   border-radius: 10px;
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 10px 40px var(--shadow-lg);
   z-index: 100;
   overflow: hidden;
 }
@@ -1162,16 +1162,16 @@ const handleSettingsAction = (action) => {
 .select-search {
   width: 100%;
   padding: 12px 14px;
-  background: rgba(255, 255, 255, 0.05);
+  background: var(--nav-card-bg);
   border: none;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-  color: #f1f5f9;
+  border-bottom: 1px solid var(--nav-border);
+  color: var(--nav-text);
   font-size: 0.875rem;
   outline: none;
 }
 
 .select-search::placeholder {
-  color: #64748b;
+  color: var(--nav-text-secondary);
 }
 
 .select-options {
@@ -1181,26 +1181,26 @@ const handleSettingsAction = (action) => {
 
 .select-option {
   padding: 10px 14px;
-  color: #94a3b8;
+  color: var(--nav-text);
   font-size: 0.875rem;
   cursor: pointer;
   transition: all 0.15s;
 }
 
 .select-option:hover {
-  background: rgba(57, 157, 255, 0.1);
-  color: #f1f5f9;
+  background: color-mix(in srgb, var(--nav-primary) 12%, transparent);
+  color: var(--nav-text);
 }
 
 .select-option.selected {
-  background: rgba(57, 157, 255, 0.2);
-  color: #60a5fa;
+  background: color-mix(in srgb, var(--nav-primary) 22%, transparent);
+  color: var(--nav-primary);
 }
 
 .select-no-results {
   padding: 20px;
   text-align: center;
-  color: #64748b;
+  color: var(--nav-text-secondary);
   font-size: 0.875rem;
 }
 
@@ -1213,7 +1213,7 @@ const handleSettingsAction = (action) => {
 }
 
 .select-options::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.15);
+  background: var(--nav-border);
   border-radius: 3px;
 }
 
@@ -1222,8 +1222,8 @@ const handleSettingsAction = (action) => {
   flex-wrap: wrap;
   gap: 8px;
   padding: 8px 12px;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: var(--nav-card-bg);
+  border: 1px solid var(--nav-border);
   border-radius: 8px;
   min-height: 44px;
   align-items: center;
@@ -1231,9 +1231,9 @@ const handleSettingsAction = (action) => {
 }
 
 .tags-input-container:focus-within {
-  border-color: rgba(57, 157, 255, 0.5);
-  background: rgba(255, 255, 255, 0.05);
-  box-shadow: 0 0 0 3px rgba(57, 157, 255, 0.1);
+  border-color: color-mix(in srgb, var(--nav-primary) 50%, transparent);
+  background: var(--nav-card-hover);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--nav-primary) 15%, transparent);
 }
 
 .tags-list {
@@ -1247,9 +1247,9 @@ const handleSettingsAction = (action) => {
   align-items: center;
   gap: 4px;
   padding: 4px 10px;
-  background: rgba(57, 157, 255, 0.15);
-  color: #60a5fa;
-  border: 1px solid rgba(57, 157, 255, 0.3);
+  background: color-mix(in srgb, var(--nav-primary) 18%, transparent);
+  color: var(--nav-primary);
+  border: 1px solid color-mix(in srgb, var(--nav-primary) 35%, transparent);
   border-radius: 6px;
   font-size: 0.8125rem;
   font-weight: 500;
@@ -1257,19 +1257,19 @@ const handleSettingsAction = (action) => {
 }
 
 .tag-item:hover {
-  background: rgba(57, 157, 255, 0.25);
-  border-color: rgba(57, 157, 255, 0.5);
+  background: color-mix(in srgb, var(--nav-primary) 28%, transparent);
+  border-color: color-mix(in srgb, var(--nav-primary) 55%, transparent);
 }
 
 .tag-item.editing {
-  background: rgba(57, 157, 255, 0.3);
-  border-color: #60a5fa;
+  background: color-mix(in srgb, var(--nav-primary) 35%, transparent);
+  border-color: var(--nav-primary);
 }
 
 .tag-edit-input {
   background: transparent;
   border: none;
-  color: #fff;
+  color: var(--nav-text);
   font-size: 0.8125rem;
   outline: none;
   width: 80px;
@@ -1279,7 +1279,7 @@ const handleSettingsAction = (action) => {
 .tag-remove {
   background: none;
   border: none;
-  color: rgba(96, 165, 250, 0.6);
+  color: color-mix(in srgb, var(--nav-primary) 65%, transparent);
   cursor: pointer;
   font-size: 14px;
   line-height: 1;
@@ -1288,7 +1288,7 @@ const handleSettingsAction = (action) => {
 }
 
 .tag-remove:hover {
-  color: #f87171;
+  color: var(--error);
 }
 
 .tag-input {
@@ -1296,14 +1296,14 @@ const handleSettingsAction = (action) => {
   min-width: 120px;
   background: transparent;
   border: none;
-  color: #f1f5f9;
+  color: var(--nav-text);
   font-size: 0.875rem;
   outline: none;
   padding: 4px 0;
 }
 
 .tag-input::placeholder {
-  color: #475569;
+  color: var(--nav-text-secondary);
 }
 
 /* Modal Animation */

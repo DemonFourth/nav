@@ -21,7 +21,7 @@
           @keyup.enter="handleSearch"
         />
         <button v-if="searchQuery" class="clear-btn" @click="clearSearch" aria-label="清空">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--nav-text-secondary)" stroke-width="2">
             <path d="M18 6L6 18M6 6l12 12"/>
           </svg>
         </button>
@@ -247,7 +247,7 @@ const openUrl = (url) => {
 .engine-btn {
   border: none;
   background: none;
-  color: rgba(255, 255, 255, 0.8);
+  color: var(--nav-text-secondary);
   font-size: 0.8rem;
   padding: 2px 10px;
   border-radius: 4px;
@@ -257,32 +257,32 @@ const openUrl = (url) => {
 
 .engine-btn:hover {
   color: var(--nav-primary);
-  background: rgba(255, 255, 255, 0.1);
+  background: var(--nav-card-bg);
 }
 
 .engine-btn.active {
   color: var(--nav-primary);
-  background: rgba(255, 255, 255, 0.15);
+  background: color-mix(in srgb, var(--nav-primary) 18%, transparent);
 }
 
 .search-container {
   display: flex;
   align-items: center;
-  background: rgba(255, 255, 255, 0.06);
+  background: var(--nav-card-bg);
   border-radius: 999px;
   padding: 3px 3px 3px 18px;
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
   width: 100%;
   max-width: 520px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--nav-border);
   transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .search-container:focus-within {
-  border-color: rgba(57, 157, 255, 0.3);
-  box-shadow: 0 0 0 4px rgba(57, 157, 255, 0.08), 0 4px 20px rgba(57, 157, 255, 0.06);
-  background: rgba(255, 255, 255, 0.08);
+  border-color: color-mix(in srgb, var(--nav-primary) 35%, transparent);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--nav-primary) 12%, transparent), 0 4px 20px color-mix(in srgb, var(--nav-primary) 10%, transparent);
+  background: var(--nav-card-hover);
 }
 
 .search-input {
@@ -291,12 +291,12 @@ const openUrl = (url) => {
   background: transparent;
   padding: 0.6rem 1rem;
   font-size: 1rem;
-  color: #ffffff;
+  color: var(--nav-text);
   outline: none;
 }
 
 .search-input::placeholder {
-  color: rgba(255, 255, 255, 0.6);
+  color: var(--nav-text-secondary);
 }
 
 .clear-btn {
@@ -311,8 +311,8 @@ const openUrl = (url) => {
 }
 
 .search-btn {
-  background: rgba(57, 157, 255, 0.15);
-  color: #60a5fa;
+  background: color-mix(in srgb, var(--nav-primary) 18%, transparent);
+  color: var(--nav-primary);
   border: none;
   border-radius: 50%;
   width: 36px;
@@ -326,7 +326,7 @@ const openUrl = (url) => {
 }
 
 .search-btn:hover {
-  background: rgba(57, 157, 255, 0.25);
+  background: color-mix(in srgb, var(--nav-primary) 30%, transparent);
   transform: scale(1.06);
 }
 

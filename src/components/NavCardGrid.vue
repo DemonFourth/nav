@@ -62,6 +62,7 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { useSettings } from '../composables/useSettings'
+import { useTheme } from '../composables/useTheme'
 
 const props = defineProps({
   bookmarks: {
@@ -77,6 +78,7 @@ const props = defineProps({
 const emit = defineEmits(['tag-click', 'show-detail'])
 
 const { iconSources, parseIconSourceUrl, navCardAnimation, navCardBlur, navCardOpacity } = useSettings()
+const { isDark } = useTheme()
 
 const iconErrors = ref({})
 const iconSourceIndexes = ref({})
@@ -99,10 +101,13 @@ function triggerAnimation() {
 }
 
 function getCardStyle(index) {
+  const baseAlpha = isDark.value ? 0.15 : 0.85
+  const opacityFactor = navCardOpacity.value / 100
+  const effectiveAlpha = baseAlpha * opacityFactor
   const style = {
     backdropFilter: `blur(${navCardBlur.value}px)`,
     WebkitBackdropFilter: `blur(${navCardBlur.value}px)`,
-    background: `rgba(255, 255, 255, ${navCardOpacity.value / 100})`
+    background: `rgba(255, 255, 255, ${effectiveAlpha})`
   }
   if (animationClass.value) {
     style.animationDelay = `${Math.min(0.03 + index * 0.035, 0.8)}s`
@@ -207,9 +212,9 @@ const handleShowDetail = (bookmark) => {
   width: 24px;
   height: 24px;
   border-radius: 6px;
-  background: rgba(255, 255, 255, 0.1);
+  background: var(--nav-card-bg);
   border: none;
-  color: rgba(255, 255, 255, 0.6);
+  color: var(--nav-text-secondary);
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -229,8 +234,8 @@ const handleShowDetail = (bookmark) => {
 }
 
 .card-detail-btn:hover {
-  background: rgba(57, 157, 255, 0.4);
-  color: #fff;
+  background: color-mix(in srgb, var(--nav-primary) 45%, transparent);
+  color: var(--nav-text);
   transform: scale(1.1);
 }
 
@@ -240,12 +245,12 @@ const handleShowDetail = (bookmark) => {
   margin: 4px auto;
   border-radius: 8px;
   overflow: hidden;
-  background: rgba(255, 255, 255, 0.9);
+  background: var(--nav-card-hover);
   display: flex;
   align-items: center;
   justify-content: center;
   transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 4px 12px var(--shadow);
 }
 
 .card-icon img {
@@ -272,7 +277,7 @@ const handleShowDetail = (bookmark) => {
   padding-left: 4px;
   font-size: 14px;
   font-weight: 500;
-  color: #ffffff;
+  color: var(--nav-text);
   text-align: center;
   word-break: break-all;
   max-width: 100%;
@@ -284,7 +289,6 @@ const handleShowDetail = (bookmark) => {
   white-space: normal;
   line-height: 1;
   min-height: 1.5em;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.45);
 }
 
 .card-tags {
@@ -298,9 +302,9 @@ const handleShowDetail = (bookmark) => {
 
 .tag-badge {
   padding: 2px 7px;
-  background: rgba(96, 165, 250, 0.1);
-  color: #60a5fa;
-  border: 1px solid rgba(96, 165, 250, 0.2);
+  background: color-mix(in srgb, var(--nav-primary) 12%, transparent);
+  color: var(--nav-primary);
+  border: 1px solid color-mix(in srgb, var(--nav-primary) 25%, transparent);
   border-radius: 4px;
   font-size: 10px;
   font-weight: 500;
@@ -309,20 +313,20 @@ const handleShowDetail = (bookmark) => {
 }
 
 .tag-badge:hover {
-  background: rgba(96, 165, 250, 0.22);
-  border-color: rgba(96, 165, 250, 0.5);
+  background: color-mix(in srgb, var(--nav-primary) 25%, transparent);
+  border-color: color-mix(in srgb, var(--nav-primary) 50%, transparent);
 }
 
 .tag-badge.more-tags {
   cursor: pointer;
-  background: rgba(255, 255, 255, 0.04);
-  border-color: rgba(255, 255, 255, 0.1);
-  color: rgba(255, 255, 255, 0.5);
+  background: var(--nav-card-bg);
+  border-color: var(--nav-border);
+  color: var(--nav-text-secondary);
 }
 
 .tag-badge.more-tags:hover {
-  background: rgba(255, 255, 255, 0.08);
-  color: rgba(255, 255, 255, 0.8);
+  background: var(--nav-card-hover);
+  color: var(--nav-text);
 }
 
 .empty-state {
@@ -333,7 +337,7 @@ const handleShowDetail = (bookmark) => {
   max-width: 80%;
   margin: 0 auto;
   padding: 4rem 1rem;
-  color: rgba(255, 255, 255, 0.4);
+  color: var(--nav-text-secondary);
   box-sizing: border-box;
   width: 100%;
   gap: 12px;
@@ -368,7 +372,7 @@ const handleShowDetail = (bookmark) => {
   justify-content: center;
   padding: 0.75rem 0.5rem;
   border-radius: 15px;
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--nav-border);
   cursor: pointer;
   transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1);
   min-height: 100px;
@@ -380,7 +384,7 @@ const handleShowDetail = (bookmark) => {
   position: absolute;
   inset: 0;
   border-radius: 15px;
-  background: linear-gradient(135deg, rgba(57, 157, 255, 0.03) 0%, rgba(99, 102, 241, 0.02) 50%, transparent 100%);
+  background: linear-gradient(135deg, color-mix(in srgb, var(--nav-primary) 5%, transparent) 0%, color-mix(in srgb, var(--primary) 3%, transparent) 50%, transparent 100%);
   opacity: 0;
   transition: opacity 0.4s;
   pointer-events: none;
@@ -392,9 +396,9 @@ const handleShowDetail = (bookmark) => {
   inset: -1px;
   border-radius: 16px;
   background: conic-gradient(from 0deg at 50% 50%,
-    transparent 0deg, rgba(57, 157, 255, 0.12) 45deg,
+    transparent 0deg, color-mix(in srgb, var(--nav-primary) 18%, transparent) 45deg,
     transparent 90deg, transparent 270deg,
-    rgba(99, 102, 241, 0.08) 315deg, transparent 360deg
+    color-mix(in srgb, var(--primary) 12%, transparent) 315deg, transparent 360deg
   );
   opacity: 0;
   transition: opacity 0.5s;
@@ -407,10 +411,10 @@ const handleShowDetail = (bookmark) => {
 }
 
 .nav-card:hover {
-  background: rgba(255, 255, 255, 0.1);
+  background: var(--nav-card-hover);
   transform: translateY(-3px);
-  box-shadow: 0 12px 40px -8px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(57, 157, 255, 0.08);
-  border-color: rgba(57, 157, 255, 0.15);
+  box-shadow: 0 12px 40px -8px var(--shadow-lg), 0 0 0 1px color-mix(in srgb, var(--nav-primary) 12%, transparent);
+  border-color: color-mix(in srgb, var(--nav-primary) 20%, transparent);
 }
 
 .nav-card:hover::before { opacity: 1; }
