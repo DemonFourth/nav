@@ -5,7 +5,6 @@ let settings = {};
 let categories = [];
 let tagItems = [];
 let allTags = [];
-let dataCache = { categories: [], tags: [], timestamp: 0 };
 
 function storageGet(area, keys) {
   return new Promise(resolve => chrome.storage[area].get(keys, resolve));
@@ -19,22 +18,38 @@ function storageRemove(area, keys) {
   return new Promise(resolve => chrome.storage[area].remove(keys, resolve));
 }
 
-async function saveDataCache() {
-  await storageSet('local', {
-    dataCache: {
-      categories,
-      tags: allTags,
-      timestamp: Date.now()
-    }
-  });
+async function savePrefetchCache() {
+  const cacheData = {
+    categories,
+    tags: allTags,
+    timestamp: Date.now()
+  };
+  // Chromium: 写入 session 存储（内存级）
+  if (chrome.storage.session) {
+    await chrome.storage.session.set({ prefetchCache: cacheData });
+  }
+  // Firefox fallback: 写入 local 存储
+  await storageSet('local', { prefetchCache: cacheData });
 }
 
-async function loadDataCache() {
-  const result = await storageGet('local', 'dataCache');
-  if (result.dataCache && result.dataCache.timestamp && (Date.now() - result.dataCache.timestamp < CACHE_TTL)) {
-    dataCache = result.dataCache;
-    categories = dataCache.categories || [];
-    allTags = dataCache.tags || [];
+async function loadPrefetchCache() {
+  let cache = null;
+
+  // 优先从 chrome.storage.session 读取（内存级，几乎 0ms）
+  if (chrome.storage.session) {
+    const result = await chrome.storage.session.get('prefetchCache');
+    cache = result.prefetchCache;
+  }
+
+  // fallback: 从 local 存储读取
+  if (!cache) {
+    const result = await storageGet('local', 'prefetchCache');
+    cache = result.prefetchCache;
+  }
+
+  if (cache && Date.now() - cache.timestamp < CACHE_TTL) {
+    categories = cache.categories || [];
+    allTags = cache.tags || [];
     return true;
   }
   return false;
@@ -289,7 +304,10 @@ function selectCategory(id, path) {
   const input = document.getElementById('category-input');
   const suggestions = document.getElementById('category-suggestions');
   
-  if (input) input.value = path;
+  if (input) {
+    input.value = path;
+    input.dataset.selectedId = id;
+  }
   hideCategorySuggestions();
 }
 
@@ -319,7 +337,7 @@ function renderCategorySuggestions(query = '') {
     return;
   }
   
-  suggestions.innerHTML = filtered.slice(0, 10).map(cat => {
+  suggestions.innerHTML = filtered.map(cat => {
     const displayPath = cat?.path || cat?.name || '未命名分类';
     return `<div class="category-suggestion" data-id="${cat.id}" data-path="${displayPath}">${displayPath}</div>`;
   }).join('');
@@ -428,7 +446,7 @@ function renderTagSuggestions(query = '') {
     return;
   }
   
-  suggestions.innerHTML = availableTags.slice(0, 10).map(tag => 
+  suggestions.innerHTML = availableTags.map(tag => 
     `<div class="tag-suggestion" data-tag="${tag}">${tag}</div>`
   ).join('');
   
@@ -797,6 +815,12 @@ async function saveBookmark(event) {
     
     if (result.success) {
       showStatus('✅ 书签保存成功', 'success');
+      // 通知 background 刷新预取缓存
+      try {
+        chrome.runtime.sendMessage({ type: 'data-changed' });
+      } catch (e) {
+        // background 不可用时忽略
+      }
       setTimeout(() => {
         window.close();
       }, 1000);
@@ -827,15 +851,15 @@ async function init() {
     return;
   }
   
-  const cacheLoaded = await loadDataCache();
+  const cacheLoaded = await loadPrefetchCache();
   
   if (cacheLoaded) {
     showSection('form-section');
     getTabInfo();
-    const [categoriesLoaded] = await Promise.all([loadCategories(), loadTags()]);
-    if (categoriesLoaded) {
-      saveDataCache();
-    }
+    // 后台异步刷新保持最新
+    Promise.all([loadCategories(), loadTags()]).then(() => {
+      savePrefetchCache();
+    });
   } else {
     showSection('loading-section');
     const [categoriesLoaded] = await Promise.all([loadCategories(), loadTags()]);
@@ -843,7 +867,7 @@ async function init() {
       showSection('auth-section');
       return;
     }
-    saveDataCache();
+    savePrefetchCache();
     getTabInfo();
     showSection('form-section');
   }

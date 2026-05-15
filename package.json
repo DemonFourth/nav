@@ -8,6 +8,7 @@
     "preview": "vite preview",
     "deploy": "npm run build && wrangler pages deploy dist",
     "ext:build": "bash browser-extension/package.sh",
+    "ext:build:win": "powershell -NoProfile -ExecutionPolicy Bypass -File browser-extension/package.ps1",
     "ext:build:chromium": "bash -lc 'cd browser-extension && rm -rf dist && mkdir -p dist/chromium && cp manifest.json dist/chromium/ && cp popup.html popup.js dist/chromium/ && cp options.html options.js dist/chromium/ && cp background.js dist/chromium/ && cp styles.css dist/chromium/ && cp -r icons dist/chromium/ && cd dist/chromium && zip -r ../bookmark-manager-chromium.zip . -q'",
     "ext:build:firefox": "bash -lc 'cd browser-extension && rm -rf dist && mkdir -p dist/firefox && cp manifest.firefox.json dist/firefox/manifest.json && cp popup.html popup.js dist/firefox/ && cp options.html options.js dist/firefox/ && cp background.firefox.js dist/firefox/background.js && cp styles.css dist/firefox/ && cp -r icons dist/firefox/ && cd dist/firefox && zip -r ../bookmark-manager-firefox.zip . -q'",
     "db:create": "wrangler d1 create bookmark-db",

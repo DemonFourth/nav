@@ -5,6 +5,9 @@ const TOKEN_TTL = 15 * 60 * 1000;
 const TOKEN_RENEW_THRESHOLD = 5 * 60 * 1000; // 剩余5分钟时自动续期
 const CHECK_INTERVAL = 5 * 60 * 1000; // 每5分钟检查一次
 
+const PREFETCH_CACHE_KEY = 'prefetchCache';
+const PREFETCH_TTL = 5 * 60 * 1000; // 预取缓存5分钟
+
 function storageGet(area, keys) {
   return new Promise(resolve => chrome.storage[area].get(keys, resolve));
 }
@@ -171,6 +174,78 @@ function stopTokenCheck() {
   }
 }
 
+// 预取书签数据（分类 + 标签）
+async function prefetchBookmarkData() {
+  const { serverUrl = '', authToken = '' } = await storageGet('local', ['serverUrl', 'authToken']);
+  if (!serverUrl || !authToken) return false;
+
+  try {
+    const headers = {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${authToken}`
+    };
+
+    const [categoriesRes, bookmarksRes] = await Promise.all([
+      fetch(`${serverUrl}/api/categories`, { headers }),
+      fetch(`${serverUrl}/api/bookmarks?limit=1000`, { headers })
+    ]);
+
+    if (!categoriesRes.ok || !bookmarksRes.ok) return false;
+
+    const categoriesData = await categoriesRes.json();
+    const bookmarksData = await bookmarksRes.json();
+    const rawCategories = categoriesData.data || [];
+    const rawBookmarks = bookmarksData.data || [];
+
+    // 构建分类 path
+    const categoryMap = new Map();
+    rawCategories.forEach(cat => categoryMap.set(cat.id, { ...cat }));
+
+    const processedCategories = rawCategories.map(cat => {
+      const segments = [];
+      const visited = new Set();
+      let current = categoryMap.get(cat.id);
+      while (current) {
+        if (visited.has(current.id)) break;
+        visited.add(current.id);
+        segments.unshift(current.name || '未命名');
+        if (!current.parent_id) break;
+        current = categoryMap.get(current.parent_id);
+      }
+      return { ...cat, path: segments.join(' / ') };
+    });
+
+    // 提取 tags
+    const tagSet = new Set();
+    rawBookmarks.forEach(bm => {
+      if (bm.tags) {
+        bm.tags.split(',').forEach(tag => {
+          const trimmed = tag.trim();
+          if (trimmed) tagSet.add(trimmed);
+        });
+      }
+    });
+
+    const cacheData = {
+      categories: processedCategories,
+      tags: Array.from(tagSet).sort(),
+      timestamp: Date.now()
+    };
+
+    // Chromium: 写入 session 存储（内存级，popup 读取极快）
+    if (chrome.storage.session) {
+      await chrome.storage.session.set({ [PREFETCH_CACHE_KEY]: cacheData });
+    }
+    // Firefox fallback: 写入 local 存储
+    await storageSet('local', { [PREFETCH_CACHE_KEY]: cacheData });
+
+    return true;
+  } catch (error) {
+    console.error('Prefetch failed:', error);
+    return false;
+  }
+}
+
 chrome.runtime.onInstalled.addListener(() => {
   chrome.contextMenus.create({
     id: 'save-bookmark',
@@ -180,6 +255,9 @@ chrome.runtime.onInstalled.addListener(() => {
   
   // 启动 token 检查
   startTokenCheck();
+
+  // 安装时预取一次数据
+  prefetchBookmarkData();
 });
 
 // 监听存储变化，如果启用/禁用自动续期，重新启动/停止检查
@@ -203,6 +281,8 @@ chrome.runtime.onStartup.addListener(() => {
       startTokenCheck();
     }
   });
+  // 启动时预取一次数据
+  prefetchBookmarkData();
 });
 
 chrome.contextMenus.onClicked.addListener((info, tab) => {
@@ -244,6 +324,33 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.type === 'request-context-info') {
     sendResponse(contextInfo);
     contextInfo = null;
+    return true;
+  }
+
+  if (request.type === 'get-prefetch-data') {
+    const tryGetCache = (storage) => {
+      storage.get(PREFETCH_CACHE_KEY).then(result => {
+        const cache = result[PREFETCH_CACHE_KEY];
+        if (cache && Date.now() - cache.timestamp < PREFETCH_TTL) {
+          sendResponse(cache);
+        } else {
+          sendResponse(null);
+        }
+      });
+    };
+
+    if (chrome.storage.session) {
+      tryGetCache(chrome.storage.session);
+    } else {
+      tryGetCache(chrome.storage.local);
+    }
+    return true;
+  }
+
+  if (request.type === 'data-changed') {
+    prefetchBookmarkData();
+    sendResponse({ success: true });
+    return true;
   }
 });
 
