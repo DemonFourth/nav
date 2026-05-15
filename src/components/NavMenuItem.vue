@@ -93,7 +93,7 @@ const handleMouseLeave = () => {
   background: transparent;
   border: none;
   border-radius: 6px;
-  color: rgba(255, 255, 255, 0.9);
+  color: var(--nav-text);
   font-size: 0.875rem;
   text-align: left;
   cursor: pointer;
@@ -102,12 +102,12 @@ const handleMouseLeave = () => {
 }
 
 .submenu-trigger:hover {
-  background: rgba(57, 157, 255, 0.25);
-  color: #ffffff;
+  background: color-mix(in srgb, var(--nav-primary) 28%, transparent);
+  color: var(--nav-text);
 }
 
 .submenu-trigger.active {
-  background: rgba(57, 157, 255, 0.35);
+  background: color-mix(in srgb, var(--nav-primary) 38%, transparent);
   color: var(--nav-primary);
   font-weight: 500;
 }
@@ -131,12 +131,12 @@ const handleMouseLeave = () => {
   top: 0;
   left: calc(100% + 8px);
   min-width: 140px;
-  background: rgba(30, 41, 59, 0.95);
+  background: var(--nav-glass);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
   border-radius: 12px;
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4);
-  border: 1px solid rgba(255, 255, 255, 0.15);
+  box-shadow: 0 10px 40px var(--shadow-xl);
+  border: 1px solid var(--nav-border);
   padding: 0.5rem;
   z-index: 250;
   opacity: 0;
@@ -148,5 +148,34 @@ const handleMouseLeave = () => {
   opacity: 1;
   visibility: visible;
   transform: translateX(4px);
+}
+
+@media (max-width: 768px) {
+  .submenu-children {
+    position: static;
+    box-shadow: none;
+    border: none;
+    padding: 0 0 0 0.75rem;
+    margin-top: 2px;
+    background: transparent;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    max-height: 0;
+    overflow: hidden;
+    opacity: 1;
+    visibility: visible;
+    transition: all 0.2s ease;
+  }
+  .submenu-children.show {
+    max-height: 500px;
+    padding: 0.25rem 0 0.25rem 0.75rem;
+    opacity: 1;
+    visibility: visible;
+    transform: none;
+  }
+  .submenu-trigger {
+    padding: 0.4rem 0.6rem;
+    font-size: 0.8125rem;
+  }
 }
 </style>

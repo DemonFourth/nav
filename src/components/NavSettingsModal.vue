@@ -420,152 +420,24 @@
                   </div>
                   <div class="category-tree-menu">
                     <div v-if="dragState.draggingId" class="drag-hint-menu">{{ dragHintText }}</div>
-                    <div v-for="(category, idx) in categoryTree" :key="category.id" class="tree-section-menu">
-                      <!-- Root Category -->
-                      <div
-                        class="tree-item-menu root-item-menu"
-                        :class="{
-                          selected: selectedCategoryId === category.id,
-                          dragging: dragState.draggingId === category.id,
-                          'drop-target': dragState.dropTargetId === category.id && dragState.dropPosition === 'before'
-                        }"
-                        draggable="true"
-                        @dragstart="onDragStart($event, category)"
-                        @dragend="onDragEnd"
-                        @dragover.prevent="onDragOver($event, category)"
-                        @drop="onDrop($event, category)"
-                        @click="selectCategory(category)"
-                      >
-                        <span class="drag-handle-menu">
-                          <svg viewBox="0 0 24 24" fill="currentColor" width="10" height="10">
-                            <circle cx="9" cy="6" r="1.5"/><circle cx="15" cy="6" r="1.5"/>
-                            <circle cx="9" cy="12" r="1.5"/><circle cx="15" cy="12" r="1.5"/>
-                            <circle cx="9" cy="18" r="1.5"/><circle cx="15" cy="18" r="1.5"/>
-                          </svg>
-                        </span>
-                        <div class="item-icon-menu">
-                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="16" height="16">
-                            <path d="M3 7h18M3 12h18M3 17h18"/>
-                          </svg>
-                        </div>
-                        <span class="item-name-menu">{{ category.name }}</span>
-                        <span class="item-count-menu">{{ category.children?.length || 0 }}</span>
-                        <div class="item-move-btns">
-                          <button class="move-btn" :disabled="idx === 0" @click.stop="moveRootItem(category.id, -1)">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="10" height="10"><path d="M5 15l7-7 7 7"/></svg>
-                          </button>
-                          <button class="move-btn" :disabled="idx >= categoryTree.length - 1" @click.stop="moveRootItem(category.id, 1)">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="10" height="10"><path d="M19 9l-7 7-7-7"/></svg>
-                          </button>
-                        </div>
-                        <button class="item-expand-menu" @click.stop="toggleExpand(category.id)">
-                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12"
-                               :class="{ rotated: expandedCategoryIds.includes(category.id) }">
-                            <path d="M9 18l6-6-6-6"/>
-                          </svg>
-                        </button>
-                      </div>
-                      <div v-if="dragState.dropTargetId === category.id && dragState.dropPosition === 'before'" class="drop-indicator-menu top"></div>
-
-                      <!-- Children -->
-                      <div v-if="expandedCategoryIds.includes(category.id) && category.children?.length" class="tree-children-menu">
-                        <template v-for="(child, childIdx) in category.children" :key="`${category.id}-${child.id}`">
-                          <div
-                            class="tree-item-menu child-item-menu"
-                            :class="{
-                              selected: selectedCategoryId === child.id,
-                              dragging: dragState.draggingId === child.id,
-                              'drop-target': dragState.dropTargetId === child.id && dragState.dropPosition === 'after'
-                            }"
-                            draggable="true"
-                            @dragstart="onDragStart($event, child)"
-                            @dragend="onDragEnd"
-                            @dragover.prevent="onDragOver($event, child)"
-                            @drop="onDrop($event, child)"
-                            @click="selectCategory(child)"
-                          >
-                            <span class="item-connector-menu"></span>
-                            <span class="drag-handle-menu">
-                              <svg viewBox="0 0 24 24" fill="currentColor" width="10" height="10">
-                                <circle cx="9" cy="6" r="1.5"/><circle cx="15" cy="6" r="1.5"/>
-                                <circle cx="9" cy="12" r="1.5"/><circle cx="15" cy="12" r="1.5"/>
-                                <circle cx="9" cy="18" r="1.5"/><circle cx="15" cy="18" r="1.5"/>
-                              </svg>
-                            </span>
-                            <div class="item-icon-menu child-icon-menu">
-                              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="16" height="16">
-                                <path d="M4 19.5A2.5 2.5 0 016.5 17H20M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/>
-                              </svg>
-                            </div>
-                            <span class="item-name-menu">{{ child.name }}</span>
-                            <div class="item-move-btns">
-                              <button class="move-btn" :disabled="childIdx === 0" @click.stop="moveChildItem(category.id, child.id, -1)">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="10" height="10"><path d="M5 15l7-7 7 7"/></svg>
-                              </button>
-                              <button class="move-btn" :disabled="childIdx >= (category.children?.length || 0) - 1" @click.stop="moveChildItem(category.id, child.id, 1)">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="10" height="10"><path d="M19 9l-7 7-7-7"/></svg>
-                              </button>
-                            </div>
-                            <button class="item-expand-menu" @click.stop="toggleExpand(child.id)" v-if="child.children?.length">
-                              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12"
-                                   :class="{ rotated: expandedCategoryIds.includes(child.id) }">
-                                <path d="M9 18l6-6-6-6"/>
-                              </svg>
-                            </button>
-                          </div>
-
-                          <!-- Grandchildren -->
-                          <div v-if="expandedCategoryIds.includes(child.id) && child.children?.length" class="tree-children-menu tree-grandchildren-menu">
-                            <div
-                              v-for="(grandchild, gcIdx) in child.children"
-                              :key="`${child.id}-${grandchild.id}`"
-                              class="tree-item-menu grandchild-item-menu"
-                              :class="{
-                                selected: selectedCategoryId === grandchild.id,
-                                dragging: dragState.draggingId === grandchild.id,
-                                'drop-target': dragState.dropTargetId === grandchild.id && dragState.dropPosition === 'after'
-                              }"
-                              draggable="true"
-                              @dragstart="onDragStart($event, grandchild)"
-                              @dragend="onDragEnd"
-                              @dragover.prevent="onDragOver($event, grandchild)"
-                              @drop="onDrop($event, grandchild)"
-                              @click="selectCategory(grandchild)"
-                            >
-                              <span class="item-connector-menu"></span>
-                              <span class="drag-handle-menu">
-                                <svg viewBox="0 0 24 24" fill="currentColor" width="10" height="10">
-                                  <circle cx="9" cy="6" r="1.5"/><circle cx="15" cy="6" r="1.5"/>
-                                  <circle cx="9" cy="12" r="1.5"/><circle cx="15" cy="12" r="1.5"/>
-                                  <circle cx="9" cy="18" r="1.5"/><circle cx="15" cy="18" r="1.5"/>
-                                </svg>
-                              </span>
-                              <div class="item-icon-menu grandchild-icon-menu">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="16" height="16">
-                                  <path d="M7 7h10v10H7z"/>
-                                </svg>
-                              </div>
-                              <span class="item-name-menu">{{ grandchild.name }}</span>
-                              <div class="item-move-btns">
-                                <button class="move-btn" :disabled="gcIdx === 0" @click.stop="moveChildItem(child.id, grandchild.id, -1)">
-                                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="10" height="10"><path d="M5 15l7-7 7 7"/></svg>
-                                </button>
-                                <button class="move-btn" :disabled="gcIdx >= (child.children?.length || 0) - 1" @click.stop="moveChildItem(child.id, grandchild.id, 1)">
-                                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="10" height="10"><path d="M19 9l-7 7-7-7"/></svg>
-                                </button>
-                              </div>
-                              <button class="item-expand-menu" @click.stop="toggleExpand(grandchild.id)" v-if="grandchild.children?.length">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12"
-                                     :class="{ rotated: expandedCategoryIds.includes(grandchild.id) }">
-                                  <path d="M9 18l6-6-6-6"/>
-                                </svg>
-                              </button>
-                            </div>
-                          </div>
-                        </template>
-                        <div v-if="dragState.dropTargetId === category.id && dragState.dropPosition === 'after'" class="drop-indicator-menu bottom"></div>
-                      </div>
-                    </div>
+                    <MenuTreeNode
+                      v-for="(category, idx) in categoryTree"
+                      :key="category.id"
+                      :node="category"
+                      :depth="0"
+                      :sibling-index="idx"
+                      :sibling-count="categoryTree.length"
+                      :selected-id="selectedCategoryId"
+                      :expanded-ids="expandedCategoryIds"
+                      :drag-state="dragState"
+                      @select="selectCategory"
+                      @drag-start="onDragStart"
+                      @drag-end="onDragEnd"
+                      @drag-over="onDragOver"
+                      @drop="onDrop"
+                      @toggle-expand="toggleExpand"
+                      @move-item="handleMoveItem"
+                    />
                   </div>
                 </div>
 
@@ -1080,6 +952,7 @@ import { useAI } from '@/composables/useAI'
 import { useToast } from '@/composables/useToast'
 import { useCategoryEditor } from '@/composables/useCategoryEditor'
 import { buildCategoryTree, getCategoryPath } from '@/utils/categoryTree'
+import MenuTreeNode from '@/components/MenuTreeNode.vue'
 
 const props = defineProps({
   show: {
@@ -1375,6 +1248,15 @@ const handleConfirmAdd = async () => {
   showAddDialog.value = false
 }
 const openDeleteConfirm = () => { showDeleteConfirm.value = true }
+
+const handleMoveItem = (node, direction) => {
+  const parentId = node.parent_id ?? null
+  if (parentId === null) {
+    moveRootItem(node.id, direction)
+  } else {
+    moveChildItem(parentId, node.id, direction)
+  }
+}
 const handleConfirmDelete = async () => {
   await confirmDelete(selectedCategoryId.value)
   showDeleteConfirm.value = false
@@ -1839,8 +1721,8 @@ watch(showAddDialog, (val) => {
   width: 30px;
   height: 30px;
   border-radius: 8px;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: var(--nav-bg-hover);
+  border: 1px solid var(--card-border);
   color: var(--text-secondary);
   cursor: pointer;
   display: flex;
@@ -2241,7 +2123,7 @@ textarea.setting-input {
 .stats-bento { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 16px; }
 
 .stat-block {
-  background: rgba(255, 255, 255, 0.02);
+  background: var(--card-bg);
   border: 1px solid var(--card-border);
   border-radius: 14px;
   padding: 18px;
@@ -2383,8 +2265,9 @@ textarea.setting-input {
 .menu-editor-grid {
   display: grid;
   grid-template-columns: 1fr 380px;
-  gap: 0;
+  gap: 0.75rem;
   min-height: 500px;
+  padding: 0.5rem;
 }
 
 .menu-left-panel {
@@ -2392,12 +2275,20 @@ textarea.setting-input {
   padding: 1rem;
   overflow-y: auto;
   max-height: 600px;
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: 10px;
+  margin: 0.5rem;
 }
 
 .menu-right-panel {
   padding: 1rem;
   overflow-y: auto;
   max-height: 600px;
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: 10px;
+  margin: 0.5rem;
 }
 
 .panel-section-header {
@@ -2405,8 +2296,10 @@ textarea.setting-input {
   justify-content: space-between;
   align-items: center;
   margin-bottom: 1rem;
-  padding-bottom: 0.75rem;
-  border-bottom: 1px solid var(--card-border);
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--card-border);
+  border-radius: 8px;
+  background: var(--card-bg);
 }
 
 .panel-section-header h3 {
@@ -2451,197 +2344,28 @@ textarea.setting-input {
   gap: 2px;
 }
 
-.tree-section-menu {
-  margin-bottom: 1px;
-}
-
-.tree-item-menu {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 0.5rem 0.625rem;
+.drag-hint-menu {
+  background: var(--accent-alpha-10);
+  border: 1px solid var(--accent);
   border-radius: 8px;
-  cursor: pointer;
-  transition: all 0.2s;
-  position: relative;
-}
-
-.tree-item-menu:hover {
-  background: var(--nav-bg-hover);
-}
-
-.tree-item-menu.selected {
-  background: var(--accent-alpha-10);
-  box-shadow: inset 0 0 0 1.5px var(--accent);
-}
-
-.tree-item-menu.dragging {
-  opacity: 0.5;
-}
-
-.tree-item-menu.drop-target {
-  box-shadow: inset 0 0 0 2px var(--accent);
-  background: var(--accent-alpha-5);
-}
-
-.root-item-menu {
-  font-weight: 600;
-  color: var(--text);
-}
-
-.child-item-menu {
-  color: var(--text-secondary);
-  font-weight: 500;
-  padding-left: 1.5rem;
-}
-
-.grandchild-item-menu {
-  color: var(--text-muted);
-  font-weight: 400;
-  padding-left: 2.5rem;
-}
-
-.tree-grandchildren-menu {
-  margin-top: 0;
-}
-
-.drag-handle-menu {
-  color: var(--text-muted);
-  cursor: grab;
-  width: 12px;
-  flex-shrink: 0;
-  opacity: 0;
-  transition: opacity 0.2s;
-}
-
-.tree-item-menu:hover .drag-handle-menu {
-  opacity: 1;
-}
-
-.item-icon-menu {
-  width: 18px;
-  height: 18px;
-  display: flex;
-  align-items: center;
+  padding: 0.5rem 0.75rem;
+  margin-bottom: 0.75rem;
+  font-size: 0.8rem;
   color: var(--accent);
-  flex-shrink: 0;
-}
-
-.child-icon-menu {
-  color: var(--text-muted);
-}
-
-.grandchild-icon-menu {
-  color: var(--text-muted);
-  opacity: 0.6;
-}
-
-.item-name-menu {
-  flex: 1;
-  font-size: 0.875rem;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.item-count-menu {
-  font-size: 0.7rem;
-  color: var(--text-muted);
-  background: var(--nav-bg-tertiary);
-  padding: 0.1rem 0.4rem;
-  border-radius: 999px;
-  flex-shrink: 0;
-}
-
-.item-expand-menu {
-  width: 20px;
-  height: 20px;
-  border-radius: 50%;
-  background: var(--nav-bg-tertiary);
-  border: 1px solid var(--card-border);
-  padding: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  transition: all 0.2s;
-}
-
-.item-expand-menu:hover {
-  background: var(--accent-alpha-10);
-  border-color: var(--accent);
-  color: var(--accent);
-}
-
-.item-expand-menu svg {
-  width: 10px;
-  height: 10px;
-  transition: transform 0.2s;
-}
-
-.item-expand-menu svg.rotated {
-  transform: rotate(90deg);
-}
-
-.item-connector-menu {
-  position: absolute;
-  left: 0.25rem;
-  top: 0;
-  bottom: 0;
-  width: 1px;
-  background: var(--card-border);
-}
-
-.item-move-btns {
-  display: flex;
-  gap: 1px;
-  flex-shrink: 0;
-}
-
-.move-btn {
-  background: var(--nav-bg-tertiary);
-  border: 1px solid var(--card-border);
-  border-radius: 4px;
-  padding: 2px;
-  cursor: pointer;
-  color: var(--text-muted);
-  display: flex;
-  transition: all 0.15s;
-}
-
-.move-btn:hover:not(:disabled) {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: var(--ov-bg);
-}
-
-.move-btn:disabled {
-  opacity: 0.3;
-  cursor: not-allowed;
-}
-
-.tree-children-menu {
-  margin-top: 2px;
-}
-
-.drop-indicator-menu {
-  height: 2px;
-  background: var(--accent);
-  border-radius: 1px;
-  margin: 2px 0;
-}
-
-.drop-indicator-menu.top {
-  margin-bottom: 4px;
-}
-
-.drop-indicator-menu.bottom {
-  margin-top: 4px;
+  text-align: center;
 }
 
 /* Detail Form */
 .detail-form-menu {
   padding: 0.5rem 0;
+}
+
+.detail-form-menu .form-group-menu:first-child {
+  margin-top: 0.5rem;
+}
+
+.detail-form-menu .form-group-menu:last-of-type {
+  margin-bottom: 1.5rem;
 }
 
 .form-group-menu {
@@ -2716,9 +2440,11 @@ textarea.setting-input {
 .form-actions-menu {
   display: flex;
   gap: 0.5rem;
-  padding-top: 0.75rem;
-  border-top: 1px solid var(--card-border);
+  padding: 0.75rem;
+  border: 1px solid var(--card-border);
+  border-radius: 8px;
   margin-top: 0.75rem;
+  background: var(--card-bg);
 }
 
 .btn-secondary-sm {
@@ -2757,8 +2483,10 @@ textarea.setting-input {
 
 .danger-zone-menu {
   margin-top: 1.5rem;
-  padding-top: 1rem;
-  border-top: 1px solid var(--error-alpha-20);
+  padding: 1rem;
+  border: 1px solid var(--error-alpha-20);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--error) 4%, transparent);
 }
 
 .danger-zone-menu h4 {
@@ -2803,6 +2531,9 @@ textarea.setting-input {
   padding: 3rem 1rem;
   color: var(--text-muted);
   text-align: center;
+  border: 1px dashed var(--card-border);
+  border-radius: 8px;
+  margin: 0.5rem 0;
 }
 
 .no-selection-menu svg {
@@ -2869,7 +2600,7 @@ textarea.setting-input {
 }
 
 .history-item:hover {
-  background: rgba(255, 255, 255, 0.05);
+  background: var(--nav-bg-hover);
   color: var(--text-primary);
 }
 
