@@ -407,123 +407,241 @@
             </div>
 
             <!-- Menu -->
-            <div v-show="activeTab === 'menu'" class="tab-panel">
-              <div class="panel-header">
-                <h2 class="panel-title">菜单排序</h2>
-                <p class="panel-desc">拖拽或使用箭头按钮调整分类在导航栏中的显示顺序</p>
-              </div>
-              <div class="settings-grid">
-                <div class="setting-card full-width">
-                  <div class="card-label">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-                      <line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/>
-                      <line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/>
-                    </svg>
-                    分类顺序
+            <div v-show="activeTab === 'menu'" class="tab-panel menu-tab">
+              <div class="menu-editor-grid">
+                <!-- Left: Category Tree -->
+                <div class="menu-left-panel">
+                  <div class="panel-section-header">
+                    <h3>菜单结构</h3>
+                    <button class="btn-text-primary" @click="openAddDialog">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M12 5v14M5 12h14"/></svg>
+                      新增分类
+                    </button>
                   </div>
-                  <p style="font-size:0.75rem;color:var(--text-secondary);margin-bottom:14px;line-height:1.5;">
-                    拖拽手柄或使用箭头调整分类顺序。排在前面的项目会出现在导航栏左侧。
-                  </p>
-                  <div class="sortable-list">
-                    <div
-                      v-for="(cat, index) in sortedCategories"
-                      :key="cat.id"
-                      class="sortable-item"
-                      :class="{ dragging: dragId === cat.id }"
-                      draggable="true"
-                      @dragstart="onDragStart(cat.id)"
-                      @dragover.prevent="onDragOver(cat.id)"
-                      @dragend="onDragEnd"
-                    >
-                      <span class="sort-handle">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-                          <line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/>
+                  <div class="category-tree-menu">
+                    <div v-if="dragState.draggingId" class="drag-hint-menu">{{ dragHintText }}</div>
+                    <div v-for="category in categoryTree" :key="category.id" class="tree-section-menu">
+                      <!-- Root Category -->
+                      <div
+                        class="tree-item-menu root-item-menu"
+                        :class="{
+                          selected: selectedCategoryId === category.id,
+                          dragging: dragState.draggingId === category.id,
+                          'drop-target': dragState.dropTargetId === category.id && dragState.dropPosition === 'before'
+                        }"
+                        draggable="true"
+                        @dragstart="onDragStart($event, category)"
+                        @dragend="onDragEnd"
+                        @dragover.prevent="onDragOver($event, category)"
+                        @drop="onDrop($event, category)"
+                        @click="selectCategory(category)"
+                      >
+                        <span class="drag-handle-menu">
+                          <svg viewBox="0 0 24 24" fill="currentColor" width="10" height="10">
+                            <circle cx="9" cy="6" r="1.5"/><circle cx="15" cy="6" r="1.5"/>
+                            <circle cx="9" cy="12" r="1.5"/><circle cx="15" cy="12" r="1.5"/>
+                            <circle cx="9" cy="18" r="1.5"/><circle cx="15" cy="18" r="1.5"/>
+                          </svg>
+                        </span>
+                        <div class="item-icon-menu">
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="16" height="16">
+                            <path d="M3 7h18M3 12h18M3 17h18"/>
+                          </svg>
+                        </div>
+                        <span class="item-name-menu">{{ category.name }}</span>
+                        <span class="item-count-menu">{{ category.children?.length || 0 }}</span>
+                        <div class="item-move-btns">
+                          <button class="move-btn" :disabled="idx === 0" @click.stop="moveRootItem(category.id, -1)">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="10" height="10"><path d="M5 15l7-7 7 7"/></svg>
+                          </button>
+                          <button class="move-btn" :disabled="idx >= categoryTree.length - 1" @click.stop="moveRootItem(category.id, 1)">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="10" height="10"><path d="M19 9l-7 7-7-7"/></svg>
+                          </button>
+                        </div>
+                        <button class="item-expand-menu" @click.stop="toggleExpand(category.id)">
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12"
+                               :class="{ rotated: expandedCategoryIds.includes(category.id) }">
+                            <path d="M9 18l6-6-6-6"/>
+                          </svg>
+                        </button>
+                      </div>
+                      <div v-if="dragState.dropTargetId === category.id && dragState.dropPosition === 'before'" class="drop-indicator-menu top"></div>
+
+                      <!-- Children -->
+                      <div v-if="expandedCategoryIds.includes(category.id) && category.children?.length" class="tree-children-menu">
+                        <div
+                          v-for="(child, childIdx) in category.children"
+                          :key="`${category.id}-${child.id}`"
+                          class="tree-item-menu child-item-menu"
+                          :class="{
+                            selected: selectedCategoryId === child.id,
+                            dragging: dragState.draggingId === child.id,
+                            'drop-target': dragState.dropTargetId === child.id && dragState.dropPosition === 'after'
+                          }"
+                          draggable="true"
+                          @dragstart="onDragStart($event, child)"
+                          @dragend="onDragEnd"
+                          @dragover.prevent="onDragOver($event, child)"
+                          @drop="onDrop($event, child)"
+                          @click="selectCategory(child)"
+                        >
+                          <span class="item-connector-menu"></span>
+                          <span class="drag-handle-menu">
+                            <svg viewBox="0 0 24 24" fill="currentColor" width="10" height="10">
+                              <circle cx="9" cy="6" r="1.5"/><circle cx="15" cy="6" r="1.5"/>
+                              <circle cx="9" cy="12" r="1.5"/><circle cx="15" cy="12" r="1.5"/>
+                              <circle cx="9" cy="18" r="1.5"/><circle cx="15" cy="18" r="1.5"/>
+                            </svg>
+                          </span>
+                          <div class="item-icon-menu child-icon-menu">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="16" height="16">
+                              <path d="M4 19.5A2.5 2.5 0 016.5 17H20M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/>
+                            </svg>
+                          </div>
+                          <span class="item-name-menu">{{ child.name }}</span>
+                          <span class="item-count-menu">{{ child.children?.length || 0 }}</span>
+                          <button class="item-expand-menu" @click.stop="toggleExpand(child.id)" v-if="child.children?.length">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12"
+                                 :class="{ rotated: expandedCategoryIds.includes(child.id) }">
+                              <path d="M9 18l6-6-6-6"/>
+                            </svg>
+                          </button>
+                          <div class="item-move-btns">
+                            <button class="move-btn" :disabled="childIdx === 0" @click.stop="moveChildItem(category.id, child.id, -1)">
+                              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="10" height="10"><path d="M5 15l7-7 7 7"/></svg>
+                            </button>
+                            <button class="move-btn" :disabled="childIdx >= (category.children?.length || 0) - 1" @click.stop="moveChildItem(category.id, child.id, 1)">
+                              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="10" height="10"><path d="M19 9l-7 7-7-7"/></svg>
+                            </button>
+                          </div>
+                        </div>
+                        <div v-if="dragState.dropTargetId === category.id && dragState.dropPosition === 'after'" class="drop-indicator-menu bottom"></div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Right: Category Detail Form -->
+                <div class="menu-right-panel">
+                  <div class="panel-section-header">
+                    <h3>分类详情</h3>
+                  </div>
+                  <div v-if="selectedCategoryData" class="detail-form-menu">
+                    <div class="form-group-menu">
+                      <label>分类名称</label>
+                      <input type="text" v-model="editCategoryForm.name" class="setting-input" />
+                    </div>
+                    <div class="form-group-menu">
+                      <label>父分类</label>
+                      <select v-model="editCategoryForm.parentId" class="setting-input">
+                        <option :value="null">无（根分类）</option>
+                        <option v-for="cat in availableParentCategories" :key="cat.id" :value="cat.id" :disabled="cat.id === selectedCategoryId">
+                          {{ cat.displayName }}
+                        </option>
+                      </select>
+                    </div>
+                    <div class="form-group-menu">
+                      <label>位置</label>
+                      <div class="position-display">
+                        第 {{ editCategoryForm.position }} / 共 {{ editCategoryForm.maxPosition }} 项
+                      </div>
+                    </div>
+                    <div class="form-actions-menu">
+                      <button class="btn-secondary-sm" @click="resetForm">重置</button>
+                      <button class="btn-primary-sm" @click="applyFormChanges">应用</button>
+                    </div>
+                    <div class="danger-zone-menu">
+                      <h4>危险区域</h4>
+                      <button class="btn-danger-sm" @click="openDeleteConfirm">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
+                          <path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/>
                         </svg>
-                      </span>
-                      <div class="sort-order-num">{{ index + 1 }}</div>
-                      <div class="sort-item-info">
-                        <div class="sort-item-name">{{ cat.name }}</div>
-                        <div class="sort-item-meta">{{ cat.bookmarks?.length || 0 }} 个书签</div>
-                      </div>
-                      <span class="sort-badge">显示</span>
-                      <div class="sort-arrows">
-                        <button class="sort-arrow-btn" :disabled="index === 0" @click="moveCategory(index, -1)">
-                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="18 15 12 9 6 15"/></svg>
-                        </button>
-                        <button class="sort-arrow-btn" :disabled="index === sortedCategories.length - 1" @click="moveCategory(index, 1)">
-                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="6 9 12 15 18 9"/></svg>
-                        </button>
-                      </div>
+                        删除此分类
+                      </button>
+                      <p class="danger-hint-menu">删除分类将同时删除所有子分类和书签</p>
                     </div>
+                  </div>
+                  <div v-else class="no-selection-menu">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="48" height="48">
+                      <path d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5"/>
+                    </svg>
+                    <p>选择左侧分类以编辑详情</p>
                   </div>
                 </div>
+              </div>
+            </div>
 
-                <div class="setting-card">
-                  <div class="card-label">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-                      <path d="M12 2L2 7l10 5 10-5-10-5z"/>
-                      <path d="M2 17l10 5 10-5"/>
-                      <path d="M2 12l10 5 10-5"/>
-                    </svg>
-                    可见性
+            <!-- Bookmark Tab -->
+            <div v-show="activeTab === 'bookmark'" class="tab-panel bookmark-tab">
+              <div class="bookmark-header">
+                <h2 class="bookmark-title">书签管理</h2>
+                <span class="bookmark-count">共 {{ bookmarks.length }} 个书签</span>
+              </div>
+              <div class="bookmark-toolbar">
+                <div class="bookmark-search-wrap">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                    <circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/>
+                  </svg>
+                  <input
+                    v-model="bookmarkSearch"
+                    type="text"
+                    class="bookmark-search-input"
+                    placeholder="搜索书签..."
+                  />
+                </div>
+                <select v-model="bookmarkCategoryFilter" class="bookmark-filter-select">
+                  <option :value="null">全部分类</option>
+                  <option v-for="cat in categoryFlatList" :key="cat.id" :value="cat.id">
+                    {{ cat.displayName }}
+                  </option>
+                </select>
+                <button class="btn-primary-sm" @click="openBookmarkAdd">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M12 5v14M5 12h14"/></svg>
+                  新增
+                </button>
+              </div>
+              <div class="bookmark-list">
+                <div
+                  v-for="bm in filteredBookmarks"
+                  :key="bm.id"
+                  class="bookmark-item"
+                  :class="{ selected: selectedBookmarks.has(bm.id) }"
+                >
+                  <input
+                    type="checkbox"
+                    :checked="selectedBookmarks.has(bm.id)"
+                    @change="toggleBookmarkSelection(bm.id)"
+                    class="bookmark-checkbox"
+                  />
+                  <div class="bookmark-icon">
+                    <img v-if="bm.url" :src="`https://www.google.com/s2/favicons?domain=${new URL(bm.url).hostname}&sz=32`" alt="" @error="$event.target.style.display='none'" />
                   </div>
-                  <div class="toggle-row">
-                    <div class="toggle-info">
-                      <div class="toggle-name">显示所有分类</div>
-                      <div class="toggle-desc">在导航栏显示全部分类</div>
-                    </div>
-                    <label class="toggle-switch">
-                      <input type="checkbox" checked />
-                      <span class="toggle-slider"></span>
-                    </label>
+                  <div class="bookmark-info">
+                    <div class="bookmark-name">{{ bm.name }}</div>
+                    <div class="bookmark-url">{{ bm.url }}</div>
                   </div>
-                  <div class="toggle-row">
-                    <div class="toggle-info">
-                      <div class="toggle-name">折叠空分类</div>
-                      <div class="toggle-desc">自动隐藏无书签的分类</div>
-                    </div>
-                    <label class="toggle-switch">
-                      <input type="checkbox" :checked="hideEmptyCategories" @change="toggleHideEmptyCategories" />
-                      <span class="toggle-slider"></span>
-                    </label>
-                  </div>
-                  <div class="toggle-row">
-                    <div class="toggle-info">
-                      <div class="toggle-name">显示书签数</div>
-                      <div class="toggle-desc">菜单项旁显示书签数量</div>
-                    </div>
-                    <label class="toggle-switch">
-                      <input type="checkbox" checked />
-                      <span class="toggle-slider"></span>
-                    </label>
+                  <div class="bookmark-category-path">{{ getCategoryPathForBookmark(bm.category_id) }}</div>
+                  <div class="bookmark-actions">
+                    <button class="bookmark-action-btn" @click="openBookmarkEdit(bm)">编辑</button>
+                    <button class="bookmark-action-btn bookmark-action-delete" @click="deleteBookmarkItem(bm)">删除</button>
                   </div>
                 </div>
-
-                <div class="setting-card">
-                  <div class="card-label">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-                      <circle cx="12" cy="12" r="10"/>
-                      <polyline points="12 6 12 12 16 14"/>
-                    </svg>
-                    显示选项
-                  </div>
-                  <div style="display:flex;flex-direction:column;gap:14px;">
-                    <div>
-                      <div class="slider-label" style="margin-bottom:6px;">导航栏最大菜单数</div>
-                      <div class="slider-row">
-                        <input type="range" min="3" max="12" :value="maxMenuItems" @input="e => maxMenuItems = Number(e.target.value)" />
-                        <span class="slider-value">{{ maxMenuItems }}</span>
-                      </div>
-                    </div>
-                    <div>
-                      <div class="slider-label" style="margin-bottom:6px;">子菜单样式</div>
-                      <div class="theme-selector">
-                        <button class="theme-btn active">下拉</button>
-                        <button class="theme-btn">大菜单</button>
-                        <button class="theme-btn">内联</button>
-                      </div>
-                    </div>
-                  </div>
+                <div v-if="filteredBookmarks.length === 0" class="bookmark-empty">
+                  <p>没有找到匹配的书签</p>
+                </div>
+              </div>
+              <div v-if="selectedBookmarks.size > 0" class="bookmark-footer">
+                <span class="bookmark-selected-count">已选择 {{ selectedBookmarks.size }} 个</span>
+                <div class="bookmark-batch-actions">
+                  <button class="btn-secondary-sm" @click="toggleSelectAll">全选/取消</button>
+                  <button class="btn-danger-sm" @click="batchDeleteBookmarks">删除选中</button>
+                  <select v-model="bookmarkMoveTarget" class="bookmark-move-select">
+                    <option :value="null">移动到...</option>
+                    <option v-for="cat in categoryFlatList" :key="cat.id" :value="cat.id">
+                      {{ cat.displayName }}
+                    </option>
+                  </select>
+                  <button class="btn-primary-sm" :disabled="!bookmarkMoveTarget" @click="batchMoveBookmarks">移动</button>
                 </div>
               </div>
             </div>
@@ -714,6 +832,171 @@
               </div>
             </div>
           </main>
+
+          <!-- Pending Bar -->
+          <div class="pending-bar" :class="{ visible: hasPendingChanges() }">
+            <div class="pending-bar-left">
+              <button class="pending-count-btn" @click="showSaveDialog = true">
+                {{ getPendingChangeCount() }} 项更改
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12"><path d="M6 9l6 6 6-6"/></svg>
+              </button>
+              <span class="pending-detail-link" @click="showSaveDialog = true">查看详情</span>
+            </div>
+            <div class="pending-bar-right">
+              <button class="btn-discard" @click="handleDiscardAll">放弃</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </Transition>
+
+    <!-- Dialog 1: Add Category -->
+    <Transition name="modal">
+      <div v-if="showAddDialog" class="dialog-overlay" @click="showAddDialog = false">
+        <div class="dialog-menu" @click.stop>
+          <div class="dialog-header">
+            <h3>新增分类</h3>
+            <button class="dialog-close" @click="showAddDialog = false">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="18" height="18">
+                <path d="M18 6L6 18M6 6l12 12"/>
+              </svg>
+            </button>
+          </div>
+          <div class="dialog-body">
+            <div class="form-group-menu">
+              <label>分类名称</label>
+              <input
+                ref="newCategoryNameInput"
+                v-model="newCategoryName"
+                type="text"
+                class="setting-input"
+                placeholder="输入分类名称"
+                @keyup.enter="handleConfirmAdd"
+              />
+            </div>
+            <div class="form-group-menu">
+              <label>父分类</label>
+              <select v-model="newCategoryParentId" class="setting-input">
+                <option :value="null">作为根分类</option>
+                <option v-for="cat in availableParentCategories" :key="cat.id" :value="cat.id">
+                  {{ cat.displayName }}
+                </option>
+              </select>
+            </div>
+          </div>
+          <div class="dialog-footer">
+            <button class="btn-secondary-sm" @click="showAddDialog = false">取消</button>
+            <button class="btn-primary-sm" :disabled="!newCategoryName.trim()" @click="handleConfirmAdd">创建</button>
+          </div>
+        </div>
+      </div>
+    </Transition>
+
+    <!-- Dialog 2: Delete Confirmation -->
+    <Transition name="modal">
+      <div v-if="showDeleteConfirm" class="dialog-overlay" @click="showDeleteConfirm = false">
+        <div class="dialog-menu" @click.stop>
+          <div class="dialog-header">
+            <h3>确认删除</h3>
+            <button class="dialog-close" @click="showDeleteConfirm = false">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="18" height="18">
+                <path d="M18 6L6 18M6 6l12 12"/>
+              </svg>
+            </button>
+          </div>
+          <div class="dialog-body">
+            <p class="delete-confirm-text">
+              确定要删除分类 "<strong>{{ selectedCategoryData?.name }}</strong>" 吗？
+            </p>
+            <p v-if="selectedCategoryData?.children?.length" class="delete-warning">
+              此分类下有 {{ selectedCategoryData.children.length }} 个子分类，它们也会被一并删除。<br/>
+              此操作不可恢复。
+            </p>
+          </div>
+          <div class="dialog-footer">
+            <button class="btn-secondary-sm" @click="showDeleteConfirm = false">取消</button>
+            <button class="btn-danger-sm" @click="handleConfirmDelete">确认删除</button>
+          </div>
+        </div>
+      </div>
+    </Transition>
+
+    <!-- Dialog 3: Save Confirmation -->
+    <Transition name="modal">
+      <div v-if="showSaveDialog" class="dialog-overlay" @click="showSaveDialog = false">
+        <div class="dialog-menu dialog-save" @click.stop>
+          <div class="dialog-header">
+            <h3>确认保存</h3>
+            <button class="dialog-close" @click="showSaveDialog = false">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="18" height="18">
+                <path d="M18 6L6 18M6 6l12 12"/>
+              </svg>
+            </button>
+          </div>
+          <div class="dialog-body">
+            <p class="save-summary">共 {{ getPendingChangeCount() }} 项更改：</p>
+            <ul class="change-list">
+              <li
+                v-for="(change, idx) in pendingChanges"
+                :key="idx"
+                :class="['change-item', `change-${change.type}`]"
+              >
+                <span class="change-type">{{ getChangeTypeLabel(change.type) }}</span>
+                <span class="change-desc">{{ getChangeDescription(change) }}</span>
+              </li>
+            </ul>
+          </div>
+          <div class="dialog-footer">
+            <button class="btn-secondary-sm" @click="showSaveDialog = false">取消</button>
+            <button class="btn-primary-sm" @click="handleConfirmSave">确认保存</button>
+          </div>
+        </div>
+      </div>
+    </Transition>
+
+    <!-- Bookmark Add/Edit Dialog -->
+    <Transition name="modal">
+      <div v-if="showBookmarkAddDialog || showBookmarkEditDialog" class="dialog-overlay" @click="closeBookmarkDialog">
+        <div class="dialog-menu dialog-bookmark" @click.stop>
+          <div class="dialog-header">
+            <h3>{{ editingBookmark ? '编辑书签' : '新增书签' }}</h3>
+            <button class="dialog-close" @click="closeBookmarkDialog">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="18" height="18">
+                <path d="M18 6L6 18M6 6l12 12"/>
+              </svg>
+            </button>
+          </div>
+          <div class="dialog-body">
+            <div class="form-group-menu">
+              <label>名称</label>
+              <input v-model="bookmarkForm.name" type="text" class="setting-input" placeholder="书签名称" />
+            </div>
+            <div class="form-group-menu">
+              <label>URL</label>
+              <input v-model="bookmarkForm.url" type="text" class="setting-input" placeholder="https://..." />
+            </div>
+            <div class="form-group-menu">
+              <label>描述</label>
+              <textarea v-model="bookmarkForm.description" class="setting-input" rows="2" placeholder="简短描述"></textarea>
+            </div>
+            <div class="form-group-menu">
+              <label>标签</label>
+              <input v-model="bookmarkForm.tags" type="text" class="setting-input" placeholder="用逗号分隔" />
+            </div>
+            <div class="form-group-menu">
+              <label>分类</label>
+              <select v-model="bookmarkForm.category_id" class="setting-input">
+                <option :value="null">无分类</option>
+                <option v-for="cat in categoryFlatList" :key="cat.id" :value="cat.id">
+                  {{ cat.displayName }}
+                </option>
+              </select>
+            </div>
+          </div>
+          <div class="dialog-footer">
+            <button class="btn-secondary-sm" @click="closeBookmarkDialog">取消</button>
+            <button class="btn-primary-sm" @click="handleSaveBookmark">保存</button>
+          </div>
         </div>
       </div>
     </Transition>
@@ -721,13 +1004,15 @@
 </template>
 
 <script setup>
-import { ref, computed, watch, onMounted } from 'vue'
+import { ref, reactive, computed, watch, onMounted } from 'vue'
 import { useSettings } from '@/composables/useSettings'
 import { useTheme } from '@/composables/useTheme'
 import { useAuth } from '@/composables/useAuth'
 import { useBookmarks } from '@/composables/useBookmarks'
 import { useAI } from '@/composables/useAI'
 import { useToast } from '@/composables/useToast'
+import { useCategoryEditor } from '@/composables/useCategoryEditor'
+import { buildCategoryTree, getCategoryPath } from '@/utils/categoryTree'
 
 const props = defineProps({
   show: {
@@ -753,9 +1038,54 @@ const {
 
 const { isDark, setThemeMode } = useTheme()
 const { isAuthenticated } = useAuth()
-const { categories, bookmarks } = useBookmarks()
 const { aiEnabled, aiSource, checkAIAvailability, saveAISettings, getAISettings } = useAI()
-const { success: toastSuccess, error: toastError } = useToast()
+
+// Category editor (uses useBookmarks internally)
+const {
+  categoryTree,
+  categoryFlatList,
+  selectedCategoryId,
+  selectedCategory: selectedCategoryData,
+  expandedCategoryIds,
+  editForm: editCategoryForm,
+  resetEditForm,
+  availableParentCategories,
+  changePosition,
+  createCategory,
+  editCategory,
+  removeCategory,
+  applyChanges,
+  toggleExpand,
+  selectCategory,
+  moveChildItem,
+  getChildIndex,
+  dragState,
+  dragHintText,
+  onDragStart,
+  onDragEnd,
+  onDragOver,
+  onDrop,
+  // New pending system
+  pendingChanges,
+  formOriginal,
+  initialDataSnapshot,
+  resetForm,
+  applyFormChanges,
+  confirmDelete,
+  confirmAddCategory,
+  confirmSave,
+  discardAll,
+  getChangeDescription,
+  getChangeTypeLabel,
+  getPendingChangeCount,
+  hasPendingChanges,
+  getPath,
+  findItem,
+  moveRootItem,
+} = useCategoryEditor()
+
+const { bookmarks, deleteBookmark, batchOperation, addBookmark, updateBookmark } = useBookmarks()
+const { success: toastSuccess, error: toastError, warning: toastWarning } = useToast()
 
 const activeTab = ref('appearance')
 const avatarInput = ref(null)
@@ -779,6 +1109,30 @@ const localCustomPrompt = ref('')
 const localCustomPromptEnabled = ref(false)
 const promptSaving = ref(false)
 
+// Dialog state
+const showAddDialog = ref(false)
+const showDeleteConfirm = ref(false)
+const showSaveDialog = ref(false)
+const newCategoryName = ref('')
+const newCategoryParentId = ref(null)
+const newCategoryNameInput = ref(null)
+
+// Bookmark tab state
+const bookmarkSearch = ref('')
+const bookmarkCategoryFilter = ref(null)
+const selectedBookmarks = ref(new Set())
+const showBookmarkAddDialog = ref(false)
+const showBookmarkEditDialog = ref(false)
+const editingBookmark = ref(null)
+const bookmarkMoveTarget = ref(null)
+const bookmarkForm = reactive({
+  name: '',
+  url: '',
+  description: '',
+  tags: '',
+  category_id: null
+})
+
 // Sortable category state
 const dragId = ref(null)
 const categoryOrder = ref([])
@@ -795,6 +1149,10 @@ const tabs = [
   {
     id: 'menu', name: '菜单',
     icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>'
+  },
+  {
+    id: 'bookmark', name: '书签',
+    icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>'
   },
   {
     id: 'ai', name: 'AI',
@@ -852,11 +1210,11 @@ const sortedCategories = computed(() => {
   return categories.value
 })
 
-const onDragStart = (id) => {
+const onListDragStart = (id) => {
   dragId.value = id
 }
 
-const onDragOver = (id) => {
+const onListDragOver = (id) => {
   if (dragId.value === null || dragId.value === id) return
   const list = sortedCategories.value
   const fromIdx = list.findIndex(c => c.id === dragId.value)
@@ -869,8 +1227,21 @@ const onDragOver = (id) => {
   categoryOrder.value = newOrder
 }
 
-const onDragEnd = () => {
+const onListDragEnd = () => {
   dragId.value = null
+}
+
+const onListDrop = (targetId) => {
+  if (dragId.value === null || dragId.value === targetId) return
+  const list = sortedCategories.value
+  const fromIdx = list.findIndex(c => c.id === dragId.value)
+  const toIdx = list.findIndex(c => c.id === targetId)
+  if (fromIdx === -1 || toIdx === -1) return
+
+  const newOrder = list.map(c => c.id)
+  const [moved] = newOrder.splice(fromIdx, 1)
+  newOrder.splice(toIdx, 0, moved)
+  categoryOrder.value = newOrder
 }
 
 const moveCategory = (index, direction) => {
@@ -881,6 +1252,158 @@ const moveCategory = (index, direction) => {
   const [moved] = newOrder.splice(index, 1)
   newOrder.splice(newIndex, 0, moved)
   categoryOrder.value = newOrder
+}
+
+// Use functions from useCategoryEditor (already imported)
+
+// Bookmark tab computed
+const filteredBookmarks = computed(() => {
+  let result = bookmarks.value
+  if (bookmarkCategoryFilter.value) {
+    result = result.filter(b => b.category_id === bookmarkCategoryFilter.value)
+  }
+  if (bookmarkSearch.value) {
+    const q = bookmarkSearch.value.toLowerCase()
+    result = result.filter(b =>
+      b.name.toLowerCase().includes(q) ||
+      b.url.toLowerCase().includes(q) ||
+      (b.description && b.description.toLowerCase().includes(q)) ||
+      (b.tags && b.tags.toLowerCase().includes(q))
+    )
+  }
+  return result
+})
+
+function getCategoryPathForBookmark(categoryId) {
+  if (!categoryId) return '无分类'
+  const { map } = buildCategoryTree(categories.value)
+  const path = getCategoryPath(categoryId, map)
+  return path.map(c => c.name).join(' / ')
+}
+
+// Category dialog handlers
+const openAddDialog = () => {
+  showAddDialog.value = true
+  newCategoryName.value = ''
+  newCategoryParentId.value = null
+  setTimeout(() => newCategoryNameInput.value?.focus(), 100)
+}
+const handleConfirmAdd = async () => {
+  await confirmAddCategory(newCategoryName.value, newCategoryParentId.value)
+  showAddDialog.value = false
+}
+const openDeleteConfirm = () => { showDeleteConfirm.value = true }
+const handleConfirmDelete = async () => {
+  await confirmDelete(selectedCategoryId.value)
+  showDeleteConfirm.value = false
+}
+const handleConfirmSave = async () => {
+  await confirmSave()
+  showSaveDialog.value = false
+}
+const handleDiscardAll = () => { discardAll() }
+
+// Bookmark handlers
+const toggleBookmarkSelection = (id) => {
+  if (selectedBookmarks.value.has(id)) {
+    selectedBookmarks.value.delete(id)
+  } else {
+    selectedBookmarks.value.add(id)
+  }
+  selectedBookmarks.value = new Set(selectedBookmarks.value)
+}
+const toggleSelectAll = () => {
+  if (selectedBookmarks.value.size === filteredBookmarks.value.length) {
+    selectedBookmarks.value.clear()
+  } else {
+    filteredBookmarks.value.forEach(bm => selectedBookmarks.value.add(bm.id))
+  }
+  selectedBookmarks.value = new Set(selectedBookmarks.value)
+}
+const deleteBookmarkItem = async (bookmark) => {
+  if (!confirm(`确定要删除书签 "${bookmark.name}" 吗？`)) return
+  const result = await deleteBookmark(bookmark.id)
+  if (result.success) {
+    toastSuccess('已删除书签')
+  } else {
+    toastError(result.error || '删除失败')
+  }
+}
+const batchDeleteBookmarks = async () => {
+  const ids = Array.from(selectedBookmarks.value)
+  if (ids.length === 0) return
+  if (!confirm(`确定要删除 ${ids.length} 个书签吗？`)) return
+  const result = await batchOperation('delete', ids)
+  if (result.success) {
+    toastSuccess(`已删除 ${ids.length} 个书签`)
+    selectedBookmarks.value.clear()
+    selectedBookmarks.value = new Set()
+  } else {
+    toastError('批量删除失败')
+  }
+}
+const batchMoveBookmarks = async () => {
+  const ids = Array.from(selectedBookmarks.value)
+  if (ids.length === 0 || !bookmarkMoveTarget.value) return
+  const result = await batchOperation('moveCategory', ids, { category_id: bookmarkMoveTarget.value })
+  if (result.success) {
+    toastSuccess(`已移动 ${ids.length} 个书签`)
+    selectedBookmarks.value.clear()
+    selectedBookmarks.value = new Set()
+    bookmarkMoveTarget.value = null
+  } else {
+    toastError('批量移动失败')
+  }
+}
+const openBookmarkAdd = () => {
+  editingBookmark.value = null
+  bookmarkForm.name = ''
+  bookmarkForm.url = ''
+  bookmarkForm.description = ''
+  bookmarkForm.tags = ''
+  bookmarkForm.category_id = bookmarkCategoryFilter.value
+  showBookmarkAddDialog.value = true
+}
+const openBookmarkEdit = (bookmark) => {
+  editingBookmark.value = bookmark
+  bookmarkForm.name = bookmark.name
+  bookmarkForm.url = bookmark.url
+  bookmarkForm.description = bookmark.description || ''
+  bookmarkForm.tags = bookmark.tags || ''
+  bookmarkForm.category_id = bookmark.category_id
+  showBookmarkEditDialog.value = true
+}
+const closeBookmarkDialog = () => {
+  showBookmarkAddDialog.value = false
+  showBookmarkEditDialog.value = false
+  editingBookmark.value = null
+}
+const handleSaveBookmark = async () => {
+  if (!bookmarkForm.name.trim() || !bookmarkForm.url.trim()) {
+    toastError('名称和 URL 不能为空')
+    return
+  }
+  const data = {
+    name: bookmarkForm.name.trim(),
+    url: bookmarkForm.url.trim(),
+    description: bookmarkForm.description.trim(),
+    tags: bookmarkForm.tags.trim(),
+    category_id: bookmarkForm.category_id
+  }
+  let result
+  if (editingBookmark.value) {
+    result = await updateBookmark(editingBookmark.value.id, data)
+  } else {
+    result = await addBookmark(data)
+  }
+  if (result.success) {
+    toastSuccess(editingBookmark.value ? '已更新书签' : '已添加书签')
+    closeBookmarkDialog()
+  } else if (result.duplicate) {
+    toastError(result.error || '该 URL 已存在')
+  } else {
+    toastError(result.error || '保存失败')
+  }
 }
 
 const handleClose = () => {
@@ -1105,6 +1628,12 @@ watch(() => props.show, async (newVal) => {
     }
   } else {
     document.body.style.overflow = ''
+  }
+})
+
+watch(showAddDialog, (val) => {
+  if (val) {
+    setTimeout(() => newCategoryNameInput.value?.focus(), 100)
   }
 })
 </script>
@@ -1808,6 +2337,418 @@ textarea.setting-input {
 .sort-arrow-btn:disabled { opacity: 0.25; cursor: not-allowed; }
 .sort-arrow-btn svg { width: 12px; height: 12px; }
 
+/* ===== Menu Editor Grid ===== */
+.menu-tab {
+  padding: 0 !important;
+}
+
+.menu-editor-grid {
+  display: grid;
+  grid-template-columns: 1fr 380px;
+  gap: 0;
+  min-height: 500px;
+}
+
+.menu-left-panel {
+  border-right: 1px solid var(--card-border);
+  padding: 1rem;
+  overflow-y: auto;
+  max-height: 600px;
+}
+
+.menu-right-panel {
+  padding: 1rem;
+  overflow-y: auto;
+  max-height: 600px;
+}
+
+.panel-section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid var(--card-border);
+}
+
+.panel-section-header h3 {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.btn-text-primary {
+  background: none;
+  border: none;
+  color: var(--accent);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.25rem 0.5rem;
+  border-radius: 6px;
+  transition: all 0.15s;
+}
+
+.btn-text-primary:hover {
+  background: var(--accent-alpha-10);
+}
+
+.drag-hint-menu {
+  background: var(--accent-alpha-10);
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+  padding: 0.5rem 0.75rem;
+  margin-bottom: 0.75rem;
+  font-size: 0.8rem;
+  color: var(--accent);
+  text-align: center;
+}
+
+.category-tree-menu {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.tree-section-menu {
+  margin-bottom: 1px;
+}
+
+.tree-item-menu {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0.5rem 0.625rem;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+  position: relative;
+}
+
+.tree-item-menu:hover {
+  background: var(--nav-bg-hover);
+}
+
+.tree-item-menu.selected {
+  background: var(--accent-alpha-10);
+  box-shadow: inset 0 0 0 1.5px var(--accent);
+}
+
+.tree-item-menu.dragging {
+  opacity: 0.5;
+}
+
+.tree-item-menu.drop-target {
+  box-shadow: inset 0 0 0 2px var(--accent);
+  background: var(--accent-alpha-5);
+}
+
+.root-item-menu {
+  font-weight: 600;
+  color: var(--text);
+}
+
+.child-item-menu {
+  color: var(--text-secondary);
+  font-weight: 500;
+  padding-left: 1.5rem;
+}
+
+.drag-handle-menu {
+  color: var(--text-muted);
+  cursor: grab;
+  width: 12px;
+  flex-shrink: 0;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.tree-item-menu:hover .drag-handle-menu {
+  opacity: 1;
+}
+
+.item-icon-menu {
+  width: 18px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  color: var(--accent);
+  flex-shrink: 0;
+}
+
+.child-icon-menu {
+  color: var(--text-muted);
+}
+
+.item-name-menu {
+  flex: 1;
+  font-size: 0.875rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.item-count-menu {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  background: var(--nav-bg-tertiary);
+  padding: 0.1rem 0.4rem;
+  border-radius: 999px;
+  flex-shrink: 0;
+}
+
+.item-expand-menu {
+  background: none;
+  border: none;
+  padding: 2px;
+  cursor: pointer;
+  color: var(--text-muted);
+  display: flex;
+  flex-shrink: 0;
+}
+
+.item-expand-menu svg {
+  transition: transform 0.2s;
+}
+
+.item-expand-menu svg.rotated {
+  transform: rotate(90deg);
+}
+
+.item-connector-menu {
+  position: absolute;
+  left: 0.25rem;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: var(--card-border);
+}
+
+.item-move-btns {
+  display: flex;
+  gap: 1px;
+  flex-shrink: 0;
+}
+
+.move-btn {
+  background: var(--nav-bg-tertiary);
+  border: 1px solid var(--card-border);
+  border-radius: 4px;
+  padding: 2px;
+  cursor: pointer;
+  color: var(--text-muted);
+  display: flex;
+  transition: all 0.15s;
+}
+
+.move-btn:hover:not(:disabled) {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: white;
+}
+
+.move-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.tree-children-menu {
+  margin-top: 2px;
+}
+
+.drop-indicator-menu {
+  height: 2px;
+  background: var(--accent);
+  border-radius: 1px;
+  margin: 2px 0;
+}
+
+.drop-indicator-menu.top {
+  margin-bottom: 4px;
+}
+
+.drop-indicator-menu.bottom {
+  margin-top: 4px;
+}
+
+/* Detail Form */
+.detail-form-menu {
+  padding: 0.5rem 0;
+}
+
+.form-group-menu {
+  margin-bottom: 1rem;
+}
+
+.form-group-menu label {
+  display: block;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 0.375rem;
+}
+
+.form-group-menu .setting-input {
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  border: 2px solid var(--card-border);
+  border-radius: 8px;
+  background: var(--card-bg);
+  color: var(--text);
+  font-size: 0.875rem;
+  transition: all 0.2s;
+}
+
+.form-group-menu .setting-input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-alpha-10);
+}
+
+.position-controls-menu {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.icon-btn-menu {
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 2px solid var(--card-border);
+  border-radius: 8px;
+  background: var(--card-bg);
+  color: var(--text);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+}
+
+.icon-btn-menu:hover:not(:disabled) {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: white;
+}
+
+.icon-btn-menu:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.position-value-menu {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--accent);
+  min-width: 2rem;
+  text-align: center;
+}
+
+.form-actions-menu {
+  display: flex;
+  gap: 0.5rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--card-border);
+  margin-top: 0.75rem;
+}
+
+.btn-secondary-sm {
+  flex: 1;
+  padding: 0.5rem 0.75rem;
+  border: 2px solid var(--card-border);
+  border-radius: 8px;
+  background: var(--card-bg);
+  color: var(--text);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.btn-secondary-sm:hover {
+  background: var(--nav-bg-hover);
+}
+
+.btn-primary-sm {
+  flex: 1;
+  padding: 0.5rem 0.75rem;
+  border: none;
+  border-radius: 8px;
+  background: var(--accent);
+  color: white;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.btn-primary-sm:hover {
+  filter: brightness(1.1);
+}
+
+.danger-zone-menu {
+  margin-top: 1.5rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--error-alpha-20);
+}
+
+.danger-zone-menu h4 {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--error);
+  margin-bottom: 0.5rem;
+}
+
+.btn-danger-sm {
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  border: none;
+  border-radius: 8px;
+  background: var(--error);
+  color: white;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.375rem;
+  transition: all 0.15s;
+}
+
+.btn-danger-sm:hover {
+  filter: brightness(1.1);
+}
+
+.danger-hint-menu {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  margin-top: 0.375rem;
+}
+
+.no-selection-menu {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 3rem 1rem;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+.no-selection-menu svg {
+  opacity: 0.3;
+  margin-bottom: 0.75rem;
+}
+
+.no-selection-menu p {
+  font-size: 0.875rem;
+}
+
 /* ===== Avatar ===== */
 .avatar-preview {
   width: 48px;
@@ -2077,5 +3018,450 @@ textarea.setting-input {
   .nav-tab-btn::before { display: none; }
   .settings-content { padding: 20px; }
       .settings-grid { grid-template-columns: 1fr; }
+}
+
+/* ===== Pending Bar ===== */
+.pending-bar {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: var(--card-bg);
+  border-top: 1px solid var(--card-border);
+  padding: 0.875rem 1.5rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  transform: translateY(100%);
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  z-index: 10;
+}
+.pending-bar.visible {
+  transform: translateY(0);
+}
+.pending-bar-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.pending-bar-right {
+  display: flex;
+  align-items: center;
+}
+.pending-count-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: var(--accent-bg);
+  border: 1px solid var(--accent-border);
+  border-radius: 8px;
+  color: var(--accent);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.2s;
+}
+.pending-count-btn:hover {
+  background: rgba(16, 185, 129, 0.18);
+}
+.pending-count-btn svg {
+  transition: transform 0.2s;
+}
+.pending-count-btn:hover svg {
+  transform: rotate(180deg);
+}
+.pending-detail-link {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  cursor: pointer;
+  text-decoration: underline;
+  text-decoration-color: transparent;
+  transition: all 0.2s;
+}
+.pending-detail-link:hover {
+  color: var(--accent);
+  text-decoration-color: var(--accent);
+}
+.btn-discard {
+  padding: 6px 14px;
+  background: transparent;
+  border: 1px solid var(--card-border);
+  border-radius: 8px;
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+  font-weight: 500;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.2s;
+}
+.btn-discard:hover {
+  background: rgba(239, 68, 68, 0.1);
+  border-color: rgba(239, 68, 68, 0.2);
+  color: #f87171;
+}
+
+/* ===== Dialogs ===== */
+.dialog-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+}
+.dialog-menu {
+  background: var(--ov-bg, rgba(11, 15, 25, 0.95));
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid var(--ov-border, rgba(255, 255, 255, 0.06));
+  border-radius: 16px;
+  width: 90%;
+  max-width: 440px;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 24px 48px rgba(0, 0, 0, 0.4);
+}
+.dialog-save {
+  max-width: 520px;
+}
+.dialog-bookmark {
+  max-width: 500px;
+}
+.dialog-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid var(--card-border);
+}
+.dialog-header h3 {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0;
+}
+.dialog-close {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+.dialog-close:hover {
+  background: rgba(239, 68, 68, 0.1);
+  color: #f87171;
+}
+.dialog-body {
+  padding: 1.25rem;
+  overflow-y: auto;
+  flex: 1;
+}
+.dialog-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 1rem 1.25rem;
+  border-top: 1px solid var(--card-border);
+}
+
+/* Delete confirmation */
+.delete-confirm-text {
+  font-size: 0.875rem;
+  color: var(--text-primary);
+  margin: 0 0 8px 0;
+}
+.delete-confirm-text strong {
+  color: var(--accent);
+}
+.delete-warning {
+  font-size: 0.8rem;
+  color: #f87171;
+  background: rgba(239, 68, 68, 0.08);
+  padding: 10px 12px;
+  border-radius: 8px;
+  margin: 0;
+  line-height: 1.5;
+}
+
+/* Save confirmation */
+.save-summary {
+  font-size: 0.8125rem;
+  color: var(--text-secondary);
+  margin: 0 0 12px 0;
+}
+.change-list {
+  list-style: none;
+  max-height: 300px;
+  overflow-y: auto;
+  padding: 0;
+  margin: 0;
+}
+.change-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  margin-bottom: 6px;
+  font-size: 0.8125rem;
+}
+.change-item:last-child {
+  margin-bottom: 0;
+}
+.change-create {
+  background: rgba(16, 185, 129, 0.08);
+  border-left: 3px solid #10b981;
+}
+.change-rename {
+  background: rgba(99, 102, 241, 0.08);
+  border-left: 3px solid #6366f1;
+}
+.change-reorder {
+  background: rgba(245, 158, 11, 0.08);
+  border-left: 3px solid #f59e0b;
+}
+.change-move {
+  background: rgba(59, 130, 246, 0.08);
+  border-left: 3px solid #3b82f6;
+}
+.change-delete {
+  background: rgba(239, 68, 68, 0.08);
+  border-left: 3px solid #ef4444;
+}
+.change-type {
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 4px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.change-create .change-type { color: #10b981; background: rgba(16, 185, 129, 0.15); }
+.change-rename .change-type { color: #6366f1; background: rgba(99, 102, 241, 0.15); }
+.change-reorder .change-type { color: #f59e0b; background: rgba(245, 158, 11, 0.15); }
+.change-move .change-type { color: #3b82f6; background: rgba(59, 130, 246, 0.15); }
+.change-delete .change-type { color: #ef4444; background: rgba(239, 68, 68, 0.15); }
+.change-desc {
+  color: var(--text-primary);
+  line-height: 1.4;
+}
+
+/* Position display */
+.position-display {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  padding: 8px 0;
+}
+
+/* ===== Bookmark Tab ===== */
+.bookmark-tab {
+  padding: 0 !important;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+.bookmark-header {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid var(--card-border);
+}
+.bookmark-title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0;
+}
+.bookmark-count {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+}
+.bookmark-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0.75rem 1.25rem;
+  border-bottom: 1px solid var(--card-border);
+}
+.bookmark-search-wrap {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  background: var(--input-bg);
+  border: 1px solid var(--input-border);
+  border-radius: 8px;
+  transition: all 0.2s;
+}
+.bookmark-search-wrap:focus-within {
+  border-color: var(--accent-border);
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.06);
+}
+.bookmark-search-wrap svg {
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+.bookmark-search-input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--text-primary);
+  font-size: 0.8125rem;
+  font-family: inherit;
+}
+.bookmark-search-input::placeholder {
+  color: var(--input-placeholder);
+}
+.bookmark-filter-select {
+  padding: 6px 10px;
+  background: var(--input-bg);
+  border: 1px solid var(--input-border);
+  border-radius: 8px;
+  color: var(--text-primary);
+  font-size: 0.75rem;
+  font-family: inherit;
+  cursor: pointer;
+  outline: none;
+}
+.bookmark-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0;
+}
+.bookmark-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--row-divider);
+  transition: background 0.15s;
+}
+.bookmark-item:hover {
+  background: var(--card-hover-bg);
+}
+.bookmark-item.selected {
+  background: var(--accent-bg);
+}
+.bookmark-checkbox {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+  accent-color: var(--accent);
+}
+.bookmark-icon {
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.bookmark-icon img {
+  width: 16px;
+  height: 16px;
+  border-radius: 2px;
+}
+.bookmark-info {
+  flex: 1;
+  min-width: 0;
+}
+.bookmark-name {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.bookmark-url {
+  font-size: 0.7rem;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.bookmark-category-path {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+  flex-shrink: 0;
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.bookmark-actions {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+}
+.bookmark-action-btn {
+  padding: 4px 8px;
+  background: transparent;
+  border: 1px solid var(--card-border);
+  border-radius: 6px;
+  color: var(--text-secondary);
+  font-size: 0.7rem;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.15s;
+}
+.bookmark-action-btn:hover {
+  background: var(--nav-bg-hover);
+  color: var(--text-primary);
+}
+.bookmark-action-delete:hover {
+  background: rgba(239, 68, 68, 0.1);
+  border-color: rgba(239, 68, 68, 0.2);
+  color: #f87171;
+}
+.bookmark-empty {
+  padding: 3rem 1rem;
+  text-align: center;
+  color: var(--text-muted);
+}
+.bookmark-empty p {
+  font-size: 0.875rem;
+}
+.bookmark-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1.25rem;
+  border-top: 1px solid var(--card-border);
+  background: var(--card-bg);
+}
+.bookmark-selected-count {
+  font-size: 0.75rem;
+  color: var(--accent);
+  font-weight: 600;
+}
+.bookmark-batch-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.bookmark-move-select {
+  padding: 4px 8px;
+  background: var(--input-bg);
+  border: 1px solid var(--input-border);
+  border-radius: 6px;
+  color: var(--text-primary);
+  font-size: 0.75rem;
+  font-family: inherit;
+  cursor: pointer;
+  outline: none;
 }
 </style>
