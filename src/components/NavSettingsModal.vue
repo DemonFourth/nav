@@ -469,70 +469,20 @@
 
                       <!-- Children -->
                       <div v-if="expandedCategoryIds.includes(category.id) && category.children?.length" class="tree-children-menu">
-                        <div
-                          v-for="(child, childIdx) in category.children"
-                          :key="`${category.id}-${child.id}`"
-                          class="tree-item-menu child-item-menu"
-                          :class="{
-                            selected: selectedCategoryId === child.id,
-                            dragging: dragState.draggingId === child.id,
-                            'drop-target': dragState.dropTargetId === child.id && dragState.dropPosition === 'after'
-                          }"
-                          draggable="true"
-                          @dragstart="onDragStart($event, child)"
-                          @dragend="onDragEnd"
-                          @dragover.prevent="onDragOver($event, child)"
-                          @drop="onDrop($event, child)"
-                          @click="selectCategory(child)"
-                        >
-                          <span class="item-connector-menu"></span>
-                          <span class="drag-handle-menu">
-                            <svg viewBox="0 0 24 24" fill="currentColor" width="10" height="10">
-                              <circle cx="9" cy="6" r="1.5"/><circle cx="15" cy="6" r="1.5"/>
-                              <circle cx="9" cy="12" r="1.5"/><circle cx="15" cy="12" r="1.5"/>
-                              <circle cx="9" cy="18" r="1.5"/><circle cx="15" cy="18" r="1.5"/>
-                            </svg>
-                          </span>
-                          <div class="item-icon-menu child-icon-menu">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="16" height="16">
-                              <path d="M4 19.5A2.5 2.5 0 016.5 17H20M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/>
-                            </svg>
-                          </div>
-                          <span class="item-name-menu">{{ child.name }}</span>
-                          <span class="item-count-menu">{{ child.children?.length || 0 }}</span>
-                          <button class="item-expand-menu" @click.stop="toggleExpand(child.id)" v-if="child.children?.length">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12"
-                                 :class="{ rotated: expandedCategoryIds.includes(child.id) }">
-                              <path d="M9 18l6-6-6-6"/>
-                            </svg>
-                          </button>
-                          <div class="item-move-btns">
-                            <button class="move-btn" :disabled="childIdx === 0" @click.stop="moveChildItem(category.id, child.id, -1)">
-                              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="10" height="10"><path d="M5 15l7-7 7 7"/></svg>
-                            </button>
-                            <button class="move-btn" :disabled="childIdx >= (category.children?.length || 0) - 1" @click.stop="moveChildItem(category.id, child.id, 1)">
-                              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="10" height="10"><path d="M19 9l-7 7-7-7"/></svg>
-                            </button>
-                          </div>
-                        </div>
-
-                        <!-- Grandchildren -->
-                        <div v-if="expandedCategoryIds.includes(child.id) && child.children?.length" class="tree-children-menu tree-grandchildren-menu">
+                        <template v-for="(child, childIdx) in category.children" :key="`${category.id}-${child.id}`">
                           <div
-                            v-for="(grandchild, gcIdx) in child.children"
-                            :key="`${child.id}-${grandchild.id}`"
-                            class="tree-item-menu grandchild-item-menu"
+                            class="tree-item-menu child-item-menu"
                             :class="{
-                              selected: selectedCategoryId === grandchild.id,
-                              dragging: dragState.draggingId === grandchild.id,
-                              'drop-target': dragState.dropTargetId === grandchild.id && dragState.dropPosition === 'after'
+                              selected: selectedCategoryId === child.id,
+                              dragging: dragState.draggingId === child.id,
+                              'drop-target': dragState.dropTargetId === child.id && dragState.dropPosition === 'after'
                             }"
                             draggable="true"
-                            @dragstart="onDragStart($event, grandchild)"
+                            @dragstart="onDragStart($event, child)"
                             @dragend="onDragEnd"
-                            @dragover.prevent="onDragOver($event, grandchild)"
-                            @drop="onDrop($event, grandchild)"
-                            @click="selectCategory(grandchild)"
+                            @dragover.prevent="onDragOver($event, child)"
+                            @drop="onDrop($event, child)"
+                            @click="selectCategory(child)"
                           >
                             <span class="item-connector-menu"></span>
                             <span class="drag-handle-menu">
@@ -542,29 +492,79 @@
                                 <circle cx="9" cy="18" r="1.5"/><circle cx="15" cy="18" r="1.5"/>
                               </svg>
                             </span>
-                            <div class="item-icon-menu grandchild-icon-menu">
+                            <div class="item-icon-menu child-icon-menu">
                               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="16" height="16">
-                                <path d="M7 7h10v10H7z"/>
+                                <path d="M4 19.5A2.5 2.5 0 016.5 17H20M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/>
                               </svg>
                             </div>
-                            <span class="item-name-menu">{{ grandchild.name }}</span>
-                            <span class="item-count-menu">{{ grandchild.children?.length || 0 }}</span>
-                            <button class="item-expand-menu" @click.stop="toggleExpand(grandchild.id)" v-if="grandchild.children?.length">
+                            <span class="item-name-menu">{{ child.name }}</span>
+                            <span class="item-count-menu">{{ child.children?.length || 0 }}</span>
+                            <button class="item-expand-menu" @click.stop="toggleExpand(child.id)" v-if="child.children?.length">
                               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12"
-                                   :class="{ rotated: expandedCategoryIds.includes(grandchild.id) }">
+                                   :class="{ rotated: expandedCategoryIds.includes(child.id) }">
                                 <path d="M9 18l6-6-6-6"/>
                               </svg>
                             </button>
                             <div class="item-move-btns">
-                              <button class="move-btn" :disabled="gcIdx === 0" @click.stop="moveChildItem(child.id, grandchild.id, -1)">
+                              <button class="move-btn" :disabled="childIdx === 0" @click.stop="moveChildItem(category.id, child.id, -1)">
                                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="10" height="10"><path d="M5 15l7-7 7 7"/></svg>
                               </button>
-                              <button class="move-btn" :disabled="gcIdx >= (child.children?.length || 0) - 1" @click.stop="moveChildItem(child.id, grandchild.id, 1)">
+                              <button class="move-btn" :disabled="childIdx >= (category.children?.length || 0) - 1" @click.stop="moveChildItem(category.id, child.id, 1)">
                                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="10" height="10"><path d="M19 9l-7 7-7-7"/></svg>
                               </button>
                             </div>
                           </div>
-                        </div>
+
+                          <!-- Grandchildren -->
+                          <div v-if="expandedCategoryIds.includes(child.id) && child.children?.length" class="tree-children-menu tree-grandchildren-menu">
+                            <div
+                              v-for="(grandchild, gcIdx) in child.children"
+                              :key="`${child.id}-${grandchild.id}`"
+                              class="tree-item-menu grandchild-item-menu"
+                              :class="{
+                                selected: selectedCategoryId === grandchild.id,
+                                dragging: dragState.draggingId === grandchild.id,
+                                'drop-target': dragState.dropTargetId === grandchild.id && dragState.dropPosition === 'after'
+                              }"
+                              draggable="true"
+                              @dragstart="onDragStart($event, grandchild)"
+                              @dragend="onDragEnd"
+                              @dragover.prevent="onDragOver($event, grandchild)"
+                              @drop="onDrop($event, grandchild)"
+                              @click="selectCategory(grandchild)"
+                            >
+                              <span class="item-connector-menu"></span>
+                              <span class="drag-handle-menu">
+                                <svg viewBox="0 0 24 24" fill="currentColor" width="10" height="10">
+                                  <circle cx="9" cy="6" r="1.5"/><circle cx="15" cy="6" r="1.5"/>
+                                  <circle cx="9" cy="12" r="1.5"/><circle cx="15" cy="12" r="1.5"/>
+                                  <circle cx="9" cy="18" r="1.5"/><circle cx="15" cy="18" r="1.5"/>
+                                </svg>
+                              </span>
+                              <div class="item-icon-menu grandchild-icon-menu">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="16" height="16">
+                                  <path d="M7 7h10v10H7z"/>
+                                </svg>
+                              </div>
+                              <span class="item-name-menu">{{ grandchild.name }}</span>
+                              <span class="item-count-menu">{{ grandchild.children?.length || 0 }}</span>
+                              <button class="item-expand-menu" @click.stop="toggleExpand(grandchild.id)" v-if="grandchild.children?.length">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12"
+                                     :class="{ rotated: expandedCategoryIds.includes(grandchild.id) }">
+                                  <path d="M9 18l6-6-6-6"/>
+                                </svg>
+                              </button>
+                              <div class="item-move-btns">
+                                <button class="move-btn" :disabled="gcIdx === 0" @click.stop="moveChildItem(child.id, grandchild.id, -1)">
+                                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="10" height="10"><path d="M5 15l7-7 7 7"/></svg>
+                                </button>
+                                <button class="move-btn" :disabled="gcIdx >= (child.children?.length || 0) - 1" @click.stop="moveChildItem(child.id, grandchild.id, 1)">
+                                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="10" height="10"><path d="M19 9l-7 7-7-7"/></svg>
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        </template>
                         <div v-if="dragState.dropTargetId === category.id && dragState.dropPosition === 'after'" class="drop-indicator-menu bottom"></div>
                       </div>
                     </div>
