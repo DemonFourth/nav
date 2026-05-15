@@ -515,6 +515,56 @@
                             </button>
                           </div>
                         </div>
+
+                        <!-- Grandchildren -->
+                        <div v-if="expandedCategoryIds.includes(child.id) && child.children?.length" class="tree-children-menu tree-grandchildren-menu">
+                          <div
+                            v-for="(grandchild, gcIdx) in child.children"
+                            :key="`${child.id}-${grandchild.id}`"
+                            class="tree-item-menu grandchild-item-menu"
+                            :class="{
+                              selected: selectedCategoryId === grandchild.id,
+                              dragging: dragState.draggingId === grandchild.id,
+                              'drop-target': dragState.dropTargetId === grandchild.id && dragState.dropPosition === 'after'
+                            }"
+                            draggable="true"
+                            @dragstart="onDragStart($event, grandchild)"
+                            @dragend="onDragEnd"
+                            @dragover.prevent="onDragOver($event, grandchild)"
+                            @drop="onDrop($event, grandchild)"
+                            @click="selectCategory(grandchild)"
+                          >
+                            <span class="item-connector-menu"></span>
+                            <span class="drag-handle-menu">
+                              <svg viewBox="0 0 24 24" fill="currentColor" width="10" height="10">
+                                <circle cx="9" cy="6" r="1.5"/><circle cx="15" cy="6" r="1.5"/>
+                                <circle cx="9" cy="12" r="1.5"/><circle cx="15" cy="12" r="1.5"/>
+                                <circle cx="9" cy="18" r="1.5"/><circle cx="15" cy="18" r="1.5"/>
+                              </svg>
+                            </span>
+                            <div class="item-icon-menu grandchild-icon-menu">
+                              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="16" height="16">
+                                <path d="M7 7h10v10H7z"/>
+                              </svg>
+                            </div>
+                            <span class="item-name-menu">{{ grandchild.name }}</span>
+                            <span class="item-count-menu">{{ grandchild.children?.length || 0 }}</span>
+                            <button class="item-expand-menu" @click.stop="toggleExpand(grandchild.id)" v-if="grandchild.children?.length">
+                              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12"
+                                   :class="{ rotated: expandedCategoryIds.includes(grandchild.id) }">
+                                <path d="M9 18l6-6-6-6"/>
+                              </svg>
+                            </button>
+                            <div class="item-move-btns">
+                              <button class="move-btn" :disabled="gcIdx === 0" @click.stop="moveChildItem(child.id, grandchild.id, -1)">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="10" height="10"><path d="M5 15l7-7 7 7"/></svg>
+                              </button>
+                              <button class="move-btn" :disabled="gcIdx >= (child.children?.length || 0) - 1" @click.stop="moveChildItem(child.id, grandchild.id, 1)">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="10" height="10"><path d="M19 9l-7 7-7-7"/></svg>
+                              </button>
+                            </div>
+                          </div>
+                        </div>
                         <div v-if="dragState.dropTargetId === category.id && dragState.dropPosition === 'after'" class="drop-indicator-menu bottom"></div>
                       </div>
                     </div>
@@ -529,11 +579,11 @@
                   <div v-if="selectedCategoryData" class="detail-form-menu">
                     <div class="form-group-menu">
                       <label>分类名称</label>
-                      <input type="text" v-model="editCategoryForm.name" class="setting-input" />
+                      <input type="text" v-model="editCategoryForm.name" class="setting-input" @change="applyFormChanges" />
                     </div>
                     <div class="form-group-menu">
                       <label>父分类</label>
-                      <select v-model="editCategoryForm.parentId" class="setting-input">
+                      <select v-model="editCategoryForm.parentId" class="setting-input" @change="applyFormChanges">
                         <option :value="null">无（根分类）</option>
                         <option v-for="cat in availableParentCategories" :key="cat.id" :value="cat.id" :disabled="cat.id === selectedCategoryId">
                           {{ cat.displayName }}
@@ -545,10 +595,6 @@
                       <div class="position-display">
                         第 {{ editCategoryForm.position }} / 共 {{ editCategoryForm.maxPosition }} 项
                       </div>
-                    </div>
-                    <div class="form-actions-menu">
-                      <button class="btn-secondary-sm" @click="resetForm">重置</button>
-                      <button class="btn-primary-sm" @click="applyFormChanges">应用</button>
                     </div>
                     <div class="danger-zone-menu">
                       <h4>危险区域</h4>
@@ -954,6 +1000,29 @@
       </div>
     </Transition>
 
+    <!-- Dialog 4: Discard Confirmation -->
+    <Transition name="modal">
+      <div v-if="showDiscardConfirm" class="dialog-overlay" @click="showDiscardConfirm = false">
+        <div class="dialog-menu" @click.stop>
+          <div class="dialog-header">
+            <h3>确认放弃</h3>
+            <button class="dialog-close" @click="showDiscardConfirm = false">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="18" height="18">
+                <path d="M18 6L6 18M6 6l12 12"/>
+              </svg>
+            </button>
+          </div>
+          <div class="dialog-body">
+            <p>确定要放弃全部更改吗？此操作不可恢复。</p>
+          </div>
+          <div class="dialog-footer">
+            <button class="btn-secondary-sm" @click="showDiscardConfirm = false">取消</button>
+            <button class="btn-danger-sm" @click="handleConfirmDiscard">确认放弃</button>
+          </div>
+        </div>
+      </div>
+    </Transition>
+
     <!-- Bookmark Add/Edit Dialog -->
     <Transition name="modal">
       <div v-if="showBookmarkAddDialog || showBookmarkEditDialog" class="dialog-overlay" @click="closeBookmarkDialog">
@@ -1049,29 +1118,20 @@ const {
   selectedCategory: selectedCategoryData,
   expandedCategoryIds,
   editForm: editCategoryForm,
-  resetEditForm,
   availableParentCategories,
-  changePosition,
-  createCategory,
-  editCategory,
-  removeCategory,
-  applyChanges,
   toggleExpand,
   selectCategory,
   moveChildItem,
-  getChildIndex,
   dragState,
   dragHintText,
   onDragStart,
   onDragEnd,
   onDragOver,
   onDrop,
-  // New pending system
+  // Pending system
   pendingChanges,
-  formOriginal,
   initialDataSnapshot,
   captureInitialSnapshot,
-  resetForm,
   applyFormChanges,
   confirmDelete,
   confirmAddCategory,
@@ -1115,6 +1175,7 @@ const promptSaving = ref(false)
 const showAddDialog = ref(false)
 const showDeleteConfirm = ref(false)
 const showSaveDialog = ref(false)
+const showDiscardConfirm = ref(false)
 const newCategoryName = ref('')
 const newCategoryParentId = ref(null)
 const newCategoryNameInput = ref(null)
@@ -1324,7 +1385,8 @@ const handleConfirmSave = async () => {
   await confirmSave()
   showSaveDialog.value = false
 }
-const handleDiscardAll = () => { discardAll() }
+const handleDiscardAll = () => { showDiscardConfirm.value = true }
+const handleConfirmDiscard = () => { discardAll(); showDiscardConfirm.value = false }
 
 // Bookmark handlers
 const toggleBookmarkSelection = (id) => {
@@ -2480,6 +2542,16 @@ textarea.setting-input {
   padding-left: 1.5rem;
 }
 
+.grandchild-item-menu {
+  color: var(--text-muted);
+  font-weight: 400;
+  padding-left: 2.5rem;
+}
+
+.tree-grandchildren-menu {
+  margin-top: 0;
+}
+
 .drag-handle-menu {
   color: var(--text-muted);
   cursor: grab;
@@ -2504,6 +2576,11 @@ textarea.setting-input {
 
 .child-icon-menu {
   color: var(--text-muted);
+}
+
+.grandchild-icon-menu {
+  color: var(--text-muted);
+  opacity: 0.6;
 }
 
 .item-name-menu {

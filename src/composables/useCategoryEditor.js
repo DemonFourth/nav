@@ -191,8 +191,10 @@ export function useCategoryEditor() {
     editForm.position = idx + 1
     editForm.maxPosition = siblings.length
 
-    // Capture snapshot + form original
-    captureInitialSnapshot()
+    // Only capture snapshot if not already captured (don't overwrite mid-edit)
+    if (initialDataSnapshot.value.length === 0) {
+      captureInitialSnapshot()
+    }
     formOriginal.name = category.name
     formOriginal.parentId = category.parent_id || null
     formOriginal.position = idx + 1
@@ -261,6 +263,9 @@ export function useCategoryEditor() {
     siblings[idx].position = siblings[newIdx].position
     siblings[newIdx].position = tempPos
 
+    // Trigger Vue reactivity
+    categories.value = [...categories.value]
+
     const item = siblings[idx]
     recordChange({
       type: 'reorder',
@@ -291,6 +296,9 @@ export function useCategoryEditor() {
     const tempPos = siblings[idx].position
     siblings[idx].position = siblings[newIdx].position
     siblings[newIdx].position = tempPos
+
+    // Trigger Vue reactivity
+    categories.value = [...categories.value]
 
     const item = siblings[idx]
     recordChange({
@@ -503,16 +511,9 @@ export function useCategoryEditor() {
       })
     }
 
-    // Update formOriginal
+    // Update formOriginal for name/parent changes only
     formOriginal.name = newName
     formOriginal.parentId = newParentId
-
-    // Update position info
-    const siblings = getSiblings(item.id)
-    const idx = siblings.findIndex(s => s.id === item.id)
-    editForm.position = idx + 1
-    editForm.maxPosition = siblings.length
-    formOriginal.position = idx + 1
 
     toastSuccess('已应用更改')
   }
@@ -559,7 +560,7 @@ export function useCategoryEditor() {
     return { success: true, id: tempId }
   }
 
-  // Confirm delete (local only) - works on categories.value directly
+  // Confirm delete (local only) - works on categories.value directly (no confirm - caller handles dialog)
   async function confirmDelete(id) {
     if (!id) return { success: false }
 
@@ -569,10 +570,6 @@ export function useCategoryEditor() {
     // Count descendants using tree for display
     const treeItem = findItem(id)
     const childCount = treeItem?.children?.length || 0
-
-    if (!confirm(`确定要删除分类 "${item.name}" 吗？${childCount > 0 ? `此分类下有 ${childCount} 个子分类，它们也会被一并删除。` : ''}此操作不可恢复。`)) {
-      return { success: false }
-    }
 
     const itemPath = getPath(id)
 
@@ -649,10 +646,8 @@ export function useCategoryEditor() {
     }
   }
 
-  // Discard all changes
+  // Discard all changes (no confirm - caller handles dialog)
   function discardAll() {
-    if (!confirm('确定要放弃全部更改吗？此操作不可恢复。')) return
-
     categories.value = deepClone(initialDataSnapshot.value)
     pendingChanges.value = []
     selectedCategoryId.value = null
@@ -712,21 +707,12 @@ export function useCategoryEditor() {
 
     // Edit form
     editForm,
-    resetEditForm,
     availableParentCategories,
-    changePosition,
-
-    // CRUD (original API-calling versions, kept for compatibility)
-    createCategory,
-    editCategory,
-    removeCategory,
-    applyChanges,
 
     // Tree operations
     toggleExpand,
     selectCategory,
     moveChildItem,
-    getChildIndex,
 
     // Drag & drop
     dragState,
@@ -739,12 +725,10 @@ export function useCategoryEditor() {
     // Utils
     findParent,
 
-    // New: pending system
+    // Pending system
     pendingChanges,
-    formOriginal,
     initialDataSnapshot,
     captureInitialSnapshot,
-    resetForm,
     applyFormChanges,
     confirmDelete,
     confirmAddCategory,
