@@ -614,7 +614,7 @@
                     class="bookmark-checkbox"
                   />
                   <div class="bookmark-icon">
-                    <img v-if="bm.url" :src="`https://www.google.com/s2/favicons?domain=${new URL(bm.url).hostname}&sz=32`" alt="" @error="$event.target.style.display='none'" />
+                    <img v-if="bm.url" :src="getFaviconUrl(bm.url)" alt="" @error="$event.target.style.display='none'" />
                   </div>
                   <div class="bookmark-info">
                     <div class="bookmark-name">{{ bm.name }}</div>
@@ -1279,6 +1279,15 @@ function getCategoryPathForBookmark(categoryId) {
   const { map } = buildCategoryTree(categories.value)
   const path = getCategoryPath(categoryId, map)
   return path.map(c => c.name).join(' / ')
+}
+
+function getFaviconUrl(url) {
+  try {
+    const hostname = new URL(url.startsWith('http') ? url : `https://${url}`).hostname
+    return `https://www.google.com/s2/favicons?domain=${hostname}&sz=32`
+  } catch {
+    return ''
+  }
 }
 
 // Category dialog handlers
