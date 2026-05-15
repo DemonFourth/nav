@@ -498,13 +498,6 @@
                               </svg>
                             </div>
                             <span class="item-name-menu">{{ child.name }}</span>
-                            <span class="item-count-menu">{{ child.children?.length || 0 }}</span>
-                            <button class="item-expand-menu" @click.stop="toggleExpand(child.id)" v-if="child.children?.length">
-                              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12"
-                                   :class="{ rotated: expandedCategoryIds.includes(child.id) }">
-                                <path d="M9 18l6-6-6-6"/>
-                              </svg>
-                            </button>
                             <div class="item-move-btns">
                               <button class="move-btn" :disabled="childIdx === 0" @click.stop="moveChildItem(category.id, child.id, -1)">
                                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="10" height="10"><path d="M5 15l7-7 7 7"/></svg>
@@ -513,6 +506,12 @@
                                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="10" height="10"><path d="M19 9l-7 7-7-7"/></svg>
                               </button>
                             </div>
+                            <button class="item-expand-menu" @click.stop="toggleExpand(child.id)" v-if="child.children?.length">
+                              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12"
+                                   :class="{ rotated: expandedCategoryIds.includes(child.id) }">
+                                <path d="M9 18l6-6-6-6"/>
+                              </svg>
+                            </button>
                           </div>
 
                           <!-- Grandchildren -->
@@ -547,13 +546,6 @@
                                 </svg>
                               </div>
                               <span class="item-name-menu">{{ grandchild.name }}</span>
-                              <span class="item-count-menu">{{ grandchild.children?.length || 0 }}</span>
-                              <button class="item-expand-menu" @click.stop="toggleExpand(grandchild.id)" v-if="grandchild.children?.length">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12"
-                                     :class="{ rotated: expandedCategoryIds.includes(grandchild.id) }">
-                                  <path d="M9 18l6-6-6-6"/>
-                                </svg>
-                              </button>
                               <div class="item-move-btns">
                                 <button class="move-btn" :disabled="gcIdx === 0" @click.stop="moveChildItem(child.id, grandchild.id, -1)">
                                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="10" height="10"><path d="M5 15l7-7 7 7"/></svg>
@@ -562,6 +554,12 @@
                                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="10" height="10"><path d="M19 9l-7 7-7-7"/></svg>
                                 </button>
                               </div>
+                              <button class="item-expand-menu" @click.stop="toggleExpand(grandchild.id)" v-if="grandchild.children?.length">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12"
+                                     :class="{ rotated: expandedCategoryIds.includes(grandchild.id) }">
+                                  <path d="M9 18l6-6-6-6"/>
+                                </svg>
+                              </button>
                             </div>
                           </div>
                         </template>
