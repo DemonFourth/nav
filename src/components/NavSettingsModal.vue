@@ -1042,6 +1042,7 @@ const { aiEnabled, aiSource, checkAIAvailability, saveAISettings, getAISettings 
 
 // Category editor (uses useBookmarks internally)
 const {
+  categories,
   categoryTree,
   categoryFlatList,
   selectedCategoryId,
