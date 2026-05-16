@@ -342,6 +342,56 @@ const clearSearchResults = () => {
 - 搜索结果的排序默认跟随书签的 `position` 字段，如需自定义排序可修改 `currentBookmarks` 中的逻辑
 - `openSearchWithTags` 方法可被任何需要触发标签搜索的外部组件调用，只需通过 `ref` 访问 `navSearchRef.value.openSearchWithTags([tag])`
 
+## 统一书签搜索（src/utils/search.js）
+
+### searchBookmarks(bookmarks, query, options)
+
+nav 模式下 NavSearch.vue 和 NavSettingsModal.vue 共享的搜索函数。
+
+```javascript
+import { searchBookmarks, SEARCH_FIELD_OPTIONS } from '@/utils/search'
+
+// 默认搜索 name/url/description/tags/notes 全字段
+searchBookmarks(bookmarks, 'vue')
+
+// 指定单字段搜索
+searchBookmarks(bookmarks, 'vue', { field: 'name' })
+
+// 指定多字段搜索
+searchBookmarks(bookmarks, 'vue', { fields: ['name', 'url'] })
+```
+
+### SEARCH_FIELD_OPTIONS
+
+```javascript
+[
+  { value: 'all', label: '全部字段' },
+  { value: 'name', label: '名称' },
+  { value: 'url', label: 'URL' },
+  { value: 'description', label: '描述' },
+  { value: 'tags', label: '标签' },
+  { value: 'notes', label: '备注' },
+]
+```
+
+### 字段筛选按钮 + 下拉菜单
+
+两处搜索框都实现了字段筛选按钮：
+
+| 位置 | 文件 | 可见条件 |
+|------|------|----------|
+| 主页搜索框 | `NavSearch.vue` | 仅选中"站内"搜索引擎时显示 |
+| 设置-书签搜索框 | `NavSettingsModal.vue` | 始终显示 |
+
+下拉菜单通过 `<Teleport to="body">` + `position: fixed` 渲染，避免 stacking context 层级问题。点击外部自动收起。按钮始终显示当前选中的字段名。
+
+### CSS 样式规则
+
+NavSearch.vue 使用 scoped 样式 + `--nav-*` 全局变量。
+NavSettingsModal.vue 使用 non-scoped `<style>` 块 + 全局变量（`--text-tertiary`、`--bg-secondary`、`--border`、`--success`、`--text`），因为 Teleport 到 body 后 scoped CSS 变量不生效。
+
+**修改搜索字段**：只需改 `searchBookmarks()` 的默认 `fields` 数组和 `SEARCH_FIELD_OPTIONS` 即可，两处搜索框自动生效。
+
 ## 浏览器扩展
 
 ```bash
