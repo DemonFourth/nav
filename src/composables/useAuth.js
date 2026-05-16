@@ -56,6 +56,15 @@ export function useAuth() {
     localStorage.removeItem('authToken')
     localStorage.removeItem('authUsername')
   }
+
+  const validateAuthState = () => {
+    if (!token.value) return false
+    if (isTokenExpired(token.value)) {
+      logout()
+      return false
+    }
+    return true
+  }
   
   const getAuthHeaders = () => {
     if (!token.value) return {}
@@ -87,8 +96,7 @@ export function useAuth() {
     }
     
     try {
-      if (token.value && isTokenExpired(token.value)) {
-        logout()
+      if (token.value && !validateAuthState()) {
         throw new Error('Token expired')
       }
       const response = await fetch(url, mergedOptions)
@@ -122,6 +130,7 @@ export function useAuth() {
     isAuthenticated,
     login,
     logout,
+    validateAuthState,
     getAuthHeaders,
     onAuthChange,
     apiRequest
