@@ -542,62 +542,40 @@
                   </div>
                 </div>
               </div>
-              <div class="bookmark-list" ref="bookmarkListRef" @scroll.passive="onBookmarkListScroll">
-                <div v-if="collapsedGroupIds.size > 0" class="collapsed-groups-bar">
-                  <span
-                    v-for="group in groupedBookmarks"
-                    :key="group.categoryId || '__none__'"
-                    v-show="collapsedGroupIds.has(group.categoryId)"
-                    class="collapsed-group-chip"
-                    @click="toggleGroup(group.categoryId)"
-                  >
-                    {{ getCategoryName(group.categoryId) }}
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12">
-                      <path d="M6 9l6 6 6-6"/>
-                    </svg>
-                  </span>
-                </div>
+              <div class="bookmark-list">
                 <template v-for="group in groupedBookmarks" :key="group.categoryId || '__none__'">
-                  <div class="bookmark-group-header" :data-group-id="group.categoryId || '__none__'" @click="toggleGroup(group.categoryId)">
+                  <div class="bookmark-group-header">
                     <div class="group-header-left">
                       <span class="group-header-bar"></span>
                       <span class="group-header-name">{{ getCategoryName(group.categoryId) }}</span>
                       <span class="group-header-count">{{ group.bookmarks.length }}</span>
                     </div>
-                    <button class="group-collapse-btn" :class="{ collapsed: collapsedGroupIds.has(group.categoryId) }" @click.stop="toggleGroup(group.categoryId)">
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
-                        <path d="M6 9l6 6 6-6"/>
-                      </svg>
-                    </button>
                   </div>
-                  <div v-show="!collapsedGroupIds.has(group.categoryId)">
-                    <div
-                      v-for="bm in group.bookmarks"
-                      :key="bm.id"
-                      class="bookmark-item"
-                      :class="{ selected: selectedBookmarks.has(bm.id) }"
-                    >
-                      <input
-                        type="checkbox"
-                        :checked="selectedBookmarks.has(bm.id)"
-                        @change="toggleBookmarkSelection(bm.id)"
-                        class="bookmark-checkbox"
-                      />
-                      <div class="bookmark-icon">
-                        <img v-if="bm.url" :src="getFaviconUrl(bm.url)" alt="" @error="$event.target.style.display='none'" />
-                      </div>
-                      <div class="bookmark-info">
-                        <div class="bookmark-name">{{ bm.name }}</div>
-                        <div class="bookmark-url">{{ bm.url }}</div>
-                      </div>
-                      <div class="bookmark-category-path">{{ getCategoryPathForBookmark(bm.category_id) }}</div>
-                      <div class="bookmark-actions">
-                        <button class="bookmark-action-btn" @click="openBookmarkEdit(bm)">编辑</button>
-                        <button class="bookmark-action-btn bookmark-action-delete" @click="deleteBookmarkItem(bm)">删除</button>
-                      </div>
+                  <div
+                    v-for="bm in group.bookmarks"
+                    :key="bm.id"
+                    class="bookmark-item"
+                    :class="{ selected: selectedBookmarks.has(bm.id) }"
+                  >
+                    <input
+                      type="checkbox"
+                      :checked="selectedBookmarks.has(bm.id)"
+                      @change="toggleBookmarkSelection(bm.id)"
+                      class="bookmark-checkbox"
+                    />
+                    <div class="bookmark-icon">
+                      <img v-if="bm.url" :src="getFaviconUrl(bm.url)" alt="" @error="$event.target.style.display='none'" />
+                    </div>
+                    <div class="bookmark-info">
+                      <div class="bookmark-name">{{ bm.name }}</div>
+                      <div class="bookmark-url">{{ bm.url }}</div>
+                    </div>
+                    <div class="bookmark-category-path">{{ getCategoryPathForBookmark(bm.category_id) }}</div>
+                    <div class="bookmark-actions">
+                      <button class="bookmark-action-btn" @click="openBookmarkEdit(bm)">编辑</button>
+                      <button class="bookmark-action-btn bookmark-action-delete" @click="deleteBookmarkItem(bm)">删除</button>
                     </div>
                   </div>
-                  <div class="group-sentinel" :data-group-id="group.categoryId || '__none__'"></div>
                 </template>
                 <div v-if="groupedBookmarks.length === 0" class="bookmark-empty">
                   <p>没有找到匹配的书签</p>
@@ -1081,41 +1059,7 @@ const newCategoryNameInput = ref(null)
 const bookmarkSearch = ref('')
 const bookmarkCategoryFilter = ref(null)
 const selectedBookmarks = ref(new Set())
-const collapsedGroupIds = ref(new Set())
-const autoCollapseDisabledIds = ref(new Set())
-const bookmarkListRef = ref(null)
 
-const toggleGroup = (id) => {
-  const s = new Set(collapsedGroupIds.value)
-  const disabled = new Set(autoCollapseDisabledIds.value)
-  if (s.has(id)) {
-    s.delete(id)
-    disabled.add(id)
-  } else {
-    s.add(id)
-    disabled.delete(id)
-  }
-  collapsedGroupIds.value = s
-  autoCollapseDisabledIds.value = disabled
-}
-
-const onBookmarkListScroll = () => {
-  const list = bookmarkListRef.value
-  if (!list) return
-  const listRect = list.getBoundingClientRect()
-  const sentinels = list.querySelectorAll('.group-sentinel')
-  const collapsed = new Set(collapsedGroupIds.value)
-  const disabled = autoCollapseDisabledIds.value
-  sentinels.forEach(el => {
-    const id = el.dataset.groupId
-    if (!id || disabled.has(id)) return
-    const rect = el.getBoundingClientRect()
-    if (rect.bottom < listRect.top) {
-      collapsed.add(id)
-    }
-  })
-  collapsedGroupIds.value = collapsed
-}
 const showBookmarkDialog = ref(false)
 const navBookmarkEditModalRef = ref(null)
 const bookmarkMoveTarget = ref(null)
@@ -3406,46 +3350,14 @@ textarea.setting-input {
   padding: 0;
   min-height: 0;
 }
-.collapsed-groups-bar {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-  padding: 8px 14px;
-  position: sticky;
-  top: 0;
-  z-index: 2;
-  background: var(--bg);
-  border-bottom: 1px solid var(--card-border);
-}
-.collapsed-group-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 4px 10px;
-  font-size: 0.7rem;
-  font-weight: 500;
-  color: var(--accent);
-  background: var(--accent-bg);
-  border-radius: 6px;
-  cursor: pointer;
-  transition: all 0.15s;
-  white-space: nowrap;
-}
-.collapsed-group-chip:hover {
-  background: var(--accent);
-  color: var(--bg);
-}
-.collapsed-group-chip svg {
-  transition: transform 0.15s;
-}
-.collapsed-group-chip:hover svg {
-  transform: translateY(1px);
-}
 .bookmark-group-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: 10px 14px 6px 14px;
+  position: sticky;
+  top: 0;
+  z-index: 1;
   background: var(--bg);
   cursor: pointer;
   user-select: none;
@@ -3476,40 +3388,11 @@ textarea.setting-input {
   border-radius: 6px;
   font-weight: 500;
 }
-.group-collapse-btn {
-  width: 22px;
-  height: 22px;
-  border-radius: 6px;
-  border: none;
-  background: transparent;
-  color: var(--text-muted);
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.2s;
-  flex-shrink: 0;
-}
-.group-collapse-btn:hover {
-  background: var(--bg-secondary);
-  color: var(--text-primary);
-}
-.group-collapse-btn.collapsed svg {
-  transform: rotate(-90deg);
-}
-.group-collapse-btn svg {
-  transition: transform 0.2s;
-}
-
-.group-sentinel {
-  height: 1px;
-  pointer-events: none;
-}
 .bookmark-item {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 8px 14px 8px 28px;
+  padding: 10px 14px;
   border-bottom: 1px solid var(--row-divider);
   transition: background 0.15s;
 }
