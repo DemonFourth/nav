@@ -3,12 +3,13 @@
     <Transition name="modal">
       <div v-if="show" class="nav-settings-overlay" :class="{ 'slider-active': sliderActive }" @click="handleClose">
         <div class="nav-settings-modal" @click.stop>
-          <aside class="settings-sidebar">
+          <aside class="settings-sidebar" :class="{ collapsed: sidebarCollapsed }">
             <div class="sidebar-header">
               <span class="sidebar-title">设置</span>
-              <button class="sidebar-close" @click="handleClose">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-                  <path d="M18 6L6 18M6 6l12 12"/>
+              <button class="collapse-btn" @click="toggleSidebarCollapsed" :title="sidebarCollapsed ? '展开侧栏' : '折叠侧栏'">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="16" height="16">
+                  <path v-if="!sidebarCollapsed" d="M15 18l-6-6 6-6"/>
+                  <path v-else d="M9 18l6-6-6-6"/>
                 </svg>
               </button>
             </div>
@@ -28,6 +29,12 @@
               <div class="credit-text">Designed by <a href="https://github.com/Leonxlnx/taste-skill" target="_blank" rel="noopener" style="color:var(--accent);text-decoration:none;">taste-skill</a></div>
             </div>
           </aside>
+
+          <button class="modal-close-btn" @click="handleClose" title="关闭设置">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="16" height="16">
+              <path d="M18 6L6 18M6 6l12 12"/>
+            </svg>
+          </button>
 
           <main class="settings-content">
             <!-- Appearance -->
@@ -499,7 +506,7 @@
                   新增
                 </button>
               </div>
-              <div class="bookmark-toolbar">
+              <div class="bookmark-toolbar elevated">
                 <div class="bookmark-search-wrap">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
                     <circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/>
@@ -535,33 +542,64 @@
                   </div>
                 </div>
               </div>
-              <div class="bookmark-list">
-                <div
-                  v-for="bm in filteredBookmarks"
-                  :key="bm.id"
-                  class="bookmark-item"
-                  :class="{ selected: selectedBookmarks.has(bm.id) }"
-                >
-                  <input
-                    type="checkbox"
-                    :checked="selectedBookmarks.has(bm.id)"
-                    @change="toggleBookmarkSelection(bm.id)"
-                    class="bookmark-checkbox"
-                  />
-                  <div class="bookmark-icon">
-                    <img v-if="bm.url" :src="getFaviconUrl(bm.url)" alt="" @error="$event.target.style.display='none'" />
-                  </div>
-                  <div class="bookmark-info">
-                    <div class="bookmark-name">{{ bm.name }}</div>
-                    <div class="bookmark-url">{{ bm.url }}</div>
-                  </div>
-                  <div class="bookmark-category-path">{{ getCategoryPathForBookmark(bm.category_id) }}</div>
-                  <div class="bookmark-actions">
-                    <button class="bookmark-action-btn" @click="openBookmarkEdit(bm)">编辑</button>
-                    <button class="bookmark-action-btn bookmark-action-delete" @click="deleteBookmarkItem(bm)">删除</button>
-                  </div>
+              <div class="bookmark-list" ref="bookmarkListRef" @scroll.passive="onBookmarkListScroll">
+                <div v-if="collapsedGroupIds.size > 0" class="collapsed-groups-bar">
+                  <span
+                    v-for="group in groupedBookmarks"
+                    :key="group.categoryId || '__none__'"
+                    v-show="collapsedGroupIds.has(group.categoryId)"
+                    class="collapsed-group-chip"
+                    @click="toggleGroup(group.categoryId)"
+                  >
+                    {{ getCategoryName(group.categoryId) }}
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12">
+                      <path d="M6 9l6 6 6-6"/>
+                    </svg>
+                  </span>
                 </div>
-                <div v-if="filteredBookmarks.length === 0" class="bookmark-empty">
+                <template v-for="group in groupedBookmarks" :key="group.categoryId || '__none__'">
+                  <div class="bookmark-group-header" :data-group-id="group.categoryId || '__none__'" @click="toggleGroup(group.categoryId)">
+                    <div class="group-header-left">
+                      <span class="group-header-bar"></span>
+                      <span class="group-header-name">{{ getCategoryName(group.categoryId) }}</span>
+                      <span class="group-header-count">{{ group.bookmarks.length }}</span>
+                    </div>
+                    <button class="group-collapse-btn" :class="{ collapsed: collapsedGroupIds.has(group.categoryId) }" @click.stop="toggleGroup(group.categoryId)">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
+                        <path d="M6 9l6 6 6-6"/>
+                      </svg>
+                    </button>
+                  </div>
+                  <div v-show="!collapsedGroupIds.has(group.categoryId)">
+                    <div
+                      v-for="bm in group.bookmarks"
+                      :key="bm.id"
+                      class="bookmark-item"
+                      :class="{ selected: selectedBookmarks.has(bm.id) }"
+                    >
+                      <input
+                        type="checkbox"
+                        :checked="selectedBookmarks.has(bm.id)"
+                        @change="toggleBookmarkSelection(bm.id)"
+                        class="bookmark-checkbox"
+                      />
+                      <div class="bookmark-icon">
+                        <img v-if="bm.url" :src="getFaviconUrl(bm.url)" alt="" @error="$event.target.style.display='none'" />
+                      </div>
+                      <div class="bookmark-info">
+                        <div class="bookmark-name">{{ bm.name }}</div>
+                        <div class="bookmark-url">{{ bm.url }}</div>
+                      </div>
+                      <div class="bookmark-category-path">{{ getCategoryPathForBookmark(bm.category_id) }}</div>
+                      <div class="bookmark-actions">
+                        <button class="bookmark-action-btn" @click="openBookmarkEdit(bm)">编辑</button>
+                        <button class="bookmark-action-btn bookmark-action-delete" @click="deleteBookmarkItem(bm)">删除</button>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="group-sentinel" :data-group-id="group.categoryId || '__none__'"></div>
+                </template>
+                <div v-if="groupedBookmarks.length === 0" class="bookmark-empty">
                   <p>没有找到匹配的书签</p>
                 </div>
               </div>
@@ -913,56 +951,18 @@
     </Transition>
 
     <!-- Bookmark Add/Edit Dialog -->
-    <Transition name="modal">
-      <div v-if="showBookmarkAddDialog || showBookmarkEditDialog" class="dialog-overlay" @click="closeBookmarkDialog">
-        <div class="dialog-menu dialog-bookmark" @click.stop>
-          <div class="dialog-header">
-            <h3>{{ editingBookmark ? '编辑书签' : '新增书签' }}</h3>
-            <button class="dialog-close" @click="closeBookmarkDialog">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="18" height="18">
-                <path d="M18 6L6 18M6 6l12 12"/>
-              </svg>
-            </button>
-          </div>
-          <div class="dialog-body">
-            <div class="form-group-menu">
-              <label>名称</label>
-              <input v-model="bookmarkForm.name" type="text" class="setting-input" placeholder="书签名称" />
-            </div>
-            <div class="form-group-menu">
-              <label>URL</label>
-              <input v-model="bookmarkForm.url" type="text" class="setting-input" placeholder="https://..." />
-            </div>
-            <div class="form-group-menu">
-              <label>描述</label>
-              <textarea v-model="bookmarkForm.description" class="setting-input" rows="2" placeholder="简短描述"></textarea>
-            </div>
-            <div class="form-group-menu">
-              <label>标签</label>
-              <input v-model="bookmarkForm.tags" type="text" class="setting-input" placeholder="用逗号分隔" />
-            </div>
-            <div class="form-group-menu">
-              <label>分类</label>
-              <select v-model="bookmarkForm.category_id" class="setting-input">
-                <option :value="null">无分类</option>
-                <option v-for="cat in categoryFlatList" :key="cat.id" :value="cat.id">
-                  {{ cat.displayName }}
-                </option>
-              </select>
-            </div>
-          </div>
-          <div class="dialog-footer">
-            <button class="btn-secondary-sm" @click="closeBookmarkDialog">取消</button>
-            <button class="btn-primary-sm" @click="handleSaveBookmark">保存</button>
-          </div>
-        </div>
-      </div>
-    </Transition>
+    <NavBookmarkEditModal
+      :show="showBookmarkDialog"
+      :category-options="categoryOptions"
+      @close="closeBookmarkDialog"
+      @save="handleSaveBookmark"
+      ref="navBookmarkEditModalRef"
+    />
   </Teleport>
 </template>
 
 <script setup>
-import { ref, reactive, computed, watch, onMounted, onUnmounted } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useSettings } from '@/composables/useSettings'
 import { useTheme } from '@/composables/useTheme'
 import { useAuth } from '@/composables/useAuth'
@@ -972,6 +972,7 @@ import { useToast } from '@/composables/useToast'
 import { useCategoryEditor } from '@/composables/useCategoryEditor'
 import { buildCategoryTree, getCategoryPath } from '@/utils/categoryTree'
 import MenuTreeNode from '@/components/MenuTreeNode.vue'
+import NavBookmarkEditModal from '@/components/NavBookmarkEditModal.vue'
 
 const props = defineProps({
   show: {
@@ -1040,6 +1041,12 @@ const { bookmarks, deleteBookmark, batchOperation, addBookmark, updateBookmark }
 const { success: toastSuccess, error: toastError, warning: toastWarning } = useToast()
 
 const activeTab = ref('appearance')
+const sidebarCollapsed = ref(localStorage.getItem('navSettingsSidebarCollapsed') === 'true')
+watch(sidebarCollapsed, (val) => localStorage.setItem('navSettingsSidebarCollapsed', val))
+
+const toggleSidebarCollapsed = () => {
+  sidebarCollapsed.value = !sidebarCollapsed.value
+}
 const avatarInput = ref(null)
 const sliderActive = ref(false)
 const showApiHistory = ref(false)
@@ -1074,9 +1081,43 @@ const newCategoryNameInput = ref(null)
 const bookmarkSearch = ref('')
 const bookmarkCategoryFilter = ref(null)
 const selectedBookmarks = ref(new Set())
-const showBookmarkAddDialog = ref(false)
-const showBookmarkEditDialog = ref(false)
-const editingBookmark = ref(null)
+const collapsedGroupIds = ref(new Set())
+const autoCollapseDisabledIds = ref(new Set())
+const bookmarkListRef = ref(null)
+
+const toggleGroup = (id) => {
+  const s = new Set(collapsedGroupIds.value)
+  const disabled = new Set(autoCollapseDisabledIds.value)
+  if (s.has(id)) {
+    s.delete(id)
+    disabled.add(id)
+  } else {
+    s.add(id)
+    disabled.delete(id)
+  }
+  collapsedGroupIds.value = s
+  autoCollapseDisabledIds.value = disabled
+}
+
+const onBookmarkListScroll = () => {
+  const list = bookmarkListRef.value
+  if (!list) return
+  const listRect = list.getBoundingClientRect()
+  const sentinels = list.querySelectorAll('.group-sentinel')
+  const collapsed = new Set(collapsedGroupIds.value)
+  const disabled = autoCollapseDisabledIds.value
+  sentinels.forEach(el => {
+    const id = el.dataset.groupId
+    if (!id || disabled.has(id)) return
+    const rect = el.getBoundingClientRect()
+    if (rect.bottom < listRect.top) {
+      collapsed.add(id)
+    }
+  })
+  collapsedGroupIds.value = collapsed
+}
+const showBookmarkDialog = ref(false)
+const navBookmarkEditModalRef = ref(null)
 const bookmarkMoveTarget = ref(null)
 const filterSelectOpen = ref(false)
 const filterSelectRef = ref(null)
@@ -1106,12 +1147,13 @@ onUnmounted(() => {
   document.removeEventListener('click', handleFilterClickAway)
 })
 
-const bookmarkForm = reactive({
-  name: '',
-  url: '',
-  description: '',
-  tags: '',
-  category_id: null
+const categoryOptions = computed(() => {
+  if (!categories.value.length) return []
+  const { flatList } = buildCategoryTree(categories.value)
+  return flatList.map(cat => ({
+    id: cat.id,
+    displayName: cat.displayName
+  }))
 })
 
 // Sortable category state
@@ -1267,11 +1309,35 @@ const filteredBookmarks = computed(() => {
   return result
 })
 
+const groupedBookmarks = computed(() => {
+  const groups = {}
+  filteredBookmarks.value.forEach(bm => {
+    const catId = bm.category_id || '__none__'
+    if (!groups[catId]) {
+      groups[catId] = { categoryId: bm.category_id, bookmarks: [] }
+    }
+    groups[catId].bookmarks.push(bm)
+  })
+  const sorted = Object.values(groups)
+  sorted.sort((a, b) => {
+    const idxA = categoryFlatList.value.findIndex(c => c.id === a.categoryId)
+    const idxB = categoryFlatList.value.findIndex(c => c.id === b.categoryId)
+    return (idxA === -1 ? 999 : idxA) - (idxB === -1 ? 999 : idxB)
+  })
+  return sorted
+})
+
 function getCategoryPathForBookmark(categoryId) {
   if (!categoryId) return '无分类'
   const { map } = buildCategoryTree(categories.value)
   const path = getCategoryPath(categoryId, map)
   return path.map(c => c.name).join(' / ')
+}
+
+function getCategoryName(categoryId) {
+  if (!categoryId) return '未分类'
+  const cat = categoryFlatList.value.find(c => c.id === categoryId)
+  return cat ? cat.displayName : '未分类'
 }
 
 function getFaviconUrl(url) {
@@ -1368,48 +1434,33 @@ const batchMoveBookmarks = async () => {
   }
 }
 const openBookmarkAdd = () => {
-  editingBookmark.value = null
-  bookmarkForm.name = ''
-  bookmarkForm.url = ''
-  bookmarkForm.description = ''
-  bookmarkForm.tags = ''
-  bookmarkForm.category_id = bookmarkCategoryFilter.value
-  showBookmarkAddDialog.value = true
+  if (navBookmarkEditModalRef.value) {
+    navBookmarkEditModalRef.value.open(null)
+  }
+  showBookmarkDialog.value = true
 }
 const openBookmarkEdit = (bookmark) => {
-  editingBookmark.value = bookmark
-  bookmarkForm.name = bookmark.name
-  bookmarkForm.url = bookmark.url
-  bookmarkForm.description = bookmark.description || ''
-  bookmarkForm.tags = bookmark.tags || ''
-  bookmarkForm.category_id = bookmark.category_id
-  showBookmarkEditDialog.value = true
+  if (navBookmarkEditModalRef.value) {
+    navBookmarkEditModalRef.value.open(bookmark)
+  }
+  showBookmarkDialog.value = true
 }
 const closeBookmarkDialog = () => {
-  showBookmarkAddDialog.value = false
-  showBookmarkEditDialog.value = false
-  editingBookmark.value = null
+  showBookmarkDialog.value = false
 }
-const handleSaveBookmark = async () => {
-  if (!bookmarkForm.name.trim() || !bookmarkForm.url.trim()) {
+const handleSaveBookmark = async (bookmark, formData) => {
+  if (!formData.name.trim() || !formData.url.trim()) {
     toastError('名称和 URL 不能为空')
     return
   }
-  const data = {
-    name: bookmarkForm.name.trim(),
-    url: bookmarkForm.url.trim(),
-    description: bookmarkForm.description.trim(),
-    tags: bookmarkForm.tags.trim(),
-    category_id: bookmarkForm.category_id
-  }
   let result
-  if (editingBookmark.value) {
-    result = await updateBookmark(editingBookmark.value.id, data)
+  if (bookmark) {
+    result = await updateBookmark(bookmark.id, formData)
   } else {
-    result = await addBookmark(data)
+    result = await addBookmark(formData)
   }
   if (result.success) {
-    toastSuccess(editingBookmark.value ? '已更新书签' : '已添加书签')
+    toastSuccess(bookmark ? '已更新书签' : '已添加书签')
     closeBookmarkDialog()
   } else if (result.duplicate) {
     toastError(result.error || '该 URL 已存在')
@@ -1739,7 +1790,7 @@ watch(showAddDialog, (val) => {
 
 /* ===== Sidebar ===== */
 .settings-sidebar {
-  width: 220px;
+  width: 150px;
   flex-shrink: 0;
   padding: 28px 16px;
   border-right: 1px solid var(--sidebar-border);
@@ -1747,6 +1798,7 @@ watch(showAddDialog, (val) => {
   flex-direction: column;
   position: relative;
   z-index: 1;
+  transition: width 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .sidebar-header {
@@ -1764,7 +1816,34 @@ watch(showAddDialog, (val) => {
   letter-spacing: -0.01em;
 }
 
-.sidebar-close {
+.collapse-btn {
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  background: transparent;
+  border: 1px solid var(--card-border);
+  color: var(--text-secondary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  flex-shrink: 0;
+}
+
+.collapse-btn:hover {
+  background: var(--nav-bg-hover);
+  border-color: var(--card-border);
+  color: var(--text-primary);
+}
+
+.collapse-btn svg { width: 14px; height: 14px; }
+
+.modal-close-btn {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  z-index: 10;
   width: 30px;
   height: 30px;
   border-radius: 8px;
@@ -1778,13 +1857,13 @@ watch(showAddDialog, (val) => {
   transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-.sidebar-close:hover {
+.modal-close-btn:hover {
   background: color-mix(in srgb, var(--error) 14%, transparent);
   border-color: color-mix(in srgb, var(--error) 22%, transparent);
   color: var(--error);
 }
 
-.sidebar-close svg { width: 14px; height: 14px; }
+.modal-close-btn svg { width: 14px; height: 14px; }
 
 .sidebar-nav {
   flex: 1;
@@ -1847,7 +1926,7 @@ watch(showAddDialog, (val) => {
 /* ===== Content ===== */
 .settings-content {
   flex: 1;
-  padding: 28px 32px;
+  padding: 28px 20px;
   overflow-y: auto;
   position: relative;
   z-index: 1;
@@ -2106,6 +2185,44 @@ textarea.setting-input {
   padding: 6px 0;
   opacity: 0.6;
   letter-spacing: 0.02em;
+}
+
+/* ===== Collapsed Sidebar ===== */
+.settings-sidebar.collapsed {
+  width: 52px;
+  min-width: 52px;
+  padding: 28px 8px;
+}
+
+.settings-sidebar.collapsed .sidebar-title {
+  display: none;
+}
+
+.settings-sidebar.collapsed .nav-tab-btn {
+  justify-content: center;
+  padding: 10px 0;
+  gap: 0;
+}
+
+.settings-sidebar.collapsed .nav-tab-btn span {
+  display: none;
+}
+
+.settings-sidebar.collapsed .nav-tab-btn.active::before {
+  left: -8px;
+}
+
+.settings-sidebar.collapsed .sidebar-footer {
+  display: none;
+}
+
+.settings-sidebar.collapsed .collapse-btn {
+  border: none;
+  background: transparent;
+}
+
+.settings-sidebar.collapsed .collapse-btn:hover {
+  background: var(--nav-bg-hover);
 }
 
 /* ===== Test Table ===== */
@@ -2856,6 +2973,24 @@ textarea.setting-input {
     border-bottom: 1px solid var(--sidebar-border);
     padding: 16px;
   }
+  .settings-sidebar.collapsed {
+    width: 100%;
+    min-width: unset;
+    padding: 16px;
+  }
+  .settings-sidebar.collapsed .sidebar-title,
+  .settings-sidebar.collapsed .nav-tab-btn span,
+  .settings-sidebar.collapsed .sidebar-footer {
+    display: revert;
+  }
+  .settings-sidebar.collapsed .nav-tab-btn {
+    justify-content: flex-start;
+    padding: 10px 14px;
+    gap: 10px;
+  }
+  .settings-sidebar.collapsed .nav-tab-btn.active::before {
+    left: -16px;
+  }
   .sidebar-nav { flex-direction: row; overflow-x: auto; padding-top: 8px; gap: 4px; }
   .nav-tab-btn { white-space: nowrap; flex-shrink: 0; }
   .nav-tab-btn::before { display: none; }
@@ -3112,6 +3247,7 @@ textarea.setting-input {
   display: flex;
   flex-direction: column;
   height: 100%;
+  min-height: 0;
 }
 .bookmark-header {
   display: flex;
@@ -3148,6 +3284,11 @@ textarea.setting-input {
   gap: 10px;
   padding: 0.75rem 1.25rem;
   border-bottom: 1px solid var(--card-border);
+}
+.bookmark-toolbar.elevated {
+  position: relative;
+  z-index: 2;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
 }
 .bookmark-search-wrap {
   flex: 1;
@@ -3263,12 +3404,112 @@ textarea.setting-input {
   flex: 1;
   overflow-y: auto;
   padding: 0;
+  min-height: 0;
+}
+.collapsed-groups-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 8px 14px;
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--bg);
+  border-bottom: 1px solid var(--card-border);
+}
+.collapsed-group-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  font-size: 0.7rem;
+  font-weight: 500;
+  color: var(--accent);
+  background: var(--accent-bg);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+.collapsed-group-chip:hover {
+  background: var(--accent);
+  color: var(--bg);
+}
+.collapsed-group-chip svg {
+  transition: transform 0.15s;
+}
+.collapsed-group-chip:hover svg {
+  transform: translateY(1px);
+}
+.bookmark-group-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px 6px 14px;
+  background: var(--bg);
+  cursor: pointer;
+  user-select: none;
+}
+.bookmark-group-header .group-header-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.bookmark-group-header .group-header-bar {
+  width: 3px;
+  height: 14px;
+  border-radius: 2px;
+  background: var(--accent);
+  flex-shrink: 0;
+}
+.bookmark-group-header .group-header-name {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  letter-spacing: 0.01em;
+}
+.bookmark-group-header .group-header-count {
+  font-size: 0.65rem;
+  color: var(--text-muted);
+  background: var(--bg-secondary);
+  padding: 1px 6px;
+  border-radius: 6px;
+  font-weight: 500;
+}
+.group-collapse-btn {
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+  flex-shrink: 0;
+}
+.group-collapse-btn:hover {
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+}
+.group-collapse-btn.collapsed svg {
+  transform: rotate(-90deg);
+}
+.group-collapse-btn svg {
+  transition: transform 0.2s;
+}
+
+.group-sentinel {
+  height: 1px;
+  pointer-events: none;
 }
 .bookmark-item {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 10px 14px;
+  padding: 8px 14px 8px 28px;
   border-bottom: 1px solid var(--row-divider);
   transition: background 0.15s;
 }
@@ -3361,7 +3602,7 @@ textarea.setting-input {
 .bookmark-footer {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  gap: 16px;
   padding: 0.75rem 1.25rem;
   border-top: 1px solid var(--card-border);
   background: var(--card-bg);
@@ -3375,6 +3616,16 @@ textarea.setting-input {
   display: flex;
   align-items: center;
   gap: 8px;
+  flex-shrink: 0;
+  min-width: 0;
+  margin-left: auto;
+}
+.bookmark-batch-actions .btn-secondary-sm,
+.bookmark-batch-actions .btn-danger-sm,
+.bookmark-batch-actions .btn-primary-sm {
+  flex: none;
+  white-space: nowrap;
+  width: auto;
 }
 .bookmark-move-select {
   padding: 4px 8px;
@@ -3386,6 +3637,7 @@ textarea.setting-input {
   font-family: inherit;
   cursor: pointer;
   outline: none;
+  max-width: 120px;
 }
 </style>
 

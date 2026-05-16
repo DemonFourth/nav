@@ -44,142 +44,13 @@
       />
     </div>
 
-    <Teleport to="body">
-      <Transition name="modal">
-        <div v-if="showDetailModal" class="detail-modal-overlay" @click="closeDetailModal">
-          <div class="detail-modal" @click.stop>
-            <div class="detail-header">
-              <div class="detail-icon">
-                <img 
-                  v-if="!detailIconError && getDetailIconUrl(detailData.bookmark)" 
-                  :src="getDetailIconUrl(detailData.bookmark)" 
-                  :alt="detailData.bookmark?.name" 
-                  :key="detailData.bookmark?.id + '-' + (detailIconSourceIndexes[detailData.bookmark?.id] || 0)"
-                  @error="handleDetailIconError" 
-                />
-                <div v-else class="letter-icon">{{ detailData.bookmark?.name?.charAt(0) || '?' }}</div>
-              </div>
-              <div class="detail-title-wrap">
-                <div class="detail-title">{{ detailData.bookmark?.name }}</div>
-                <div class="detail-url">{{ getDisplayUrl(detailData.bookmark?.url) }}</div>
-              </div>
-              <button class="detail-close" @click="closeDetailModal">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M18 6L6 18M6 6l12 12"/>
-                </svg>
-              </button>
-            </div>
-            <div class="detail-body">
-              <div class="detail-section">
-                <div class="detail-section-title">分类</div>
-                <div class="custom-select" :class="{ open: selectOpen }">
-                  <div class="select-trigger" @click="selectOpen = !selectOpen">
-                    <span class="select-value">{{ selectedCategoryName || '请选择分类' }}</span>
-                    <svg class="select-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                      <path d="M6 9l6 6 6-6"/>
-                    </svg>
-                  </div>
-                  <div v-if="selectOpen" class="select-dropdown">
-                    <input 
-                      v-model="selectSearch"
-                      type="text"
-                      class="select-search"
-                      placeholder="搜索分类..."
-                      @click.stop
-                      ref="selectSearchInput"
-                    />
-                    <div class="select-options">
-                      <div 
-                        v-for="cat in filteredCategoryOptions" 
-                        :key="cat.id"
-                        class="select-option"
-                        :class="{ selected: cat.id === editForm.category_id }"
-                        @click="selectCategory(cat)"
-                      >
-                        {{ cat.displayName }}
-                      </div>
-                      <div v-if="filteredCategoryOptions.length === 0" class="select-no-results">
-                        未找到分类
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-              
-              <div class="detail-section">
-                <div class="detail-section-title">描述</div>
-                <input v-model="editForm.description" type="text" class="detail-input" placeholder="添加描述" />
-              </div>
-              
-              <div class="detail-section">
-                <div class="detail-section-title">标签</div>
-                <div class="tags-input-container">
-                  <div class="tags-list">
-                    <span 
-                      v-for="(tag, index) in tagItems" 
-                      :key="index"
-                      class="tag-item"
-                      :class="{ editing: editingTagIndex === index }"
-                      @dblclick="startEditTag(index)"
-                    >
-                      <input 
-                        v-if="editingTagIndex === index"
-                        v-model="tagItems[index]"
-                        type="text"
-                        class="tag-edit-input"
-                        @keydown.enter="finishEditTag"
-                        @keydown.backspace="handleTagBackspace(index)"
-                        @blur="finishEditTag"
-                        ref="tagEditInput"
-                      />
-                      <span v-else>{{ tag }}</span>
-                      <button v-if="editingTagIndex !== index" class="tag-remove" @click="removeTag(index)">×</button>
-                    </span>
-                  </div>
-                  <input 
-                    v-model="newTagInput"
-                    type="text"
-                    class="tag-input"
-                    placeholder="输入标签后回车添加"
-                    @keydown.enter.prevent="addTag"
-                    @keydown.backspace="handleInputBackspace"
-                  />
-                </div>
-              </div>
-              
-              <div class="detail-section">
-                <div class="detail-section-title">备注</div>
-                <textarea v-model="editForm.notes" class="detail-textarea" placeholder="添加备注信息"></textarea>
-              </div>
-              
-              <div class="detail-section">
-                <label class="detail-checkbox">
-                  <input v-model="editForm.is_private" type="checkbox" />
-                  <span class="checkbox-label">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                      <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
-                      <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
-                    </svg>
-                    私密书签
-                  </span>
-                </label>
-              </div>
-            </div>
-            <div class="detail-footer">
-              <button class="detail-btn secondary" @click="closeDetailModal">取消</button>
-              <button class="detail-btn primary" @click="saveBookmark">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                  <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
-                  <polyline points="17 21 17 13 7 13 7 21"/>
-                  <polyline points="7 3 7 8 15 8"/>
-                </svg>
-                保存
-              </button>
-            </div>
-          </div>
-        </div>
-      </Transition>
-    </Teleport>
+    <NavBookmarkEditModal
+      :show="showDetailModal"
+      :category-options="categoryOptions"
+      @close="showDetailModal = false"
+      @save="handleSaveBookmark"
+      ref="navBookmarkEditModalRef"
+    />
 
     <NavSettingsModal
       :show="showNavSettings"
@@ -190,11 +61,12 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch, nextTick } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import NavBar from '../components/NavBar.vue'
 import NavSearch from '../components/NavSearch.vue'
 import NavCardGrid from '../components/NavCardGrid.vue'
 import NavSettingsModal from '../components/NavSettingsModal.vue'
+import NavBookmarkEditModal from '../components/NavBookmarkEditModal.vue'
 import { useBookmarks } from '../composables/useBookmarks'
 import { useSettings } from '../composables/useSettings'
 import { useAuth } from '../composables/useAuth'
@@ -203,7 +75,7 @@ import { buildCategoryTree } from '../utils/categoryTree'
 
 const { categories, bookmarks, fetchData, searchTags, updateBookmark } = useBookmarks()
 const { isAuthenticated } = useAuth()
-const { customTitle, navWallpaper, iconSources, parseIconSourceUrl, showSearch, randomWallpaper, wallpaperApi, applyWallpaper } = useSettings()
+const { customTitle, navWallpaper, showSearch, randomWallpaper, wallpaperApi, applyWallpaper } = useSettings()
 const { error: errorToast } = useToast()
 
 const emit = defineEmits(['toggleStyle'])
@@ -214,30 +86,9 @@ const animationKey = ref(0)
 const navSearchRef = ref(null)
 const showDetailModal = ref(false)
 const showNavSettings = ref(false)
-const detailData = ref({ tag: null, bookmark: null })
+const navBookmarkEditModalRef = ref(null)
 const selectedFilterTag = ref(null)
-const detailIconError = ref(false)
-const detailIconSourceIndexes = ref({})
-const editForm = ref({
-  category_id: '',
-  description: '',
-  tags: '',
-  notes: '',
-  is_private: false
-})
-const tagItems = ref([])
-const newTagInput = ref('')
-const editingTagIndex = ref(null)
-const tagEditInput = ref(null)
-const selectOpen = ref(false)
-const selectSearch = ref('')
-const selectSearchInput = ref(null)
 const searchResults = ref(null)
-
-const allTags = computed(() => {
-  if (!detailData.value.bookmark?.tags) return []
-  return detailData.value.bookmark.tags.split(',').map(t => t.trim()).filter(Boolean)
-})
 
 const categoryOptions = computed(() => {
   if (!categories.value.length) return []
@@ -247,26 +98,6 @@ const categoryOptions = computed(() => {
     displayName: cat.displayName
   }))
 })
-
-const selectedCategoryName = computed(() => {
-  if (!editForm.value.category_id) return ''
-  const cat = categoryOptions.value.find(c => c.id === editForm.value.category_id)
-  return cat?.displayName || ''
-})
-
-const filteredCategoryOptions = computed(() => {
-  if (!selectSearch.value) return categoryOptions.value
-  const query = selectSearch.value.toLowerCase()
-  return categoryOptions.value.filter(cat => 
-    cat.displayName.toLowerCase().includes(query)
-  )
-})
-
-const selectCategory = (cat) => {
-  editForm.value.category_id = cat.id
-  selectOpen.value = false
-  selectSearch.value = ''
-}
 
 const backgroundStyle = computed(() => {
   const style = {}
@@ -408,194 +239,48 @@ const handleTagClick = (tag) => {
 }
 
 const handleShowDetail = ({ tag, bookmark }) => {
-  detailData.value = { tag, bookmark }
-  editForm.value = {
-    category_id: bookmark?.category_id || '',
-    description: bookmark?.description || '',
-    tags: bookmark?.tags || '',
-    notes: bookmark?.notes || '',
-    is_private: bookmark?.is_private || false
+  if (navBookmarkEditModalRef.value) {
+    navBookmarkEditModalRef.value.open(bookmark)
   }
-  tagItems.value = bookmark?.tags ? bookmark.tags.split(',').map(t => t.trim()).filter(Boolean) : []
-  newTagInput.value = ''
-  editingTagIndex.value = null
-  selectOpen.value = false
-  selectSearch.value = ''
-  detailIconError.value = false
-  detailIconSourceIndexes.value = {}
   showDetailModal.value = true
 }
 
-const closeDetailModal = () => {
-  showDetailModal.value = false
-  selectOpen.value = false
-  selectSearch.value = ''
-  selectedFilterTag.value = null
-}
-
-const addTag = () => {
-  const tag = newTagInput.value.trim()
-  if (tag && !tagItems.value.includes(tag)) {
-    tagItems.value.push(tag)
-  }
-  newTagInput.value = ''
-}
-
-const removeTag = (index) => {
-  tagItems.value.splice(index, 1)
-}
-
-const startEditTag = (index) => {
-  editingTagIndex.value = index
-  nextTick(() => {
-    if (tagEditInput.value) {
-      const input = Array.isArray(tagEditInput.value) ? tagEditInput.value[0] : tagEditInput.value
-      input?.focus()
-      input?.select()
-    }
-  })
-}
-
-const finishEditTag = () => {
-  const trimmed = tagItems.value[editingTagIndex.value]?.trim()
-  if (!trimmed) {
-    tagItems.value.splice(editingTagIndex.value, 1)
-  } else {
-    tagItems.value[editingTagIndex.value] = trimmed
-  }
-  editingTagIndex.value = null
-}
-
-const handleTagBackspace = (index) => {
-  if (editingTagIndex.value === index && tagItems.value[index].length === 0) {
-    removeTag(index)
-    editingTagIndex.value = null
-  }
-}
-
-const handleInputBackspace = () => {
-  if (newTagInput.value === '' && tagItems.value.length > 0 && editingTagIndex.value === null) {
-    removeTag(tagItems.value.length - 1)
-  }
-}
-
-const saveBookmark = async () => {
-  if (!detailData.value.bookmark?.id) return
+const handleSaveBookmark = async (bookmark, formData) => {
+  if (!bookmark?.id) return
   if (!isAuthenticated.value) return
 
-  const originalBookmark = { ...detailData.value.bookmark }
+  const originalBookmark = { ...bookmark }
 
   try {
-    const tagsStr = tagItems.value.join(',')
-
     bookmarks.value = bookmarks.value.map(b => {
-      if (b.id === detailData.value.bookmark.id) {
-        return {
-          ...b,
-          category_id: editForm.value.category_id,
-          description: editForm.value.description,
-          tags: tagsStr,
-          notes: editForm.value.notes,
-          is_private: editForm.value.is_private
-        }
+      if (b.id === bookmark.id) {
+        return { ...b, ...formData }
       }
       return b
     })
 
-    const result = await updateBookmark(detailData.value.bookmark.id, {
-      name: detailData.value.bookmark.name,
-      url: detailData.value.bookmark.url,
-      category_id: editForm.value.category_id,
-      description: editForm.value.description,
-      tags: tagsStr,
-      notes: editForm.value.notes,
-      is_private: editForm.value.is_private
-    })
+    const result = await updateBookmark(bookmark.id, formData)
 
     if (!result.success) {
       bookmarks.value = bookmarks.value.map(b => {
         if (b.id === originalBookmark.id) return originalBookmark
         return b
       })
-      if (result.error) {
-        errorToast(result.error)
-      }
+      if (result.error) errorToast(result.error)
       return
     }
 
-    closeDetailModal()
+    showDetailModal.value = false
   } catch (error) {
     bookmarks.value = bookmarks.value.map(b => {
       if (b.id === originalBookmark.id) return originalBookmark
       return b
     })
-    console.error('Failed to update bookmark:', error)
     errorToast('保存失败，请重试')
   }
 }
 
-const openBookmarkUrl = () => {
-  if (detailData.value.bookmark?.url) {
-    window.open(detailData.value.bookmark.url, '_blank')
-  }
-}
-
-const getDisplayUrl = (url) => {
-  if (!url) return ''
-  try {
-    const parsed = new URL(url)
-    return parsed.hostname + (parsed.pathname !== '/' ? parsed.pathname : '')
-  } catch {
-    return url
-  }
-}
-
-const findParentCategory = (categoryId) => {
-  const category = categories.value.find(c => c.id === categoryId)
-  if (!category) return null
-  if (!category.parent_id) return category
-  
-  return categories.value.find(c => c.id === category.parent_id)
-}
-
-const getDetailIconSources = (bookmark) => {
-  if (bookmark.icon && bookmark.icon.trim()) {
-    return []
-  }
-  try {
-    const enabledSources = iconSources.value.filter(s => s.enabled)
-    return enabledSources.map(source => parseIconSourceUrl(source.url, bookmark.url))
-  } catch {
-    return []
-  }
-}
-
-const getDetailIconUrl = (bookmark) => {
-  if (bookmark.icon && bookmark.icon.trim()) {
-    return bookmark.icon
-  }
-  const sources = getDetailIconSources(bookmark)
-  const index = detailIconSourceIndexes.value[bookmark.id] || 0
-  if (sources.length > 0 && index < sources.length) {
-    return sources[index]
-  }
-  return ''
-}
-
-const handleDetailIconError = () => {
-  const bookmark = detailData.value.bookmark
-  if (!bookmark) return
-  const sources = getDetailIconSources(bookmark)
-  const currentIndex = detailIconSourceIndexes.value[bookmark.id] || 0
-  if (currentIndex < sources.length - 1) {
-    detailIconSourceIndexes.value[bookmark.id] = currentIndex + 1
-  } else {
-    detailIconError.value = true
-  }
-}
-
 const handleSettingsAction = (action) => {
-  console.log('Settings action:', action)
   showNavSettings.value = false
 }
 </script>
