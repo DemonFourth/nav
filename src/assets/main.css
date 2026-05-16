@@ -168,6 +168,7 @@ html.dark {
   --nav-card-bg: rgba(255, 255, 255, 0.15);
   --nav-card-hover: rgba(255, 255, 255, 0.3);
   --nav-text: #ffffff;
+  --nav-text-secondary: #94a3b8;
   --nav-border: rgba(255, 255, 255, 0.15);
   --nav-glass: rgba(0, 0, 0, 0.4);
 }
@@ -205,6 +206,16 @@ html.dark {
     --shadow-md: rgba(0, 0, 0, 0.4);
     --shadow-lg: rgba(0, 0, 0, 0.5);
     --shadow-xl: rgba(0, 0, 0, 0.7);
+
+    /* 导航站配色 */
+    --nav-primary: #399dff;
+    --nav-bg: #222;
+    --nav-card-bg: rgba(255, 255, 255, 0.15);
+    --nav-card-hover: rgba(255, 255, 255, 0.3);
+    --nav-text: #ffffff;
+    --nav-text-secondary: #94a3b8;
+    --nav-border: rgba(255, 255, 255, 0.15);
+    --nav-glass: rgba(0, 0, 0, 0.4);
   }
 }
 

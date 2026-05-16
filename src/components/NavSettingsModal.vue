@@ -517,6 +517,32 @@
                     class="bookmark-search-input"
                     placeholder="搜索书签..."
                   />
+                  <div class="search-field-wrap" ref="bmSearchFieldRef">
+                    <button ref="bmSearchFieldBtnRef" class="search-field-btn" :class="{ active: bookmarkSearchField !== 'all' }" @click="openBmFieldDropdown" :title="'搜索范围: ' + (SEARCH_FIELD_OPTIONS.find(o => o.value === bookmarkSearchField)?.label || '全部字段')">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M12 3v18M3 12h18"/>
+                        <circle cx="10" cy="10" r="3"/>
+                        <circle cx="14" cy="14" r="3"/>
+                      </svg>
+                      <span class="search-field-label">{{ SEARCH_FIELD_OPTIONS.find(o => o.value === bookmarkSearchField)?.label }}</span>
+                    </button>
+                    <Teleport to="body">
+                      <Transition name="dropdown">
+                        <div v-if="bookmarkSearchFieldOpen" ref="bmSearchFieldDropdownRef" class="search-field-dropdown" :style="bmDropdownStyle">
+                          <div
+                            v-for="opt in SEARCH_FIELD_OPTIONS"
+                            :key="opt.value"
+                            class="search-field-option"
+                            :class="{ active: bookmarkSearchField === opt.value }"
+                            @click="bookmarkSearchField = opt.value; bookmarkSearchFieldOpen = false"
+                          >
+                            <span class="field-radio" :class="{ checked: bookmarkSearchField === opt.value }"></span>
+                            {{ opt.label }}
+                          </div>
+                        </div>
+                      </Transition>
+                    </Teleport>
+                  </div>
                 </div>
                 <div class="custom-select-filter" :class="{ open: filterSelectOpen }" ref="filterSelectRef">
                   <div class="filter-select-trigger" @click="filterSelectOpen = !filterSelectOpen">
@@ -940,7 +966,7 @@
 </template>
 
 <script setup>
-import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
+import { ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue'
 import { useSettings } from '@/composables/useSettings'
 import { useTheme } from '@/composables/useTheme'
 import { useAuth } from '@/composables/useAuth'
@@ -949,7 +975,7 @@ import { useAI } from '@/composables/useAI'
 import { useToast } from '@/composables/useToast'
 import { useCategoryEditor } from '@/composables/useCategoryEditor'
 import { buildCategoryTree, getCategoryPath } from '@/utils/categoryTree'
-import { searchBookmarks } from '@/utils/search'
+import { searchBookmarks, SEARCH_FIELD_OPTIONS } from '@/utils/search'
 import MenuTreeNode from '@/components/MenuTreeNode.vue'
 import NavBookmarkEditModal from '@/components/NavBookmarkEditModal.vue'
 
@@ -1060,6 +1086,38 @@ const newCategoryNameInput = ref(null)
 const bookmarkSearch = ref('')
 const bookmarkCategoryFilter = ref(null)
 const selectedBookmarks = ref(new Set())
+const bookmarkSearchField = ref('all')
+const bookmarkSearchFieldOpen = ref(false)
+const bmSearchFieldRef = ref(null)
+const bmSearchFieldBtnRef = ref(null)
+const bmSearchFieldDropdownRef = ref(null)
+const bmDropdownStyle = ref({})
+
+const openBmFieldDropdown = () => {
+  bookmarkSearchFieldOpen.value = !bookmarkSearchFieldOpen.value
+  if (!bookmarkSearchFieldOpen.value) return
+  nextTick(() => {
+    const rect = bmSearchFieldBtnRef.value?.getBoundingClientRect()
+    if (rect) {
+      bmDropdownStyle.value = {
+        position: 'fixed',
+        top: rect.bottom + 4 + 'px',
+        right: document.documentElement.clientWidth - rect.right + 'px',
+        zIndex: 99999
+      }
+    }
+  })
+}
+
+const handleBmSearchClickAway = (e) => {
+  if (bmSearchFieldRef.value && !bmSearchFieldRef.value.contains(e.target)) {
+    if (bmSearchFieldDropdownRef.value && bmSearchFieldDropdownRef.value.contains(e.target)) return
+    bookmarkSearchFieldOpen.value = false
+  }
+}
+
+onMounted(() => document.addEventListener('click', handleBmSearchClickAway))
+onUnmounted(() => document.removeEventListener('click', handleBmSearchClickAway))
 
 const showBookmarkDialog = ref(false)
 const navBookmarkEditModalRef = ref(null)
@@ -1243,7 +1301,7 @@ const filteredBookmarks = computed(() => {
     result = result.filter(b => b.category_id === bookmarkCategoryFilter.value)
   }
   if (bookmarkSearch.value) {
-    result = searchBookmarks(result, bookmarkSearch.value)
+    result = searchBookmarks(result, bookmarkSearch.value, { field: bookmarkSearchField.value })
   }
   return result
 })
@@ -3257,6 +3315,7 @@ textarea.setting-input {
   font-size: 0.8125rem;
   font-family: inherit;
 }
+
 .bookmark-search-input::placeholder {
   color: var(--input-placeholder);
 }
@@ -3530,5 +3589,100 @@ html.dark .bookmark-move-select option,
 html.dark .dialog-bookmark .setting-input option {
   background: #1e293b;
   color: #f1f5f9;
+}
+
+/* Unified search field dropdown styles (shared with NavSearch.vue) */
+/* Uses global CSS variables (--text-tertiary, --bg-secondary, --border, --success, --text) */
+/* because Teleported elements don't inherit scoped CSS variable definitions */
+.search-field-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.search-field-btn {
+  background: none;
+  border: none;
+  outline: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 6px;
+  border-radius: 6px;
+  color: var(--text-tertiary);
+  transition: all 0.2s;
+  font-size: 0.8rem;
+}
+
+.search-field-btn:hover {
+  color: var(--success);
+  background: color-mix(in srgb, var(--success) 12%, transparent);
+}
+
+.search-field-btn.active {
+  color: var(--success);
+  background: color-mix(in srgb, var(--success) 15%, transparent);
+}
+
+.search-field-label {
+  font-size: 0.75rem;
+  line-height: 1;
+}
+
+.search-field-dropdown {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 6px;
+  min-width: 120px;
+  box-shadow: 0 8px 30px rgba(0,0,0,0.15);
+}
+
+.search-field-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  font-size: 0.85rem;
+  color: var(--text);
+  cursor: pointer;
+  border-radius: 6px;
+  transition: background 0.15s;
+  white-space: nowrap;
+}
+
+.search-field-option:hover {
+  background: color-mix(in srgb, var(--success) 10%, transparent);
+}
+
+.search-field-option.active {
+  color: var(--success);
+}
+
+.field-radio {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid var(--text-tertiary);
+  flex-shrink: 0;
+  transition: all 0.2s;
+}
+
+.field-radio.checked {
+  border-color: var(--success);
+  background: var(--success);
+  box-shadow: inset 0 0 0 3px var(--bg-secondary);
+}
+
+.dropdown-enter-active,
+.dropdown-leave-active {
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+
+.dropdown-enter-from,
+.dropdown-leave-to {
+  opacity: 0;
+  transform: translateY(-4px);
 }
 </style>

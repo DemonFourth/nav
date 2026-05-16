@@ -25,6 +25,32 @@
             <path d="M18 6L6 18M6 6l12 12"/>
           </svg>
         </button>
+        <div v-if="selectedEngine.name === 'site'" class="search-field-wrap" ref="searchFieldRef">
+          <button ref="searchFieldBtnRef" class="search-field-btn" :class="{ active: searchField !== 'all' }" @click="openFieldDropdown" :title="'搜索范围: ' + (SEARCH_FIELD_OPTIONS.find(o => o.value === searchField)?.label || '全部字段')">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M12 3v18M3 12h18"/>
+              <circle cx="10" cy="10" r="3"/>
+              <circle cx="14" cy="14" r="3"/>
+            </svg>
+            <span class="search-field-label">{{ SEARCH_FIELD_OPTIONS.find(o => o.value === searchField)?.label }}</span>
+          </button>
+          <Teleport to="body">
+            <Transition name="dropdown">
+              <div v-if="searchFieldOpen" ref="searchFieldDropdownRef" class="search-field-dropdown" :style="dropdownStyle">
+                <div
+                  v-for="opt in SEARCH_FIELD_OPTIONS"
+                  :key="opt.value"
+                  class="search-field-option"
+                  :class="{ active: searchField === opt.value }"
+                  @click="searchField = opt.value; searchFieldOpen = false"
+                >
+                  <span class="field-radio" :class="{ checked: searchField === opt.value }"></span>
+                  {{ opt.label }}
+                </div>
+              </div>
+            </Transition>
+          </Teleport>
+        </div>
         <button @click="handleSearch" class="search-btn" title="搜索">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
             <path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
@@ -37,11 +63,11 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, nextTick, onMounted, onUnmounted } from 'vue'
 import { useBookmarks } from '../composables/useBookmarks'
 import { useSettings } from '../composables/useSettings'
 import { buildCategoryTree, getCategoryPath } from '../utils/categoryTree'
-import { searchBookmarks } from '../utils/search'
+import { searchBookmarks, SEARCH_FIELD_OPTIONS } from '../utils/search'
 
 const props = defineProps({
   bookmarks: {
@@ -59,6 +85,38 @@ const selectedEngine = ref(null)
 const searchResults = ref([])
 const searchIconErrors = ref({})
 const searchIconSourceIndexes = ref({})
+const searchField = ref('all')
+const searchFieldOpen = ref(false)
+const searchFieldRef = ref(null)
+const searchFieldBtnRef = ref(null)
+const searchFieldDropdownRef = ref(null)
+const dropdownStyle = ref({})
+
+const openFieldDropdown = () => {
+  searchFieldOpen.value = !searchFieldOpen.value
+  if (!searchFieldOpen.value) return
+  nextTick(() => {
+    const rect = searchFieldBtnRef.value?.getBoundingClientRect()
+    if (rect) {
+      dropdownStyle.value = {
+        position: 'fixed',
+        top: rect.bottom + 6 + 'px',
+        right: document.documentElement.clientWidth - rect.right + 'px',
+        zIndex: 99999
+      }
+    }
+  })
+}
+
+const handleClickAway = (e) => {
+  if (searchFieldRef.value && !searchFieldRef.value.contains(e.target)) {
+    if (searchFieldDropdownRef.value && searchFieldDropdownRef.value.contains(e.target)) return
+    searchFieldOpen.value = false
+  }
+}
+
+onMounted(() => document.addEventListener('click', handleClickAway))
+onUnmounted(() => document.removeEventListener('click', handleClickAway))
 
 const { iconSources, parseIconSourceUrl } = useSettings()
 
@@ -153,7 +211,7 @@ const searchInSite = (tags = null) => {
   } else {
     const query = searchQuery.value.toLowerCase().trim()
     if (!query) return
-    results = searchBookmarks(props.bookmarks, searchQuery.value)
+    results = searchBookmarks(props.bookmarks, searchQuery.value, { field: searchField.value })
   }
 
   searchIconErrors.value = {}
@@ -266,8 +324,6 @@ const openUrl = (url) => {
   background: var(--nav-card-bg);
   border-radius: 999px;
   padding: 3px 3px 3px 18px;
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
   width: 100%;
   max-width: 520px;
   border: 1px solid var(--nav-border);
@@ -329,5 +385,94 @@ const openUrl = (url) => {
   transform: scale(0.94);
 }
 
+.search-field-wrap {
+  position: relative;
+  margin-right: 0.2rem;
+}
 
+.search-field-btn {
+  background: none;
+  border: none;
+  outline: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 6px;
+  border-radius: 6px;
+  color: var(--nav-text-secondary);
+  transition: all 0.2s;
+  font-size: 0.8rem;
+}
+
+.search-field-btn:hover {
+  color: var(--nav-primary);
+  background: color-mix(in srgb, var(--nav-primary) 12%, transparent);
+}
+
+.search-field-btn.active {
+  color: var(--nav-primary);
+  background: color-mix(in srgb, var(--nav-primary) 15%, transparent);
+}
+
+.search-field-label {
+  font-size: 0.75rem;
+  line-height: 1;
+}
+
+.search-field-dropdown {
+  background: var(--nav-card-bg);
+  border: 1px solid var(--nav-border);
+  border-radius: 10px;
+  padding: 6px;
+  min-width: 120px;
+  box-shadow: 0 8px 30px rgba(0,0,0,0.15);
+}
+
+.search-field-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  font-size: 0.85rem;
+  color: var(--nav-text);
+  cursor: pointer;
+  border-radius: 6px;
+  transition: background 0.15s;
+  white-space: nowrap;
+}
+
+.search-field-option:hover {
+  background: color-mix(in srgb, var(--nav-primary) 10%, transparent);
+}
+
+.search-field-option.active {
+  color: var(--nav-primary);
+}
+
+.field-radio {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid var(--nav-text-secondary);
+  flex-shrink: 0;
+  transition: all 0.2s;
+}
+
+.field-radio.checked {
+  border-color: var(--nav-primary);
+  background: var(--nav-primary);
+  box-shadow: inset 0 0 0 3px var(--nav-card-bg);
+}
+
+.dropdown-enter-active,
+.dropdown-leave-active {
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+
+.dropdown-enter-from,
+.dropdown-leave-to {
+  opacity: 0;
+  transform: translateY(-4px);
+}
 </style>
