@@ -199,7 +199,7 @@ import { useBookmarks } from '../composables/useBookmarks'
 import { useSettings } from '../composables/useSettings'
 import { useAuth } from '../composables/useAuth'
 import { useToast } from '../composables/useToast'
-import { buildCategoryTree, getCategoryPath } from '../utils/categoryTree'
+import { buildCategoryTree } from '../utils/categoryTree'
 
 const { categories, bookmarks, fetchData, searchTags, updateBookmark } = useBookmarks()
 const { isAuthenticated } = useAuth()
@@ -240,13 +240,11 @@ const allTags = computed(() => {
 })
 
 const categoryOptions = computed(() => {
-  if (!categories.value.length) {
-    return []
-  }
-  const { flatList, map } = buildCategoryTree(categories.value)
+  if (!categories.value.length) return []
+  const { flatList } = buildCategoryTree(categories.value)
   return flatList.map(cat => ({
     id: cat.id,
-    displayName: getCategoryPath(cat.id, map).map(item => item.name).join('/')
+    displayName: cat.displayName
   }))
 })
 
@@ -269,12 +267,6 @@ const selectCategory = (cat) => {
   selectOpen.value = false
   selectSearch.value = ''
 }
-
-const categoryName = computed(() => {
-  if (!detailData.value.bookmark?.category_id) return '未分类'
-  const cat = categories.value.find(c => c.id === detailData.value.bookmark.category_id)
-  return cat ? cat.name : '未分类'
-})
 
 const backgroundStyle = computed(() => {
   const style = {}

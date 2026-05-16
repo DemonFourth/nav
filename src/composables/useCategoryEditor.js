@@ -147,7 +147,7 @@ export function useCategoryEditor() {
       .filter(cat => !excludeIds.includes(cat.id))
       .map(cat => ({
         id: cat.id,
-        displayName: getCategoryPath(cat.id, map).map(c => c.name).join('/'),
+        displayName: cat.displayName,
         depth: cat.depth,
         parent_id: cat.parent_id
       }))

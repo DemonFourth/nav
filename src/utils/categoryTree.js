@@ -40,13 +40,14 @@ export function buildCategoryTree(categories) {
   }
   sortByPosition(rootCategories)
 
-  // 生成扁平列表（按树的深度优先顺序）
+  // 生成扁平列表（按树的深度优先顺序，带 displayName）
   const flatList = []
-  const traverse = (categories) => {
+  const traverse = (categories, parentPath = '') => {
     categories.forEach(cat => {
-      flatList.push(cat)
+      const displayName = parentPath ? `${parentPath} / ${cat.name}` : cat.name
+      flatList.push({ ...cat, displayName })
       if (cat.children && cat.children.length > 0) {
-        traverse(cat.children)
+        traverse(cat.children, displayName)
       }
     })
   }

@@ -490,8 +490,14 @@
             <!-- Bookmark Tab -->
             <div v-show="activeTab === 'bookmark'" class="tab-panel bookmark-tab">
               <div class="bookmark-header">
-                <h2 class="bookmark-title">书签管理</h2>
-                <span class="bookmark-count">共 {{ bookmarks.length }} 个书签</span>
+                <div class="bookmark-header-left">
+                  <h2 class="bookmark-title">书签管理</h2>
+                  <span class="bookmark-count">共 {{ bookmarks.length }} 个书签</span>
+                </div>
+                <button class="btn-primary-sm" @click="openBookmarkAdd">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M12 5v14M5 12h14"/></svg>
+                  新增
+                </button>
               </div>
               <div class="bookmark-toolbar">
                 <div class="bookmark-search-wrap">
@@ -505,16 +511,29 @@
                     placeholder="搜索书签..."
                   />
                 </div>
-                <select v-model="bookmarkCategoryFilter" class="bookmark-filter-select">
-                  <option :value="null">全部分类</option>
-                  <option v-for="cat in categoryFlatList" :key="cat.id" :value="cat.id">
-                    {{ cat.displayName }}
-                  </option>
-                </select>
-                <button class="btn-primary-sm" @click="openBookmarkAdd">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M12 5v14M5 12h14"/></svg>
-                  新增
-                </button>
+                <div class="custom-select-filter" :class="{ open: filterSelectOpen }" ref="filterSelectRef">
+                  <div class="filter-select-trigger" @click="filterSelectOpen = !filterSelectOpen">
+                    <span class="filter-select-value">{{ selectedFilterCategoryName || '全部分类' }}</span>
+                    <svg class="filter-select-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M6 9l6 6 6-6"/>
+                    </svg>
+                  </div>
+                  <div v-if="filterSelectOpen" class="filter-select-dropdown">
+                    <div
+                      class="filter-select-option"
+                      :class="{ active: bookmarkCategoryFilter === null }"
+                      @click="selectFilterCategory(null)"
+                    >全部分类</div>
+                    <div
+                      v-for="cat in categoryFlatList"
+                      :key="cat.id"
+                      class="filter-select-option"
+                      :class="{ active: bookmarkCategoryFilter === cat.id }"
+                      @click="selectFilterCategory(cat.id)">
+                      {{ cat.displayName }}
+                    </div>
+                  </div>
+                </div>
               </div>
               <div class="bookmark-list">
                 <div
@@ -943,7 +962,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, watch, onMounted } from 'vue'
+import { ref, reactive, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useSettings } from '@/composables/useSettings'
 import { useTheme } from '@/composables/useTheme'
 import { useAuth } from '@/composables/useAuth'
@@ -1059,6 +1078,34 @@ const showBookmarkAddDialog = ref(false)
 const showBookmarkEditDialog = ref(false)
 const editingBookmark = ref(null)
 const bookmarkMoveTarget = ref(null)
+const filterSelectOpen = ref(false)
+const filterSelectRef = ref(null)
+
+const selectedFilterCategoryName = computed(() => {
+  if (bookmarkCategoryFilter.value === null) return ''
+  const cat = categoryFlatList.value.find(c => c.id === bookmarkCategoryFilter.value)
+  return cat?.name || ''
+})
+
+const selectFilterCategory = (id) => {
+  bookmarkCategoryFilter.value = id
+  filterSelectOpen.value = false
+}
+
+const handleFilterClickAway = (e) => {
+  if (filterSelectRef.value && !filterSelectRef.value.contains(e.target)) {
+    filterSelectOpen.value = false
+  }
+}
+
+onMounted(() => {
+  document.addEventListener('click', handleFilterClickAway)
+})
+
+onUnmounted(() => {
+  document.removeEventListener('click', handleFilterClickAway)
+})
+
 const bookmarkForm = reactive({
   name: '',
   url: '',
@@ -3068,10 +3115,22 @@ textarea.setting-input {
 }
 .bookmark-header {
   display: flex;
-  align-items: baseline;
-  gap: 12px;
+  align-items: center;
+  justify-content: space-between;
   padding: 1rem 1.25rem;
   border-bottom: 1px solid var(--card-border);
+}
+.bookmark-header-left {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+}
+.bookmark-header .btn-primary-sm {
+  padding: 4px 8px;
+  font-size: 0.75rem;
+  white-space: nowrap;
+  flex-shrink: 0;
+  flex: none;
 }
 .bookmark-title {
   font-size: 1rem;
@@ -3121,16 +3180,84 @@ textarea.setting-input {
 .bookmark-search-input::placeholder {
   color: var(--input-placeholder);
 }
-.bookmark-filter-select {
+.custom-select-filter {
+  position: relative;
+  min-width: 130px;
+}
+
+.filter-select-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
   padding: 6px 10px;
   background: var(--input-bg);
   border: 1px solid var(--input-border);
   border-radius: 8px;
-  color: var(--text-primary);
-  font-size: 0.75rem;
-  font-family: inherit;
   cursor: pointer;
-  outline: none;
+  transition: border-color 0.2s;
+  user-select: none;
+}
+
+.filter-select-trigger:hover {
+  border-color: var(--accent-border);
+}
+
+.custom-select-filter.open .filter-select-trigger {
+  border-color: var(--accent-border);
+}
+
+.filter-select-value {
+  font-size: 0.75rem;
+  color: var(--input-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.filter-select-arrow {
+  width: 14px;
+  height: 14px;
+  stroke-width: 2;
+  color: var(--text-muted);
+  flex-shrink: 0;
+  transition: transform 0.2s;
+}
+
+.custom-select-filter.open .filter-select-arrow {
+  transform: rotate(180deg);
+}
+
+.filter-select-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  margin-top: 4px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+  z-index: 100;
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+.filter-select-option {
+  padding: 8px 12px;
+  font-size: 0.75rem;
+  color: var(--text);
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.filter-select-option:hover {
+  background: var(--bg-secondary);
+}
+
+.filter-select-option.active {
+  color: var(--accent);
+  font-weight: 600;
 }
 .bookmark-list {
   flex: 1;
@@ -3259,5 +3386,19 @@ textarea.setting-input {
   font-family: inherit;
   cursor: pointer;
   outline: none;
+}
+</style>
+
+<style>
+/* Non-scoped: <option> elements don't inherit scoped data-v attributes */
+.bookmark-move-select option,
+.dialog-bookmark .setting-input option {
+  background: #ffffff;
+  color: #1e293b;
+}
+html.dark .bookmark-move-select option,
+html.dark .dialog-bookmark .setting-input option {
+  background: #1e293b;
+  color: #f1f5f9;
 }
 </style>
