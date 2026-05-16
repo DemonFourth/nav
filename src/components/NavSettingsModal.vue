@@ -949,6 +949,7 @@ import { useAI } from '@/composables/useAI'
 import { useToast } from '@/composables/useToast'
 import { useCategoryEditor } from '@/composables/useCategoryEditor'
 import { buildCategoryTree, getCategoryPath } from '@/utils/categoryTree'
+import { searchBookmarks } from '@/utils/search'
 import MenuTreeNode from '@/components/MenuTreeNode.vue'
 import NavBookmarkEditModal from '@/components/NavBookmarkEditModal.vue'
 
@@ -1242,13 +1243,7 @@ const filteredBookmarks = computed(() => {
     result = result.filter(b => b.category_id === bookmarkCategoryFilter.value)
   }
   if (bookmarkSearch.value) {
-    const q = bookmarkSearch.value.toLowerCase()
-    result = result.filter(b =>
-      b.name.toLowerCase().includes(q) ||
-      b.url.toLowerCase().includes(q) ||
-      (b.description && b.description.toLowerCase().includes(q)) ||
-      (b.tags && b.tags.toLowerCase().includes(q))
-    )
+    result = searchBookmarks(result, bookmarkSearch.value)
   }
   return result
 })

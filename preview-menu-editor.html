@@ -1,0 +1,859 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>菜单编辑器预览</title>
+  <style>
+    :root {
+      --primary: #6366f1; --primary-dark: #4f46e5; --primary-50: #eef2ff; --primary-100: #e0e7ff;
+      --success: #10b981; --warning: #f59e0b; --error: #ef4444;
+      --bg: #ffffff; --bg-secondary: #f8fafc; --bg-tertiary: #f1f5f9;
+      --text: #1e293b; --text-secondary: #64748b; --text-tertiary: #94a3b8;
+      --border: #e2e8f0; --radius: 12px; --radius-sm: 8px; --radius-lg: 16px;
+      --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    html.dark {
+      --primary: #818cf8; --primary-dark: #6366f1; --primary-50: #1e1b4b; --primary-100: #312e81;
+      --bg: #0f172a; --bg-secondary: #1e293b; --bg-tertiary: #334155;
+      --text: #f1f5f9; --text-secondary: #94a3b8; --text-tertiary: #64748b; --border: #334155;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--bg-secondary); color: var(--text); }
+  </style>
+</head>
+<body>
+  <div id="app"></div>
+  <script type="module">
+    import { createApp, ref, reactive, computed, h } from 'https://unpkg.com/vue@3/dist/vue.esm-browser.js'
+
+    const TreeNode = {
+      name: 'TreeNode',
+      props: {
+        node: { type: Object, required: true },
+        selectedId: { type: String, default: null },
+        expandedIds: { type: Array, default: () => [] },
+        draggingId: { type: String, default: null },
+        dropTarget: { type: Object, default: () => ({}) },
+        depth: { type: Number, default: 0 },
+        path: { type: String, default: '' }
+      },
+      emits: ['select', 'toggle-expand', 'drag-start', 'drag-end', 'drag-enter', 'drag-over', 'drop', 'move-up', 'move-down'],
+      setup(props, { emit }) {
+        const isSelected = computed(() => props.node.id === props.selectedId)
+        const isExpanded = computed(() => props.expandedIds.includes(props.node.id))
+        const hasChildren = computed(() => props.node.children?.length > 0)
+        const isDragging = computed(() => props.draggingId === props.node.id)
+        const isDropTarget = computed(() => props.dropTarget?.id === props.node.id && props.dropTarget?.mode === 'reorder')
+        const isDropChild = computed(() => props.dropTarget?.id === props.node.id && props.dropTarget?.mode === 'child')
+        const isDropBefore = computed(() => props.dropTarget?.id === props.node.id && props.dropTarget?.mode === 'reorder' && props.dropTarget?.position === 'before')
+        const isDropAfter = computed(() => props.dropTarget?.id === props.node.id && props.dropTarget?.mode === 'reorder' && props.dropTarget?.position === 'after')
+        
+        const currentPath = computed(() => props.path ? props.path + ' > ' + props.node.name : props.node.name)
+
+        return () => {
+          const indentStyle = { paddingLeft: `${props.depth * 20 + 8}px` }
+          const children = []
+
+          if (props.node.children?.length && isExpanded.value) {
+            for (const child of props.node.children) {
+              children.push(h(TreeNode, {
+                key: child.id,
+                node: child,
+                selectedId: props.selectedId,
+                expandedIds: props.expandedIds,
+                draggingId: props.draggingId,
+                dropTarget: props.dropTarget,
+                depth: props.depth + 1,
+                path: currentPath.value,
+                onSelect: (item, path) => emit('select', item, path),
+                onToggleExpand: (id) => emit('toggle-expand', id),
+                onDragStart: (e, item) => emit('drag-start', e, item),
+                onDragEnd: () => emit('drag-end'),
+                onDragEnter: (e, item) => emit('drag-enter', e, item),
+                onDragOver: (e, item) => emit('drag-over', e, item),
+                onDrop: (e, item) => emit('drop', e, item),
+                onMoveUp: (id) => emit('move-up', id),
+                onMoveDown: (id) => emit('move-down', id)
+              }))
+            }
+          }
+
+          return h('div', { class: 'tree-node' }, [
+            h('div', {
+              class: ['tree-item', props.depth === 0 ? 'root-item' : 'child-item', {
+                selected: isSelected.value,
+                dragging: isDragging.value,
+                'drop-target': isDropTarget.value,
+                'drop-as-child': isDropChild.value,
+                'drop-before': isDropBefore.value,
+                'drop-after': isDropAfter.value
+              }],
+              style: indentStyle,
+              draggable: 'true',
+              onClick: () => emit('select', props.node, currentPath.value),
+              onDragStart: (e) => { console.log('dragstart fired!', e.target); emit('drag-start', e, props.node) },
+              onDragEnd: () => emit('drag-end'),
+              onDragEnter: (e) => emit('drag-enter', e, props.node),
+              onDragOver: (e) => emit('drag-over', e, props.node),
+              onDragLeave: () => {},
+              onDrop: (e) => emit('drop', e, props.node)
+            }, [
+              props.depth > 0 && h('div', { class: 'item-connector' }),
+              h('div', { class: 'item-drag-handle' }, [
+                h('svg', { viewBox: '0 0 24 24', fill: 'currentColor', width: 10, height: 10 }, [
+                  h('circle', { cx: 9, cy: 6, r: 1.5 }), h('circle', { cx: 15, cy: 6, r: 1.5 }),
+                  h('circle', { cx: 9, cy: 12, r: 1.5 }), h('circle', { cx: 15, cy: 12, r: 1.5 }),
+                  h('circle', { cx: 9, cy: 18, r: 1.5 }), h('circle', { cx: 15, cy: 18, r: 1.5 })
+                ])
+              ]),
+              h('div', { class: ['item-icon', props.depth > 0 && 'child-icon'] }, [
+                h('svg', { viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', 'stroke-width': 1.5, width: 16, height: 16 }, [
+                  props.depth === 0 ? h('path', { d: 'M3 7h18M3 12h18M3 17h18' })
+                    : h('path', { d: 'M4 19.5A2.5 2.5 0 016.5 17H20M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z' })
+                ])
+              ]),
+              h('span', { class: 'item-name' }, props.node.name),
+              h('span', { class: 'item-count' }, props.node.children?.length || props.node.bookmarkCount || 0),
+              hasChildren.value && h('button', { class: 'item-expand', onClick: (e) => { e.stopPropagation(); emit('toggle-expand', props.node.id) } }, [
+                h('svg', { viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', 'stroke-width': 2, width: 12, height: 12, class: { rotated: isExpanded.value } }, [
+                  h('path', { d: 'M9 18l6-6-6-6' })
+                ])
+              ]),
+              h('div', { class: 'item-actions' }, [
+                h('button', { class: 'item-move-btn move-up', title: '上移', onClick: (e) => { e.stopPropagation(); emit('move-up', props.node.id) } }, [
+                  h('svg', { viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', 'stroke-width': 2.5, width: 12, height: 12 }, [h('path', { d: 'M5 15l7-7 7 7' })])
+                ]),
+                h('button', { class: 'item-move-btn move-down', title: '下移', onClick: (e) => { e.stopPropagation(); emit('move-down', props.node.id) } }, [
+                  h('svg', { viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', 'stroke-width': 2.5, width: 12, height: 12 }, [h('path', { d: 'M19 9l-7 7-7-7' })])
+                ])
+              ])
+            ]),
+            children
+          ])
+        }
+      }
+    }
+
+    const App = {
+      components: { TreeNode },
+      template: `
+  <div class="menu-editor-preview" :class="{ dark: isDark }">
+    <div class="preview-header">
+      <h1>菜单编辑器</h1>
+      <div class="theme-toggle">
+        <button @click="isDark = !isDark" class="btn btn-secondary btn-sm">{{ isDark ? '☀️ 亮色' : '🌙 暗色' }}</button>
+      </div>
+    </div>
+
+    <div class="editor-container">
+      <div class="left-panel">
+        <div class="panel-header">
+          <h2>菜单结构</h2>
+          <button class="btn btn-primary btn-sm" @click="showAddDialog = true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M12 5v14M5 12h14"/></svg>
+            新增分类
+          </button>
+        </div>
+
+        <div class="category-tree">
+          <div v-if="draggingId" class="drag-hint">
+            {{ getDropHint() }}
+          </div>
+
+          <TreeNode
+            v-for="category in categories"
+            :key="category.id"
+            :node="category"
+            :selected-id="selectedId"
+            :expanded-ids="expandedIds"
+            :dragging-id="draggingId"
+            :drop-target="dropTarget"
+            :depth="0"
+            @select="selectCategory"
+            @toggle-expand="toggleExpand"
+            @drag-start="() => { console.log('DRAG START EVENT!'); onDragStart.apply(null, arguments) }"
+            @drag-end="onDragEnd"
+            @drag-enter="onDragEnter"
+            @drag-over="onDragOver"
+            @drop="onDrop"
+            @move-up="onMoveUp"
+            @move-down="onMoveDown"
+          />
+        </div>
+      </div>
+
+      <div class="right-panel">
+        <div class="panel-header">
+          <h2>分类详情</h2>
+        </div>
+
+        <div v-if="selectedItem" class="detail-form">
+          <div class="form-group">
+            <label>分类名称</label>
+            <input type="text" v-model="form.name" />
+          </div>
+
+          <div class="form-group">
+            <label>父分类</label>
+            <select v-model="form.parentId">
+              <option :value="null">无（根分类）</option>
+              <option v-for="cat in availableParents" :key="cat.id" :value="cat.id" :disabled="cat.disabled">
+                {{ cat.path }}
+              </option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label>位置</label>
+            <div class="position-display">第 {{ form.position }} / 共 {{ form.maxPosition }} 项</div>
+          </div>
+
+          <div class="form-actions">
+            <button class="btn btn-secondary" @click="resetForm">重置</button>
+            <button class="btn btn-primary" @click="applyFormChanges">应用</button>
+          </div>
+
+          <div class="danger-zone">
+            <h3>危险区域</h3>
+            <button class="btn btn-danger" @click="showDeleteConfirm = true">删除此分类</button>
+          </div>
+        </div>
+
+        <div v-else class="no-selection">
+          <p>选择左侧分类以编辑详情</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Add Dialog -->
+    <div v-if="showAddDialog" class="dialog-overlay" @click.self="showAddDialog = false">
+      <div class="dialog">
+        <div class="dialog-header">
+          <h3>新增分类</h3>
+          <button class="close-btn" @click="showAddDialog = false">✕</button>
+        </div>
+        <div class="dialog-body">
+          <div class="form-group">
+            <label>分类名称</label>
+            <input type="text" v-model="newCategoryName" placeholder="输入分类名称" @keyup.enter="confirmAddCategory" />
+          </div>
+          <div class="form-group">
+            <label>父分类</label>
+            <select v-model="newCategoryParentId">
+              <option :value="null">作为根分类</option>
+              <option v-for="cat in allCategoriesForSelect" :key="cat.id" :value="cat.id">{{ cat.path }}</option>
+            </select>
+          </div>
+        </div>
+        <div class="dialog-footer">
+          <button class="btn btn-secondary" @click="showAddDialog = false">取消</button>
+          <button class="btn btn-primary" @click="confirmAddCategory" :disabled="!newCategoryName.trim()">创建</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Delete Dialog -->
+    <div v-if="showDeleteConfirm" class="dialog-overlay" @click.self="showDeleteConfirm = false">
+      <div class="dialog">
+        <div class="dialog-header">
+          <h3>确认删除</h3>
+          <button class="close-btn" @click="showDeleteConfirm = false">✕</button>
+        </div>
+        <div class="dialog-body">
+          <p>确定要删除分类 <strong>"{{ selectedItem?.name }}"</strong> 吗？</p>
+          <p v-if="selectedItem?.children?.length" class="warning-text">此分类下有 {{ selectedItem.children.length }} 个子分类，它们也会被一并删除。</p>
+          <p class="warning-text">此操作不可恢复。</p>
+        </div>
+        <div class="dialog-footer">
+          <button class="btn btn-secondary" @click="showDeleteConfirm = false">取消</button>
+          <button class="btn btn-danger" @click="confirmDelete">确认删除</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Save Dialog -->
+    <div v-if="showSaveDialog" class="dialog-overlay" @click.self="showSaveDialog = false">
+      <div class="dialog">
+        <div class="dialog-header">
+          <h3>确认保存</h3>
+          <button class="close-btn" @click="showSaveDialog = false">✕</button>
+        </div>
+        <div class="dialog-body">
+          <p class="save-summary">共 {{ pendingChanges.length }} 项更改：</p>
+          <ul class="change-list">
+            <li v-for="(change, idx) in pendingChanges" :key="idx" :class="'change-' + change.type">
+              <span class="change-type">{{ getChangeTypeLabel(change.type) }}</span>
+              <span class="change-desc">{{ getChangeDescription(change) }}</span>
+            </li>
+          </ul>
+        </div>
+        <div class="dialog-footer">
+          <button class="btn btn-secondary" @click="showSaveDialog = false">取消</button>
+          <button class="btn btn-primary" @click="confirmSave">确认保存</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Pending Bar -->
+    <div class="pending-bar" :class="{ visible: pendingChanges.length > 0 }">
+      <div class="pending-info">
+        <button class="pending-count-btn" @click="showSaveDialog = true">
+          <span class="count">{{ pendingChanges.length }}</span>
+          <span class="label">项更改</span>
+        </button>
+        <button class="btn btn-link" @click="showSaveDialog = true">查看详情</button>
+      </div>
+      <div class="pending-actions">
+        <button class="btn btn-secondary" @click="discardAll">放弃</button>
+      </div>
+    </div>
+
+    <Transition name="toast">
+      <div v-if="toast.show" class="toast" :class="toast.type">{{ toast.message }}</div>
+    </Transition>
+  </div>
+      `,
+      setup() {
+        const isDark = ref(false)
+        const showAddDialog = ref(false)
+        const showDeleteConfirm = ref(false)
+        const showSaveDialog = ref(false)
+        const newCategoryName = ref('')
+        const newCategoryParentId = ref(null)
+
+        const initialData = [
+          { id: 'cat-1', name: '技术文档', children: [
+            { id: 'cat-1-1', name: 'Vue.js', bookmarkCount: 12, children: [] },
+            { id: 'cat-1-2', name: 'React', bookmarkCount: 8, children: [
+              { id: 'cat-1-2-1', name: 'React Router', bookmarkCount: 3, children: [
+                { id: 'cat-1-2-1-1', name: 'v6 新特性', bookmarkCount: 5, children: [] }
+              ] }
+            ] },
+            { id: 'cat-1-3', name: 'TypeScript', bookmarkCount: 5, children: [] }
+          ]},
+          { id: 'cat-2', name: '设计资源', children: [
+            { id: 'cat-2-1', name: 'Figma', bookmarkCount: 24, children: [] },
+            { id: 'cat-2-2', name: '图标库', bookmarkCount: 15, children: [] }
+          ]},
+          { id: 'cat-3', name: '效率工具', children: []}
+        ]
+
+        const categories = ref(JSON.parse(JSON.stringify(initialData)))
+        const expandedIds = ref(['cat-1', 'cat-1-2', 'cat-1-2-1', 'cat-2'])
+        const selectedId = ref(null)
+        const draggingId = ref(null)
+        const dropTarget = ref({})
+        const pendingChanges = ref([])
+        
+        const form = reactive({ name: '', parentId: null, position: 1, maxPosition: 1 })
+        const formOriginal = reactive({ name: '', parentId: null, position: 1 })
+        const toast = reactive({ show: false, message: '', type: 'success' })
+
+        function findItem(id, items = categories.value) {
+          for (const item of items) {
+            if (item.id === id) return item
+            if (item.children) {
+              const found = findItem(id, item.children)
+              if (found) return found
+            }
+          }
+          return null
+        }
+
+        function findParentOf(targetId, items = categories.value, parent = null) {
+          for (const item of items) {
+            if (item.id === targetId) return parent
+            if (item.children) {
+              const found = findParentOf(targetId, item.children, item)
+              if (found !== undefined) return found
+            }
+          }
+          return undefined
+        }
+
+        function getPath(id) {
+          const parts = []
+          let current = findItem(id)
+          while (current) {
+            parts.unshift(current.name)
+            const p = findParentOf(current.id)
+            if (!p) break
+            current = p
+          }
+          return parts.join(' > ')
+        }
+
+        function getSiblings(itemId) {
+          const parent = findParentOf(itemId)
+          return parent ? (parent.children || []) : categories.value
+        }
+
+        const selectedItem = computed(() => selectedId.value ? findItem(selectedId.value) : null)
+
+        const allCategoriesForSelect = computed(() => {
+          const result = []
+          const add = (items, path = '') => {
+            for (const item of items) {
+              const currentPath = path ? path + ' > ' + item.name : item.name
+              result.push({ id: item.id, name: item.name, path: currentPath })
+              if (item.children?.length) add(item.children, currentPath)
+            }
+          }
+          add(categories.value)
+          return result
+        })
+
+        const availableParents = computed(() => {
+          if (!selectedId.value) return []
+          const result = []
+          const add = (items, path = '', depth = 0) => {
+            if (depth >= 5) return
+            for (const item of items) {
+              if (item.id === selectedId.value) continue
+              const disabled = isDescendant(item.id, selectedId.value)
+              const currentPath = path ? path + ' > ' + item.name : item.name
+              result.push({ id: item.id, name: item.name, path: currentPath, disabled })
+              if (item.children?.length) add(item.children, currentPath, depth + 1)
+            }
+          }
+          add(categories.value)
+          return result
+        })
+
+        function isDescendant(parentId, childId) {
+          const parent = findItem(parentId)
+          if (!parent?.children) return false
+          const stack = [...parent.children]
+          while (stack.length) {
+            const child = stack.pop()
+            if (child.id === childId) return true
+            if (child.children) stack.push(...child.children)
+          }
+          return false
+        }
+
+        function showToast(message, type = 'success') {
+          toast.message = message; toast.type = type; toast.show = true
+          setTimeout(() => { toast.show = false }, 2500)
+        }
+
+        function getItemName(id) {
+          return findItem(id)?.name || id
+        }
+
+        function getDropHint() {
+          if (!dropTarget.value.id) return '拖拽到其他分类上将成为其子分类'
+          if (dropTarget.value.mode === 'child') return `将成为 "${getItemName(dropTarget.value.id)}" 的子分类`
+          return `将移动到 "${getItemName(dropTarget.value.id)}" ${dropTarget.value.position === 'before' ? '之前' : '之后'}`
+        }
+
+        function selectCategory(item, path) {
+          selectedId.value = item.id
+          const parent = findParentOf(item.id)
+          const siblings = getSiblings(item.id)
+          form.name = item.name
+          form.parentId = parent?.id || null
+          form.position = siblings.findIndex(s => s.id === item.id) + 1
+          form.maxPosition = siblings.length
+          formOriginal.name = item.name
+          formOriginal.parentId = parent?.id || null
+          formOriginal.position = form.position
+        }
+
+        function toggleExpand(id) {
+          const idx = expandedIds.value.indexOf(id)
+          if (idx > -1) expandedIds.value.splice(idx, 1)
+          else expandedIds.value.push(id)
+        }
+
+        function onDragStart(e, item) {
+          console.log('DRAG START:', item.id)
+          draggingId.value = item.id
+          e.dataTransfer.effectAllowed = 'move'
+          e.dataTransfer.setData('text/plain', item.id)
+        }
+
+        function onDragEnd() {
+          console.log('DRAG END')
+          draggingId.value = null
+          dropTarget.value = {}
+        }
+
+        function onDragEnter(e, item) {
+          console.log('DRAG ENTER:', item.id)
+          e.preventDefault()
+          e.stopPropagation()
+          if (draggingId.value === item.id) return
+          dropTarget.value = { id: item.id, mode: 'child' }
+          console.log('Set drop target (enter):', item.id, 'mode: child')
+        }
+
+        function onDragOver(e, item) {
+          console.log('DRAG OVER:', item.id, 'y:', e.clientY)
+          e.preventDefault()
+          e.stopPropagation()
+          if (draggingId.value === item.id) return
+
+          const rect = e.currentTarget.getBoundingClientRect()
+          const relativeY = (e.clientY - rect.top) / rect.height
+          console.log('Target:', item.name, 'rect.top:', rect.top, 'rect.height:', rect.height, 'Relative Y:', relativeY)
+
+          if (relativeY < 0.33) {
+            dropTarget.value = { id: item.id, mode: 'reorder', position: 'before' }
+            console.log('Set to BEFORE')
+          } else if (relativeY < 0.66) {
+            dropTarget.value = { id: item.id, mode: 'child' }
+            console.log('Set to CHILD')
+          } else {
+            dropTarget.value = { id: item.id, mode: 'reorder', position: 'after' }
+            console.log('Set to AFTER')
+          }
+        }
+
+        function removeItemById(id, items = categories.value) {
+          for (let i = 0; i < items.length; i++) {
+            if (items[i].id === id) return items.splice(i, 1)[0]
+            if (items[i].children) {
+              const found = removeItemById(id, items[i].children)
+              if (found) return found
+            }
+          }
+          return null
+        }
+
+        function onDrop(e, targetItem) {
+          e.preventDefault()
+          const draggedId = draggingId.value
+          if (!draggedId || draggedId === targetItem.id) {
+            onDragEnd()
+            return
+          }
+          
+          const item = removeItemById(draggedId)
+          if (!item) {
+            onDragEnd()
+            return
+          }
+          
+          if (dropTarget.value.mode === 'child') {
+            const parent = findItem(dropTarget.value.id)
+            if (parent) {
+              if (!parent.children) parent.children = []
+              parent.children.push(item)
+              if (!expandedIds.value.includes(dropTarget.value.id)) {
+                expandedIds.value.push(dropTarget.value.id)
+              }
+              pendingChanges.value.push({
+                type: 'move',
+                id: draggedId,
+                fromPath: getPath(draggedId),
+                toPath: getPath(dropTarget.value.id) + ' > ' + item.name
+              })
+            }
+          } else {
+            const targetParent = findParentOf(targetItem.id)
+            const siblings = targetParent ? (targetParent.children || []) : categories.value
+            let targetIndex = siblings.findIndex(s => s.id === targetItem.id)
+            if (dropTarget.value.position === 'after') targetIndex++
+            
+            // Adjust index if same parent and moving down
+            const itemSiblings = getSiblings(draggedId)
+            const itemIdx = itemSiblings.findIndex(s => s.id === draggedId)
+            if (itemSiblings === siblings && itemIdx < targetIndex) targetIndex--
+            
+            siblings.splice(targetIndex, 0, item)
+            
+            pendingChanges.value.push({
+              type: 'move',
+              id: draggedId,
+              fromPath: getPath(draggedId),
+              toPath: (targetParent ? getPath(targetParent.id) + ' > ' : '') + targetItem.name + (dropTarget.value.position === 'after' ? ' 之后' : ' 之前')
+            })
+          }
+          
+          showToast('已移动', 'success')
+          onDragEnd()
+        }
+
+        function onMoveUp(itemId) {
+          const siblings = getSiblings(itemId)
+          const idx = siblings.findIndex(s => s.id === itemId)
+          if (idx <= 0) return
+          
+          const [item] = siblings.splice(idx, 1)
+          siblings.splice(idx - 1, 0, item)
+          
+          pendingChanges.value.push({
+            type: 'reorder',
+            id: itemId,
+            fromPosition: idx + 1,
+            toPosition: idx
+          })
+          
+          if (selectedId.value === itemId) form.position = idx
+          showToast('已上移', 'success')
+        }
+
+        function onMoveDown(itemId) {
+          const siblings = getSiblings(itemId)
+          const idx = siblings.findIndex(s => s.id === itemId)
+          if (idx === -1 || idx >= siblings.length - 1) return
+          
+          const [item] = siblings.splice(idx, 1)
+          siblings.splice(idx + 1, 0, item)
+          
+          pendingChanges.value.push({
+            type: 'reorder',
+            id: itemId,
+            fromPosition: idx + 1,
+            toPosition: idx + 2
+          })
+          
+          if (selectedId.value === itemId) form.position = idx + 2
+          showToast('已下移', 'success')
+        }
+
+        function confirmAddCategory() {
+          if (!newCategoryName.value.trim()) return
+          const newId = `cat-${Date.now()}`
+          const newCategory = { id: newId, name: newCategoryName.value.trim(), children: [] }
+          
+          if (newCategoryParentId.value === null) {
+            categories.value.push(newCategory)
+            pendingChanges.value.push({ type: 'create', id: newId, name: newCategory.name, parentPath: '根分类' })
+          } else {
+            const parent = findItem(newCategoryParentId.value)
+            if (parent) {
+              if (!parent.children) parent.children = []
+              parent.children.push(newCategory)
+              expandedIds.value.push(newCategoryParentId.value)
+              pendingChanges.value.push({ type: 'create', id: newId, name: newCategory.name, parentPath: getPath(newCategoryParentId.value) })
+            }
+          }
+          
+          newCategoryName.value = ''
+          newCategoryParentId.value = null
+          showAddDialog.value = false
+          selectCategory(newCategory, newCategory.name)
+          showToast('已创建分类', 'success')
+        }
+
+        function resetForm() {
+          form.name = formOriginal.name
+          form.parentId = formOriginal.parentId
+          form.position = formOriginal.position
+          showToast('表单已重置', 'success')
+        }
+
+        function applyFormChanges() {
+          if (!selectedId.value) return
+          const id = selectedId.value
+          const item = findItem(id)
+          if (!item) return
+          
+          let changed = false
+          
+          if (form.name !== item.name) {
+            item.name = form.name
+            pendingChanges.value.push({ type: 'rename', id, oldName: item.name, newName: form.name })
+            changed = true
+          }
+          
+          const currentParent = findParentOf(id)
+          const currentParentId = currentParent?.id || null
+          
+          if (form.parentId !== currentParentId) {
+            const removed = removeItemById(id)
+            if (removed) {
+              if (form.parentId === null) {
+                categories.value.push(removed)
+                pendingChanges.value.push({ type: 'move', id, fromPath: getPath(id), toPath: '根分类' })
+              } else {
+                const newParent = findItem(form.parentId)
+                if (newParent) {
+                  if (!newParent.children) newParent.children = []
+                  newParent.children.push(removed)
+                  expandedIds.value.push(form.parentId)
+                  pendingChanges.value.push({ type: 'move', id, fromPath: getPath(id), toPath: getPath(form.parentId) + ' > ' + newParent.name })
+                }
+              }
+              changed = true
+            }
+          }
+          
+          formOriginal.name = form.name
+          formOriginal.parentId = form.parentId
+          showToast(changed ? '已应用更改' : '未做任何修改', changed ? 'success' : 'warning')
+        }
+
+        function confirmDelete() {
+          if (!selectedId.value) return
+          const itemName = findItem(selectedId.value)?.name
+          const itemPath = getPath(selectedId.value)
+          removeItemById(selectedId.value)
+          pendingChanges.value.push({ type: 'delete', id: selectedId.value, name: itemName, path: itemPath })
+          selectedId.value = null
+          showDeleteConfirm.value = false
+          showToast('已删除', 'warning')
+        }
+
+        function discardAll() {
+          categories.value = JSON.parse(JSON.stringify(initialData))
+          pendingChanges.value = []
+          selectedId.value = null
+          showToast('已放弃全部更改', 'warning')
+        }
+
+        function confirmSave() {
+          console.log('=== 保存到 D1 ===')
+          console.log('Changes:', JSON.stringify(pendingChanges.value, null, 2))
+          initialData.length = 0
+          initialData.push(...JSON.parse(JSON.stringify(categories.value)))
+          pendingChanges.value = []
+          showSaveDialog.value = false
+          showToast('保存成功', 'success')
+        }
+
+        function getChangeTypeLabel(type) {
+          const labels = { create: '新建', rename: '重命名', move: '移动', delete: '删除', reorder: '排序' }
+          return labels[type] || type
+        }
+
+        function getChangeDescription(change) {
+          switch (change.type) {
+            case 'create': return `"${change.name}" (新建为 ${change.parentPath} 的子分类)`
+            case 'rename': return `"${change.oldName}" → "${change.newName}"`
+            case 'move': return `"${change.fromPath}" → ${change.toPath}`
+            case 'delete': return `"${change.name}" (已从 ${change.path} 删除)`
+            case 'reorder': return `位置从第 ${change.fromPosition} 位调整为第 ${change.toPosition} 位`
+            default: return JSON.stringify(change)
+          }
+        }
+
+        return {
+          isDark, showAddDialog, showDeleteConfirm, showSaveDialog,
+          newCategoryName, newCategoryParentId,
+          categories, expandedIds, selectedId, selectedItem,
+          draggingId, dropTarget, pendingChanges, form, toast,
+          allCategoriesForSelect, availableParents,
+          showToast, selectCategory, toggleExpand, getDropHint, getItemName,
+          onDragStart, onDragEnd, onDragEnter, onDragOver, onDrop,
+          onMoveUp, onMoveDown,
+          confirmAddCategory, resetForm, applyFormChanges, confirmDelete,
+          discardAll, confirmSave, getChangeTypeLabel, getChangeDescription
+        }
+      }
+    }
+
+    createApp(App).mount('#app')
+  </script>
+  <style>
+    .menu-editor-preview { min-height: 100vh; background: var(--bg-secondary); padding: 1.5rem 2rem 6rem; box-sizing: border-box; }
+    .preview-header { max-width: 1400px; margin: 0 auto 1.5rem; text-align: center; }
+    .preview-header h1 { font-size: 1.75rem; font-weight: 700; margin-bottom: 0.5rem; }
+    .theme-toggle { margin-top: 1rem; }
+
+    .editor-container { display: grid; grid-template-columns: 1fr 320px; gap: 1.25rem; max-width: 1400px; margin: 0 auto; height: calc(100vh - 200px); }
+    .left-panel, .right-panel { background: var(--bg); border-radius: var(--radius-lg); border: 1px solid var(--border); display: flex; flex-direction: column; overflow: hidden; }
+    .panel-header { display: flex; justify-content: space-between; align-items: center; padding: 0.875rem 1.25rem; border-bottom: 1px solid var(--border); background: var(--bg-secondary); flex-shrink: 0; }
+    .panel-header h2 { font-size: 0.9375rem; font-weight: 600; }
+
+    .btn { padding: 0.5rem 1rem; border: none; border-radius: var(--radius-sm); font-size: 0.875rem; font-weight: 500; cursor: pointer; display: inline-flex; align-items: center; gap: 0.5rem; transition: var(--transition); }
+    .btn-sm { padding: 0.375rem 0.75rem; font-size: 0.8rem; }
+    .btn-primary { background: var(--primary); color: white; }
+    .btn-secondary { background: var(--bg-tertiary); color: var(--text); border: 1px solid var(--border); }
+    .btn-danger { background: var(--error); color: white; }
+    .btn-link { background: none; border: none; color: var(--primary); padding: 0.25rem 0.5rem; font-size: 0.8rem; text-decoration: underline; cursor: pointer; }
+
+    .category-tree { flex: 1; padding: 0.75rem; overflow-y: auto; min-height: 0; }
+    
+    .drag-hint { background: var(--primary-100); border: 1px solid var(--primary); border-radius: var(--radius-sm); padding: 0.5rem 0.75rem; margin-bottom: 0.75rem; font-size: 0.85rem; color: var(--primary); text-align: center; }
+    
+    .tree-node { margin-bottom: 1px; }
+    .tree-item { display: flex; align-items: center; gap: 4px; padding: 0.5rem 0.625rem; border-radius: var(--radius-sm); cursor: pointer; transition: var(--transition); position: relative; }
+    .tree-item:hover { background: var(--bg-secondary); }
+    .tree-item.selected { background: var(--primary-100); box-shadow: inset 0 0 0 2px var(--primary); }
+    .tree-item.dragging { opacity: 0.5; }
+    .tree-item.drop-target { box-shadow: inset 0 0 0 2px var(--primary); background: var(--primary-50); }
+    .tree-item.drop-as-child { box-shadow: inset 0 0 0 2px var(--success); background: rgba(16, 185, 129, 0.1); }
+    .tree-item.drop-before { box-shadow: inset 0 -2px 0 0 var(--primary); }
+    .tree-item.drop-after { box-shadow: inset 0 2px 0 0 var(--primary); }
+    .root-item { font-weight: 600; }
+    .child-item { color: var(--text-secondary); font-weight: 500; }
+    .item-connector { position: absolute; left: -10px; top: 50%; width: 8px; height: 1px; background: var(--border); }
+    .item-drag-handle { color: var(--text-tertiary); cursor: grab; width: 10px; flex-shrink: 0; }
+    .item-icon { width: 16px; height: 16px; display: flex; align-items: center; color: var(--primary); flex-shrink: 0; }
+    .child-icon { color: var(--text-tertiary); }
+    .item-name { flex: 1; font-size: 0.85rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .item-count { font-size: 0.65rem; color: var(--text-tertiary); background: var(--bg-tertiary); padding: 0.1rem 0.35rem; border-radius: 999px; flex-shrink: 0; }
+    .item-expand { background: none; border: none; padding: 2px; cursor: pointer; color: var(--text-tertiary); display: flex; flex-shrink: 0; }
+    .item-expand svg { transition: transform 0.2s; }
+    .item-expand svg.rotated { transform: rotate(90deg); }
+    
+    .item-actions { display: flex; gap: 2px; margin-left: auto; flex-shrink: 0; }
+    .item-move-btn { background: var(--bg-tertiary); border: 1px solid var(--border); border-radius: 4px; padding: 2px; cursor: pointer; color: var(--text-secondary); display: flex; transition: var(--transition); }
+    .item-move-btn:hover { background: var(--primary); border-color: var(--primary); color: white; }
+    .item-move-btn svg { display: block; }
+
+    .right-panel { display: flex; flex-direction: column; }
+    .detail-form { padding: 1rem 1.25rem; overflow-y: auto; flex: 1; min-height: 0; }
+    .form-group { margin-bottom: 0.875rem; }
+    .form-group label { display: block; font-size: 0.8rem; font-weight: 600; color: var(--text); margin-bottom: 0.35rem; }
+    .form-group input, .form-group select { width: 100%; padding: 0.5rem 0.75rem; border: 2px solid var(--border); border-radius: var(--radius-sm); background: var(--bg-secondary); color: var(--text); font-size: 0.9rem; }
+    .form-group input:focus, .form-group select:focus { outline: none; border-color: var(--primary); }
+    .position-display { font-size: 0.9rem; color: var(--text-secondary); padding: 0.25rem 0; }
+    .form-actions { display: flex; gap: 0.5rem; padding-top: 0.75rem; border-top: 1px solid var(--border); margin-top: 0.75rem; }
+    .form-actions .btn { flex: 1; }
+
+    .danger-zone { margin-top: auto; padding-top: 1rem; border-top: 1px solid var(--border); }
+    .danger-zone h3 { font-size: 0.8rem; font-weight: 600; color: var(--error); margin-bottom: 0.5rem; }
+    .danger-zone .btn { width: 100%; justify-content: center; }
+
+    .no-selection { flex: 1; display: flex; align-items: center; justify-content: center; padding: 3rem; color: var(--text-tertiary); }
+
+    .dialog-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 300; padding: 1rem; }
+    .dialog { background: var(--bg); border-radius: var(--radius-lg); width: 100%; max-width: 450px; overflow: hidden; }
+    .dialog-header { display: flex; justify-content: space-between; align-items: center; padding: 1rem 1.25rem; border-bottom: 1px solid var(--border); }
+    .dialog-header h3 { font-size: 1rem; font-weight: 600; }
+    .close-btn { background: none; border: none; padding: 0.25rem; cursor: pointer; color: var(--text-secondary); font-size: 1.25rem; }
+    .dialog-body { padding: 1.25rem; }
+    .dialog-body p { margin-bottom: 0.5rem; }
+    .warning-text { font-size: 0.85rem; color: var(--error); }
+    .dialog-footer { display: flex; gap: 0.75rem; padding: 1rem 1.25rem; border-top: 1px solid var(--border); }
+    .dialog-footer .btn { flex: 1; justify-content: center; }
+
+    .save-summary { font-size: 0.875rem; color: var(--text-secondary); margin-bottom: 0.75rem; }
+    .change-list { list-style: none; padding: 0; margin: 0; max-height: 300px; overflow-y: auto; }
+    .change-list li { display: flex; flex-direction: column; gap: 0.25rem; padding: 0.625rem; border-radius: var(--radius-sm); margin-bottom: 0.5rem; background: var(--bg-secondary); }
+    .change-list li.change-create { border-left: 3px solid var(--success); }
+    .change-list li.change-rename { border-left: 3px solid var(--primary); }
+    .change-list li.change-move { border-left: 3px solid var(--info); }
+    .change-list li.change-delete { border-left: 3px solid var(--error); }
+    .change-list li.change-reorder { border-left: 3px solid var(--warning); }
+    .change-type { font-size: 0.7rem; font-weight: 600; padding: 0.125rem 0.4rem; border-radius: 4px; background: var(--bg-tertiary); align-self: flex-start; }
+    .change-desc { font-size: 0.85rem; color: var(--text); }
+
+    .pending-bar { position: fixed; bottom: 0; left: 0; right: 0; background: var(--bg); border-top: 1px solid var(--border); padding: 0.875rem 2rem; display: flex; justify-content: space-between; align-items: center; transform: translateY(100%); transition: transform 0.3s; box-shadow: 0 -4px 12px rgba(0,0,0,0.1); z-index: 100; }
+    .pending-bar.visible { transform: translateY(0); }
+    .pending-info { display: flex; align-items: center; gap: 1rem; }
+    .pending-count-btn { background: var(--primary); color: white; border: none; padding: 0.5rem 1rem; border-radius: var(--radius); cursor: pointer; display: flex; align-items: center; gap: 0.5rem; transition: var(--transition); }
+    .pending-count-btn:hover { background: var(--primary-dark); }
+    .pending-count-btn .count { font-size: 1.25rem; font-weight: 700; }
+    .pending-count-btn .label { font-size: 0.875rem; }
+    .pending-actions { display: flex; gap: 0.75rem; }
+
+    .toast { position: fixed; bottom: 5rem; left: 50%; transform: translateX(-50%); padding: 0.75rem 1.5rem; border-radius: var(--radius); font-size: 0.875rem; font-weight: 500; z-index: 400; box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
+    .toast.success { background: var(--success); color: white; }
+    .toast.warning { background: var(--warning); color: white; }
+    .toast-enter-active, .toast-leave-active { transition: all 0.3s; }
+    .toast-enter-from, .toast-leave-to { opacity: 0; transform: translate(-50%, 1rem); }
+
+    @media (max-width: 1024px) {
+      .editor-container { grid-template-columns: 1fr; height: auto; }
+      .left-panel { max-height: 45vh; }
+      .right-panel { max-height: 40vh; }
+    }
+  </style>
+</body>
+</html>

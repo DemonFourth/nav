@@ -5,6 +5,24 @@ const username = ref(localStorage.getItem('authUsername') || '')
 const isAuthenticated = computed(() => !!token.value)
 const authCallbacks = []
 
+function isTokenExpired(tokenStr) {
+  if (!tokenStr) return true
+  const parts = tokenStr.split('.')
+  let timestamp, tokenType
+  if (parts.length === 3) {
+    ;[timestamp, tokenType] = parts
+  } else if (parts.length === 2) {
+    ;[timestamp] = parts
+    tokenType = 'short'
+  } else {
+    return true
+  }
+  const tokenTime = parseInt(timestamp)
+  if (isNaN(tokenTime)) return true
+  const expiryMs = tokenType === 'long' ? 30 * 24 * 60 * 60 * 1000 : 15 * 60 * 1000
+  return Date.now() - tokenTime > expiryMs
+}
+
 export function useAuth() {
   const login = async (loginUsername, password, rememberMe = false) => {
     try {
@@ -69,6 +87,10 @@ export function useAuth() {
     }
     
     try {
+      if (token.value && isTokenExpired(token.value)) {
+        logout()
+        throw new Error('Token expired')
+      }
       const response = await fetch(url, mergedOptions)
       
       // 检查 401 错误

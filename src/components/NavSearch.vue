@@ -41,6 +41,7 @@ import { ref, computed } from 'vue'
 import { useBookmarks } from '../composables/useBookmarks'
 import { useSettings } from '../composables/useSettings'
 import { buildCategoryTree, getCategoryPath } from '../utils/categoryTree'
+import { searchBookmarks } from '../utils/search'
 
 const props = defineProps({
   bookmarks: {
@@ -152,13 +153,7 @@ const searchInSite = (tags = null) => {
   } else {
     const query = searchQuery.value.toLowerCase().trim()
     if (!query) return
-    results = props.bookmarks.filter(bookmark => 
-      bookmark.name.toLowerCase().includes(query) ||
-      bookmark.url.toLowerCase().includes(query) ||
-      (bookmark.description && bookmark.description.toLowerCase().includes(query)) ||
-      (bookmark.tags && bookmark.tags.toLowerCase().includes(query)) ||
-      (bookmark.notes && bookmark.notes.toLowerCase().includes(query))
-    )
+    results = searchBookmarks(props.bookmarks, searchQuery.value)
   }
 
   searchIconErrors.value = {}

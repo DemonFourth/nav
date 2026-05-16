@@ -352,6 +352,54 @@ npm run ext:build:chromium
 npm run ext:build:firefox
 ```
 
+## 故障排查：白屏问题
+
+Nav 模式（`displayMode === 'nav-item'`）白屏通常由以下原因导致：
+
+### 1. 缺少 composable 的 import
+
+**症状**：控制台有 `useXXX is not defined` 或 `useXXX is not a function` 错误。
+
+**原因**：组件调用了某个 composable（如 `useCategoryEditor`）但没有 import 它。
+
+**预防**：
+- 重构时删除函数调用后，确保同步删除 import 语句
+- 新增 composable 调用后，确保添加对应的 import
+- 使用 `npm run build` 验证构建成功（构建时会更严格检查）
+
+**检查方法**：
+```bash
+# 构建时会暴露缺失的 import
+npm run build
+```
+
+### 2. 运行时错误静默失败
+
+**原因**：部分错误在开发模式被 Vite 忽略，但生产构建会拒绝。
+
+**预防**：
+- 开发时经常用 `npm run build` 检查
+- 关注开发服务器控制台的 Warning 和 Error
+
+### 3. 循环依赖
+
+**症状**：构建警告 `Circular chunk`，可能导致运行时异常。
+
+**原因**：组件 → composable → 组件形成了循环引用。
+
+**检查**：查看 `vite.config.js` 中的 chunk 分割配置是否合理。
+
+### 快速恢复
+
+如果遇到白屏，先尝试：
+```bash
+# 清除浏览器缓存（尤其 localStorage）
+# 或者按 F12 打开控制台检查错误
+
+# 重启开发服务器
+npm run dev
+```
+
 ## 数据库（Cloudflare D1）
 
 ```bash
@@ -367,3 +415,217 @@ npm run db:init:remote
 # 在远程运行迁移
 npm run db:migrate:indexes
 ```
+
+## useCategoryEditor composable
+
+分类编辑器 composable，提供分类树的构建、选择、编辑、拖拽排序等完整功能。
+
+### 引入
+
+```javascript
+import { useCategoryEditor } from '@/composables/useCategoryEditor'
+```
+
+### 主要状态
+
+| 状态 | 类型 | 说明 |
+|------|------|------|
+| `categoryTree` | `ComputedRef<Category[]>` | 嵌套结构的分类树 |
+| `categoryFlatList` | `ComputedRef<FlatCategory[]>` | 带 depth 信息的扁平列表 |
+| `selectedCategoryId` | `Ref<string \| null>` | 当前选中的分类 ID |
+| `selectedCategory` | `ComputedRef<Category \| null>` | 当前选中的分类对象 |
+| `expandedCategoryIds` | `Ref<string[]>` | 展开的分类 ID 列表 |
+| `editForm` | `Reactive<{ name, parentId, position, maxPosition }>` | 编辑表单状态 |
+| `dragState` | `Reactive<{ draggingId, dropTargetId, dropPosition }>` | 拖拽状态 |
+| `dragHintText` | `ComputedRef<string>` | 拖拽提示文本 |
+
+### 主要函数
+
+#### 选择与展开
+
+```javascript
+// 选择分类进行编辑
+selectCategory(category)
+
+// 切换分类展开/折叠
+toggleExpand(categoryId)
+
+// 重置编辑表单
+resetEditForm()
+```
+
+#### CRUD 操作
+
+```javascript
+// 创建分类
+createCategory(name, parentId = null, isPrivate = false)
+// 返回 { success, error?, id? }
+
+// 编辑分类
+editCategory(id, name, parentId, isPrivate = undefined)
+// 返回 { success, error? }
+
+// 删除分类（会提示确认）
+removeCategory(id)
+// 返回 { success, error? }
+
+// 应用编辑表单的更改
+applyChanges()
+// 返回 { success, error? }
+```
+
+#### 位置调整
+
+```javascript
+// 调整分类在同级中的位置
+changePosition(delta) // delta 为 1 上移，-1 下移
+```
+
+#### 子项重排序（本地）
+
+```javascript
+// 在同级中移动子项
+moveChildItem(parentId, childId, direction) // direction: 1 上移，-1 下移
+
+// 获取子项索引
+getChildIndex(parent, child)
+```
+
+#### 拖拽排序（stubbed for future API）
+
+```javascript
+onDragStart(event, category)
+onDragEnd()
+onDragOver(event, category)
+onDrop(event, category)
+```
+
+### availableParentCategories
+
+计算属性，返回可选的父分类列表。**排除自身及所有后代分类**，避免创建循环引用。
+
+```javascript
+availableParentCategories.value = [
+  { id: 'xxx', displayName: '父分类/子分类', depth: 1, parent_id: 'xxx' },
+  // ...
+]
+```
+
+### findParent
+
+查找分类的父分类。
+
+```javascript
+findParent(childId)
+// 返回父分类对象或 null
+```
+
+### 使用示例
+
+```javascript
+const {
+  categoryTree,
+  selectedCategoryId,
+  editForm,
+  selectCategory,
+  changePosition,
+  createCategory,
+  applyChanges,
+  removeCategory
+} = useCategoryEditor()
+
+// 选择分类
+selectCategory(category)
+
+// 创建新分类
+await createCategory('新分类', null)
+
+// 调整位置
+changePosition(1) // 上移
+changePosition(-1) // 下移
+
+// 保存更改
+await applyChanges()
+
+// 删除分类
+await removeCategory(categoryId)
+```
+
+## NavSettingsModal 设置弹窗 UI 设计
+
+`src/components/NavSettingsModal.vue` 是导航站模式的设置弹窗，包含以下 UI 设计决策：
+
+### Sidebar 布局
+
+| 属性 | 值 | 说明 |
+|------|-----|------|
+| 展开宽度 | `150px` | 固定宽度，`flex-shrink: 0` |
+| 折叠宽度 | `52px` | 仅图标模式，隐藏文字和 footer |
+| 折叠按钮 | sidebar-header 内"设置"标题旁 | `◀` / `▶` 图标切换 |
+| 折叠持久化 | `localStorage` key `navSettingsSidebarCollapsed` | 跨会话保存 |
+
+### 关闭按钮
+
+- X 关闭按钮位于 modal **右上角**（`position: absolute; top: 16px; right: 16px; z-index: 10`）
+- 样式沿用原 `.sidebar-close`（hover 变红色）
+
+### 书签 Tab — 粘性分类分组
+
+书签列表按 `category_id` 分组渲染，每组上方有分类 header：
+
+- **分组逻辑**：`groupedBookmarks` computed 按 `categoryFlatList` 顺序排序，无分类的书签归入"未分类"
+- **粘性 header**：`.bookmark-group-header { position: sticky; top: 0; z-index: 1 }`，滚动时当前分类 header 固定在顶部
+- **header 内容**：左侧彩色竖条（`3px var(--accent)`）+ 分类名 + 数量 badge
+- **书签项**：`padding: 10px 14px`，无缩进
+
+### 相关状态
+
+```javascript
+// 书签 tab 状态
+const bookmarkSearch = ref('')           // 搜索关键词
+const bookmarkCategoryFilter = ref(null) // 分类筛选
+const selectedBookmarks = ref(new Set()) // 批量选中
+```
+
+### 注意事项
+
+- 曾尝试 collapsed-groups-bar + IntersectionObserver/scroll 自动折叠功能，因效果不理想已移除
+- 如需重新实现自动折叠，建议使用 `IntersectionObserver` 监听每组末尾的 sentinel 元素
+- 折叠状态不保存到 localStorage（临时浏览偏好）
+
+## Token 过期预检机制
+
+`src/composables/useAuth.js` 实现了客户端 token 过期预检，在发起 API 请求前先判断 token 是否已过期，避免无效网络请求和意外的 401 登出。
+
+### 实现方式
+
+`apiRequest` 函数在 `fetch` 调用前插入预检：
+
+```javascript
+if (token.value && isTokenExpired(token.value)) {
+  logout()
+  throw new Error('Token expired')
+}
+```
+
+### isTokenExpired 规则
+
+| token 格式 | 类型 | 有效期 |
+|-----------|------|--------|
+| `timestamp.type.hash`（3段） | `long` | 30 天 |
+| `timestamp.type.hash`（3段） | `short` | 15 分钟 |
+| `timestamp.hash`（2段，旧格式） | 默认为 `short` | 15 分钟 |
+| 其他格式 | - | 视为已过期 |
+
+### 效果
+
+- **token 有效**：正常发起请求，不受影响
+- **token 已过期**：不发起网络请求，直接调用 `logout()` 清除本地 token，抛出 `Token expired` 错误
+- **未登录（无 token）**：跳过预检，正常发起请求（服务端会返回 401，由后续逻辑处理）
+- **token 格式异常**：视为已过期，直接登出
+
+### 注意事项
+
+- 预检逻辑与服务端 `functions/_middleware.js` 的 `validateToken` 保持一致
+- 仅检查时间戳，不验证 hash（客户端没有 `JWT_SECRET`）
+- 一处修改，全局生效：所有通过 `apiRequest` 发起的请求都会自动预检
