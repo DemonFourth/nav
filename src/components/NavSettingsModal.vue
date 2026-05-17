@@ -495,7 +495,7 @@
             </div>
 
             <!-- Bookmark Tab -->
-            <div v-show="activeTab === 'bookmark'" class="tab-panel bookmark-tab">
+            <div v-if="activeTab === 'bookmark'" class="tab-panel bookmark-tab">
               <div class="bookmark-header">
                 <div class="bookmark-header-left">
                   <h2 class="bookmark-title">书签管理</h2>
@@ -590,7 +590,14 @@
                       class="bookmark-checkbox"
                     />
                     <div class="bookmark-icon">
-                      <img v-if="bm.url" :src="getFaviconUrl(bm.url)" alt="" @error="$event.target.style.display='none'" />
+                      <img 
+                        v-if="bm.url && !iconErrors[bm.id]" 
+                        :src="getFaviconUrl(bm)" 
+                        alt="" 
+                        :key="bm.id + '-' + (iconSourceIndexes[bm.id] || 0)"
+                        @error="handleIconError(bm.id)"
+                      />
+                      <div v-if="iconErrors[bm.id]" class="letter-icon">{{ bm.name.charAt(0) }}</div>
                     </div>
                     <div class="bookmark-info">
                       <div class="bookmark-name">{{ bm.name }}</div>
@@ -999,7 +1006,7 @@ const {
   updateWallpaperApi, updateAvatarUrl, toggleDisplayMode,
   toggleNavCardAnimation, updateNavWallpaper, setNavCardBlur, setNavCardOpacity,
   toggleIconSourceEnabled, toggleIconSourceLarger,
-  moveIconSource, updateProxyUrl,
+  moveIconSource, updateProxyUrl, parseIconSourceUrl,
   navWallpaperHistory, wallpaperApiHistory
 } = useSettings()
 
@@ -1095,6 +1102,10 @@ const bmSearchFieldRef = ref(null)
 const bmSearchFieldBtnRef = ref(null)
 const bmSearchFieldDropdownRef = ref(null)
 const bmDropdownStyle = ref({})
+
+// Icon error handling (same as NavCardGrid.vue)
+const iconErrors = ref({})
+const iconSourceIndexes = ref({})
 
 const openBmFieldDropdown = () => {
   bookmarkSearchFieldOpen.value = !bookmarkSearchFieldOpen.value
@@ -1340,12 +1351,39 @@ function getCategoryName(categoryId) {
   return cat ? cat.displayName : '未分类'
 }
 
-function getFaviconUrl(url) {
+const getIconSources = (bookmark) => {
+  if (bookmark.icon && bookmark.icon.trim()) {
+    return []
+  }
   try {
-    const hostname = new URL(url.startsWith('http') ? url : `https://${url}`).hostname
-    return `https://www.google.com/s2/favicons?domain=${hostname}&sz=32`
+    const enabledSources = iconSources.value.filter(s => s.enabled)
+    return enabledSources.map(source => parseIconSourceUrl(source.url, bookmark.url))
   } catch {
-    return ''
+    return []
+  }
+}
+
+function getFaviconUrl(bm) {
+  if (bm.icon && bm.icon.trim()) {
+    return bm.icon
+  }
+  const sources = getIconSources(bm)
+  const index = iconSourceIndexes.value[bm.id] || 0
+  if (sources.length > 0 && index < sources.length) {
+    return sources[index]
+  }
+  return ''
+}
+
+function handleIconError(bmId) {
+  const bookmark = bookmarks.value.find(b => b.id === bmId)
+  if (!bookmark) return
+  const sources = getIconSources(bookmark)
+  const currentIndex = iconSourceIndexes.value[bmId] || 0
+  if (currentIndex < sources.length - 1) {
+    iconSourceIndexes.value[bmId] = currentIndex + 1
+  } else {
+    iconErrors.value[bmId] = true
   }
 }
 
@@ -3508,6 +3546,19 @@ textarea.setting-input {
   width: 16px;
   height: 16px;
   border-radius: 2px;
+}
+.bookmark-icon .letter-icon {
+  width: 20px;
+  height: 20px;
+  border-radius: 4px;
+  background: var(--bg-tertiary);
+  color: var(--text-tertiary);
+  font-size: 0.7rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-transform: uppercase;
 }
 .bookmark-info {
   flex: 1;
