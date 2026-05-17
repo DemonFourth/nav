@@ -456,11 +456,11 @@
                   <div v-if="selectedCategoryData" class="detail-form-menu">
                     <div class="form-group-menu">
                       <label>分类名称</label>
-                      <input type="text" v-model="editCategoryForm.name" class="setting-input" @change="applyFormChanges" />
+                      <input type="text" v-model="editCategoryForm.name" class="setting-input" @change="handleApplyCategoryChanges" />
                     </div>
                     <div class="form-group-menu">
                       <label>父分类</label>
-                      <select v-model="editCategoryForm.parentId" class="setting-input" @change="applyFormChanges">
+                      <select v-model="editCategoryForm.parentId" class="setting-input" @change="handleApplyCategoryChanges">
                         <option :value="null">无（根分类）</option>
                         <option v-for="cat in availableParentCategories" :key="cat.id" :value="cat.id" :disabled="cat.id === selectedCategoryId">
                           {{ cat.displayName }}
@@ -855,7 +855,7 @@
               <label>父分类</label>
               <select v-model="newCategoryParentId" class="setting-input">
                 <option :value="null">作为根分类</option>
-                <option v-for="cat in availableParentCategories" :key="cat.id" :value="cat.id">
+                <option v-for="cat in categoryFlatList" :key="cat.id" :value="cat.id">
                   {{ cat.displayName }}
                 </option>
               </select>
@@ -863,7 +863,9 @@
           </div>
           <div class="dialog-footer">
             <button class="btn-secondary-sm" @click="showAddDialog = false">取消</button>
-            <button class="btn-primary-sm" :disabled="!newCategoryName.trim()" @click="handleConfirmAdd">创建</button>
+            <button class="btn-primary-sm" :disabled="!newCategoryName.trim() || categorySaving" @click="handleConfirmAdd">
+              {{ categorySaving ? '创建中...' : '创建' }}
+            </button>
           </div>
         </div>
       </div>
@@ -1042,7 +1044,7 @@ const {
   moveRootItem,
 } = useCategoryEditor()
 
-const { bookmarks, deleteBookmark, batchOperation, addBookmark, updateBookmark } = useBookmarks()
+const { bookmarks, fetchData, deleteBookmark, batchOperation, addBookmark, updateBookmark } = useBookmarks()
 const { success: toastSuccess, error: toastError, warning: toastWarning } = useToast()
 
 const activeTab = ref('appearance')
@@ -1081,6 +1083,7 @@ const showDiscardConfirm = ref(false)
 const newCategoryName = ref('')
 const newCategoryParentId = ref(null)
 const newCategoryNameInput = ref(null)
+const categorySaving = ref(false)
 
 // Bookmark tab state
 const bookmarkSearch = ref('')
@@ -1354,9 +1357,32 @@ const openAddDialog = () => {
   setTimeout(() => newCategoryNameInput.value?.focus(), 100)
 }
 const handleConfirmAdd = async () => {
-  await confirmAddCategory(newCategoryName.value, newCategoryParentId.value)
-  showAddDialog.value = false
+  categorySaving.value = true
+  try {
+    const result = await confirmAddCategory(newCategoryName.value, newCategoryParentId.value)
+    if (result.success) {
+      toastSuccess('已创建新分类')
+      showAddDialog.value = false
+      newCategoryName.value = ''
+      newCategoryParentId.value = null
+    } else {
+      toastError(result.error || '创建失败')
+    }
+  } finally {
+    categorySaving.value = false
+  }
 }
+
+const handleApplyCategoryChanges = async () => {
+  if (categorySaving.value) return
+  categorySaving.value = true
+  try {
+    await applyFormChanges()
+  } finally {
+    categorySaving.value = false
+  }
+}
+
 const openDeleteConfirm = () => { showDeleteConfirm.value = true }
 
 const handleMoveItem = (node, direction) => {
@@ -1368,8 +1394,15 @@ const handleMoveItem = (node, direction) => {
   }
 }
 const handleConfirmDelete = async () => {
-  await confirmDelete(selectedCategoryId.value)
-  showDeleteConfirm.value = false
+  categorySaving.value = true
+  try {
+    const result = await confirmDelete(selectedCategoryId.value)
+    if (result.success) {
+      showDeleteConfirm.value = false
+    }
+  } finally {
+    categorySaving.value = false
+  }
 }
 const handleConfirmSave = async () => {
   await confirmSave()
@@ -1686,6 +1719,7 @@ watch(() => props.show, async (newVal) => {
       await loadAISettings()
       await loadPrompts()
     }
+    await fetchData({ forceRefresh: true })
   } else {
     document.body.style.overflow = ''
   }
@@ -3581,14 +3615,10 @@ textarea.setting-input {
 <style>
 /* Non-scoped: <option> elements don't inherit scoped data-v attributes */
 .bookmark-move-select option,
-.dialog-bookmark .setting-input option {
-  background: #ffffff;
-  color: #1e293b;
-}
-html.dark .bookmark-move-select option,
-html.dark .dialog-bookmark .setting-input option {
-  background: #1e293b;
-  color: #f1f5f9;
+.dialog-bookmark .setting-input option,
+.dialog-menu .setting-input option {
+  background: var(--bg);
+  color: var(--text);
 }
 
 /* Unified search field dropdown styles (shared with NavSearch.vue) */
