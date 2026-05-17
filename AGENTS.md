@@ -643,6 +643,23 @@ const selectedBookmarks = ref(new Set()) // 批量选中
 - 如需重新实现自动折叠，建议使用 `IntersectionObserver` 监听每组末尾的 sentinel 元素
 - 折叠状态不保存到 localStorage（临时浏览偏好）
 
+### 菜单 Tab — 分类管理
+
+分类管理使用 `useCategoryEditor` composable，与默认风格共享同一套分类编辑逻辑：
+
+| 功能 | composable 方法 | 说明 |
+|------|----------------|------|
+| 创建分类 | `confirmAddCategory(name, parentId)` | 调用 `useBookmarks.addCategory` API，成功后刷新数据 |
+| 编辑分类 | `applyFormChanges()` | 修改分类名称、父分类 |
+| 删除分类 | `confirmDelete(id)` | 删除分类及所有子分类 |
+| 拖拽排序 | `onDragStart/onDragOver/onDrop` | 拖拽移动分类位置 |
+
+**数据刷新**：打开设置弹窗时调用 `fetchData({ forceRefresh: true })` 确保分类数据最新。
+
+**父分类下拉**：
+- 新增分类时使用 `categoryFlatList`（完整分类树）
+- 编辑分类时使用 `availableParentCategories`（排除自身及后代，避免循环引用）
+
 ## Token 过期预检机制
 
 `src/composables/useAuth.js` 实现了客户端 token 过期预检，在发起 API 请求前先判断 token 是否已过期，避免无效网络请求和意外的 401 登出。
