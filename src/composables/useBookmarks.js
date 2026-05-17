@@ -253,7 +253,7 @@ export function useBookmarks() {
       const result = await response.json()
       if (result.success) {
         await fetchData({ forceRefresh: true })
-        return { success: true }
+        return { success: true, id: result.id }
       }
       return { success: false, error: '删除失败' }
     } catch (error) {

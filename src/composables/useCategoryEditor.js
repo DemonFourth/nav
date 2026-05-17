@@ -474,133 +474,63 @@ export function useCategoryEditor() {
     editForm.maxPosition = siblings.length
   }
 
-  // Apply form changes (local only + record pending) - works on categories.value directly
-  function applyFormChanges() {
-    if (!selectedCategoryId.value) return
-
-    const item = categories.value.find(c => c.id === selectedCategoryId.value)
-    if (!item) return
-
-    const oldName = item.name
-    const oldParentId = item.parent_id ?? null
-    const newName = editForm.name
-    const newParentId = editForm.parentId
-
-    // Update local data
-    item.name = newName
-    item.parent_id = newParentId
-
-    // Record rename if name changed
-    if (oldName !== newName) {
-      recordChange({
-        type: 'rename',
-        id: item.id,
-        oldName,
-        newName
-      })
+  async function applyFormChanges() {
+    if (!selectedCategoryId.value) return { success: false }
+    if (!editForm.name || !editForm.name.trim()) {
+      toastError('分类名称不能为空')
+      return { success: false }
     }
 
-    // Record move if parent changed
-    if (oldParentId !== newParentId) {
-      recordChange({
-        type: 'move',
-        id: item.id,
-        name: newName,
-        oldParentId,
-        newParentId,
-        oldPath: oldParentId ? getPath(oldParentId) : '根分类',
-        newPath: newParentId ? getPath(newParentId) : '根分类'
-      })
+    const result = await editCategory(
+      selectedCategoryId.value,
+      editForm.name.trim(),
+      editForm.parentId
+    )
+
+    if (result.success) {
+      formOriginal.name = editForm.name.trim()
+      formOriginal.parentId = editForm.parentId
+      pendingChanges.value = pendingChanges.value.filter(change => change.id !== selectedCategoryId.value)
+      captureInitialSnapshot()
+    } else {
+      resetForm()
     }
 
-    // Update formOriginal for name/parent changes only
-    formOriginal.name = newName
-    formOriginal.parentId = newParentId
-
-    toastSuccess('已应用更改')
+    return result
   }
 
-  // Confirm add category (local only) - works on categories.value directly
   async function confirmAddCategory(name, parentId = null) {
     if (!name || !name.trim()) {
       toastError('分类名称不能为空')
       return { success: false }
     }
 
-    // Create a temp ID for the new category
-    const tempId = 'temp_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7)
-
-    // Calculate position
-    const siblings = categories.value
-      .filter(c => (c.parent_id ?? null) === (parentId ?? null))
-      .sort((a, b) => a.position - b.position)
-    const newPos = siblings.length + 1
-
-    const newCategory = {
-      id: tempId,
-      name: name.trim(),
-      parent_id: parentId,
-      position: newPos,
-      is_private: false
-    }
-
-    categories.value.push(newCategory)
-
-    if (parentId && !expandedCategoryIds.value.includes(parentId)) {
+    const result = await createCategory(name.trim(), parentId)
+    if (result.success && parentId && !expandedCategoryIds.value.includes(parentId)) {
       expandedCategoryIds.value.push(parentId)
     }
-
-    recordChange({
-      type: 'create',
-      id: tempId,
-      name: newCategory.name,
-      parentId,
-      parentPath: parentId ? getPath(parentId) : '根分类'
-    })
-
-    toastSuccess(`已创建 "${newCategory.name}"`)
-    return { success: true, id: tempId }
+    if (result.success) {
+      pendingChanges.value = pendingChanges.value.filter(change => change.type !== 'create')
+      captureInitialSnapshot()
+    }
+    return result
   }
 
-  // Confirm delete (local only) - works on categories.value directly (no confirm - caller handles dialog)
   async function confirmDelete(id) {
     if (!id) return { success: false }
 
     const item = categories.value.find(c => c.id === id)
     if (!item) return { success: false }
 
-    // Count descendants using tree for display
-    const treeItem = findItem(id)
-    const childCount = treeItem?.children?.length || 0
-
-    const itemPath = getPath(id)
-
-    // Collect all IDs to delete (item + descendants)
-    const idsToDelete = new Set()
-    function collectDescendants(catId) {
-      idsToDelete.add(catId)
-      const children = categories.value.filter(c => (c.parent_id ?? null) === catId)
-      children.forEach(c => collectDescendants(c.id))
-    }
-    collectDescendants(id)
-
-    // Remove from categories.value
-    categories.value = categories.value.filter(c => !idsToDelete.has(c.id))
-
-    recordChange({
-      type: 'delete',
-      id,
-      name: item.name,
-      path: itemPath,
-      childCount
-    })
-
-    if (selectedCategoryId.value === id) {
+    const result = await deleteCategory(id)
+    if (result.success && selectedCategoryId.value === id) {
       selectedCategoryId.value = null
     }
-
-    toastSuccess(`已删除 "${item.name}"`)
-    return { success: true }
+    if (result.success) {
+      pendingChanges.value = pendingChanges.value.filter(change => change.id !== id)
+      captureInitialSnapshot()
+    }
+    return result
   }
 
   // Confirm save - batch save to API
@@ -715,6 +645,10 @@ export function useCategoryEditor() {
     toggleExpand,
     selectCategory,
     moveChildItem,
+    createCategory,
+    editCategory,
+    removeCategory,
+    applyChanges,
 
     // Drag & drop
     dragState,
