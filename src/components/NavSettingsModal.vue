@@ -967,6 +967,7 @@
     <NavBookmarkEditModal
       :show="showBookmarkDialog"
       :category-options="categoryOptions"
+      :all-tags="allTags"
       @close="closeBookmarkDialog"
       @save="handleSaveBookmark"
       ref="navBookmarkEditModalRef"
@@ -1011,7 +1012,7 @@ const {
 } = useSettings()
 
 const { isDark, setThemeMode } = useTheme()
-const { isAuthenticated } = useAuth()
+const { isAuthenticated, validateAuthState } = useAuth()
 const { aiEnabled, aiSource, checkAIAvailability, saveAISettings, getAISettings } = useAI()
 
 // Category editor (uses useBookmarks internally)
@@ -1051,7 +1052,7 @@ const {
   moveRootItem,
 } = useCategoryEditor()
 
-const { bookmarks, fetchData, deleteBookmark, batchOperation, addBookmark, updateBookmark } = useBookmarks()
+const { bookmarks, fetchData, deleteBookmark, batchOperation, addBookmark, updateBookmark, allTags } = useBookmarks()
 const { success: toastSuccess, error: toastError, warning: toastWarning } = useToast()
 
 const activeTab = ref('appearance')
@@ -1215,10 +1216,12 @@ const privateBookmarks = computed(() => bookmarks.value.filter(b => b.is_private
 const emptyCategoryCount = ref(0)
 
 const checkEmptyCategories = async () => {
+  if (!validateAuthState()) return
   try {
     const response = await fetch('/api/cleanup-empty-categories', {
       headers: { 'Authorization': `Bearer ${localStorage.getItem('authToken') || ''}` }
     })
+    if (response.status === 401) return
     const result = await response.json()
     if (result.success) {
       emptyCategoryCount.value = result.count || 0

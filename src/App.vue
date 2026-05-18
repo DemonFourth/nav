@@ -5,6 +5,7 @@
       v-if="displayMode === 'nav-item'" 
       @toggle-style="toggleDisplayMode"
       @open-settings="settingsPage.open()"
+      @logout="handleLogout()"
     />
 
     <!-- Default View Mode -->

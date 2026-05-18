@@ -68,8 +68,8 @@
           <span>登录</span>
         </button>
 
-<div v-else class="nav-user-menu" @click.stop="toggleUserMenu" v-click-outside="closeUserMenu">
-            <button class="nav-avatar-btn">
+<div v-else class="nav-user-menu" v-click-outside="closeUserMenu">
+            <button class="nav-avatar-btn" @click.stop="toggleUserMenu">
               <span class="avatar-letter">{{ (username || 'U').charAt(0).toUpperCase() }}</span>
             </button>
 
@@ -126,7 +126,7 @@ const props = defineProps({
   }
 })
 
-const emit = defineEmits(['select-menu', 'select-submenu', 'toggle-style', 'open-settings'])
+const emit = defineEmits(['select-menu', 'select-submenu', 'toggle-style', 'open-settings', 'logout'])
 
 const { isAuthenticated, username, logout, validateAuthState } = useAuth()
 const { warning: warningToast } = useToast()
@@ -214,7 +214,7 @@ const handleOpenSettings = () => {
 }
 
 const handleLogout = () => {
-  logout()
+  emit('logout')
   closeUserMenu()
 }
 
@@ -231,6 +231,10 @@ const vClickOutside = {
     document.removeEventListener('click', el._clickOutside)
   }
 }
+
+defineExpose({
+  closeUserMenu
+})
 </script>
 
 <style scoped>

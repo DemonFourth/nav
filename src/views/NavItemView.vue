@@ -9,6 +9,8 @@
       @select-submenu="handleSelectSubMenu"
       @toggle-style="handleToggleStyle"
       @open-settings="handleOpenSettings"
+      @logout="handleLogout"
+      ref="navBarRef"
     />
 
     <div class="search-section">
@@ -47,6 +49,7 @@
     <NavBookmarkEditModal
       :show="showDetailModal"
       :category-options="categoryOptions"
+      :all-tags="allTags"
       @close="showDetailModal = false"
       @save="handleSaveBookmark"
       ref="navBookmarkEditModalRef"
@@ -73,8 +76,8 @@ import { useAuth } from '../composables/useAuth'
 import { useToast } from '../composables/useToast'
 import { buildCategoryTree } from '../utils/categoryTree'
 
-const { categories, bookmarks, fetchData, searchTags, updateBookmark } = useBookmarks()
-const { isAuthenticated } = useAuth()
+const { categories, bookmarks, fetchData, searchTags, updateBookmark, allTags } = useBookmarks()
+const { isAuthenticated, logout } = useAuth()
 const { customTitle, navWallpaper, showSearch, randomWallpaper, wallpaperApi, applyWallpaper } = useSettings()
 const { error: errorToast } = useToast()
 
@@ -84,6 +87,7 @@ const activeMenu = ref(null)
 const activeSubMenu = ref(null)
 const animationKey = ref(0)
 const navSearchRef = ref(null)
+const navBarRef = ref(null)
 const showDetailModal = ref(false)
 const showNavSettings = ref(false)
 const navBookmarkEditModalRef = ref(null)
@@ -282,6 +286,12 @@ const handleSaveBookmark = async (bookmark, formData) => {
 
 const handleSettingsAction = (action) => {
   showNavSettings.value = false
+  navBarRef.value?.closeUserMenu()
+}
+
+const handleLogout = () => {
+  showNavSettings.value = false
+  navBarRef.value?.closeUserMenu()
 }
 </script>
 
