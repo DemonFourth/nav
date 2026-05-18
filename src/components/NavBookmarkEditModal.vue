@@ -38,36 +38,47 @@
 
               <div class="detail-section">
                 <div class="detail-section-title">分类</div>
-                <div class="custom-select" :class="{ open: selectOpen }">
-                  <div class="select-trigger" @click="selectOpen = !selectOpen">
-                    <span class="select-value" :class="{ placeholder: !selectedCategoryName }">{{ selectedCategoryName || '请选择分类' }}</span>
-                    <svg class="select-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                      <path d="M6 9l6 6 6-6"/>
-                    </svg>
-                  </div>
-                  <div v-if="selectOpen" class="select-dropdown">
-                    <input
-                      v-model="selectSearch"
-                      type="text"
-                      class="select-search"
-                      placeholder="搜索分类..."
-                      @click.stop
-                      ref="selectSearchInput"
-                    />
-                    <div class="select-options">
-                      <div
-                        v-for="cat in filteredCategoryOptions"
-                        :key="cat.id"
-                        class="select-option"
-                        :class="{ selected: cat.id === form.category_id }"
-                        @click="selectCategory(cat)"
-                      >
-                        {{ cat.displayName }}
+                <div class="input-with-btn">
+                  <div class="custom-select" :class="{ open: selectOpen }">
+                    <div class="select-trigger" @click="selectOpen = !selectOpen">
+                      <span class="select-value" :class="{ placeholder: !selectedCategoryName }">{{ selectedCategoryName || '请选择分类' }}</span>
+                      <svg class="select-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M6 9l6 6 6-6"/>
+                      </svg>
+                    </div>
+                    <div v-if="selectOpen" class="select-dropdown">
+                      <input
+                        v-model="selectSearch"
+                        type="text"
+                        class="select-search"
+                        placeholder="搜索分类..."
+                        @click.stop
+                        ref="selectSearchInput"
+                      />
+                      <div class="select-options">
+                        <div
+                          v-for="cat in filteredCategoryOptions"
+                          :key="cat.id"
+                          class="select-option"
+                          :class="{ selected: cat.id === form.category_id }"
+                          @click="selectCategory(cat)"
+                        >
+                          {{ cat.displayName }}
+                        </div>
+                        <div v-if="filteredCategoryOptions.length === 0" class="select-no-results">未找到分类</div>
                       </div>
-                      <div v-if="filteredCategoryOptions.length === 0" class="select-no-results">未找到分类</div>
                     </div>
                   </div>
+                  <button v-if="aiEnabled && props.categoryOptions.length" type="button" class="ai-btn" :disabled="suggestingCategory || !form.name || !form.url" @click="handleSuggestCategory" title="AI 推荐分类">
+                    <svg v-if="!suggestingCategory" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                      <path d="M12 20v-6"/>
+                      <path d="M6 14l6-6 6 6"/>
+                      <path d="M4 10h16"/>
+                    </svg>
+                    <div v-else class="mini-spinner"></div>
+                  </button>
                 </div>
+                <p v-if="aiSuggestion" class="ai-suggestion">{{ aiSuggestion }}</p>
               </div>
 
               <div class="detail-section">
@@ -108,7 +119,18 @@
 
               <div class="detail-section full-width">
                 <div class="detail-section-title">描述</div>
-                <input v-model="form.description" type="text" class="detail-input" placeholder="添加描述" />
+                <div class="input-with-btn">
+                  <input v-model="form.description" type="text" class="detail-input" placeholder="添加描述" />
+                  <button v-if="aiEnabled" type="button" class="ai-btn" :disabled="!form.name || !form.url || generatingDesc" @click="handleGenerateDescription">
+                    <svg v-if="!generatingDesc" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                      <path d="M12 2L2 7l10 5 10-5-10-5z"/>
+                      <path d="M2 17l10 5 10-5"/>
+                      <path d="M2 12l10 5 10-5"/>
+                    </svg>
+                    <div v-else class="mini-spinner"></div>
+                    {{ generatingDesc ? 'AI生成中...' : 'AI生成' }}
+                  </button>
+                </div>
               </div>
 
               <div class="detail-section full-width">
@@ -149,8 +171,10 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, nextTick, watch } from 'vue'
+import { ref, reactive, computed, nextTick, watch, onMounted } from 'vue'
 import { useSettings } from '@/composables/useSettings'
+import { useAI } from '@/composables/useAI'
+import { useToast } from '@/composables/useToast'
 
 const props = defineProps({
   show: { type: Boolean, default: false },
@@ -160,6 +184,8 @@ const props = defineProps({
 const emit = defineEmits(['close', 'save'])
 
 const { iconSources, parseIconSourceUrl } = useSettings()
+const { aiEnabled, checkAIAvailability, generateDescription, suggestCategory } = useAI()
+const { success: toastSuccess, error: toastError } = useToast()
 
 const internalBookmark = ref(null)
 const form = reactive({
@@ -180,6 +206,9 @@ const selectSearch = ref('')
 const selectSearchInput = ref(null)
 const headerIconError = ref(false)
 const detailIconSourceIndexes = ref({})
+const generatingDesc = ref(false)
+const suggestingCategory = ref(false)
+const aiSuggestion = ref('')
 
 const isEdit = computed(() => !!internalBookmark.value)
 
@@ -224,6 +253,10 @@ const open = (bookmark) => {
   selectSearch.value = ''
   headerIconError.value = false
   detailIconSourceIndexes.value = {}
+  aiSuggestion.value = ''
+  generatingDesc.value = false
+  suggestingCategory.value = false
+  checkAIAvailability()
 }
 
 const handleClose = () => {
@@ -297,6 +330,81 @@ const handleInputBackspace = () => {
   }
 }
 
+const handleGenerateDescription = async () => {
+  if (!form.name || !form.url) {
+    toastError('请先输入名称和 URL')
+    return
+  }
+
+  generatingDesc.value = true
+
+  try {
+    const result = await generateDescription(form.name, form.url)
+
+    if (result.success && result.description) {
+      form.description = result.description
+      toastSuccess('AI 生成描述成功')
+    } else {
+      toastError(result.error || 'AI 生成描述失败')
+    }
+  } catch (err) {
+    toastError('AI 生成描述失败')
+  } finally {
+    generatingDesc.value = false
+  }
+}
+
+const handleSuggestCategory = async () => {
+  if (!form.name || !form.url) {
+    toastError('请先输入名称和 URL')
+    return
+  }
+
+  if (!props.categoryOptions || props.categoryOptions.length === 0) {
+    toastError('没有可用的分类')
+    return
+  }
+
+  suggestingCategory.value = true
+  aiSuggestion.value = ''
+
+  try {
+    const categoriesForAI = props.categoryOptions.map(cat => ({
+      id: cat.id,
+      name: cat.displayName,
+      path: cat.displayName
+    }))
+
+    const result = await suggestCategory(
+      form.name,
+      form.url,
+      form.description || '',
+      categoriesForAI
+    )
+
+    if (result.success && result.categoryId) {
+      const recommendedId = Number.parseInt(result.categoryId, 10)
+      if (Number.isInteger(recommendedId)) {
+        form.category_id = recommendedId
+        const matchedCategory = props.categoryOptions.find(cat => cat.id === recommendedId)
+        const reasonText = result.reason ? `（${result.reason}）` : ''
+        aiSuggestion.value = matchedCategory
+          ? `💡 AI 推荐分类：${matchedCategory.displayName}${reasonText}`
+          : `💡 AI 推荐分类 ID：${recommendedId}${reasonText}`
+        toastSuccess('AI 推荐分类成功')
+      } else {
+        toastError('AI 返回的分类无效')
+      }
+    } else {
+      toastError(result.error || 'AI 推荐分类失败')
+    }
+  } catch (err) {
+    toastError('AI 推荐分类失败')
+  } finally {
+    suggestingCategory.value = false
+  }
+}
+
 const getDetailIconSources = (bookmark) => {
   if (bookmark.icon && bookmark.icon.trim()) return []
   try {
@@ -345,6 +453,10 @@ watch(selectOpen, (val) => {
       }
     })
   }
+})
+
+onMounted(() => {
+  checkAIAvailability()
 })
 
 defineExpose({ open })
@@ -860,5 +972,77 @@ defineExpose({ open })
 .modal-enter-from .detail-modal,
 .modal-leave-to .detail-modal {
   transform: scale(0.95) translateY(20px);
+}
+
+.input-with-btn {
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
+}
+
+.input-with-btn > .detail-input,
+.input-with-btn > .custom-select {
+  flex: 1;
+  min-width: 0;
+}
+
+.ai-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 9px 14px;
+  background: linear-gradient(135deg, var(--nav-primary), color-mix(in srgb, var(--nav-primary) 70%, #000));
+  color: white;
+  border: none;
+  border-radius: 10px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+  font-family: inherit;
+  flex-shrink: 0;
+}
+
+.ai-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--nav-primary) 40%, transparent);
+}
+
+.ai-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.ai-btn svg {
+  width: 16px;
+  height: 16px;
+  stroke-width: 2;
+}
+
+.ai-suggestion {
+  grid-column: 1 / -1;
+  margin: 4px 0 0;
+  padding: 8px 12px;
+  background: color-mix(in srgb, var(--nav-primary) 10%, transparent);
+  border-left: 3px solid var(--nav-primary);
+  border-radius: 8px;
+  font-size: 0.8125rem;
+  color: var(--nav-text-secondary);
+  line-height: 1.4;
+}
+
+.mini-spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top-color: white;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
 }
 </style>
