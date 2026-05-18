@@ -7,7 +7,7 @@
         class="nav-card"
         :style="getCardStyle(index)"
         @click="handleCardClick(bookmark)"
-        :title="bookmark.name + '\n' + bookmark.url"
+        :title="getHoverTitle(bookmark)"
       >
         <button v-if="isAuthenticated" class="card-detail-btn" @click.stop="handleShowDetail(bookmark)" title="查看详情">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -149,6 +149,22 @@ const handleIconError = (bookmarkId) => {
   } else {
     iconErrors.value[bookmarkId] = true
   }
+}
+
+const getHoverTitle = (bookmark) => {
+  const parts = []
+  parts.push(`名称：${bookmark.name || ''}`)
+  parts.push(`地址：${bookmark.url || ''}`)
+  if (bookmark.description) {
+    parts.push(`描述：${bookmark.description}`)
+  }
+  if (bookmark.tags && bookmark.tags.trim()) {
+    parts.push(`标签：${bookmark.tags}`)
+  }
+  if (bookmark.notes && bookmark.notes.trim()) {
+    parts.push(`备注：${bookmark.notes}`)
+  }
+  return parts.join('\n')
 }
 
 const handleCardClick = (bookmark) => {
