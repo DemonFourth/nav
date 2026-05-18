@@ -696,3 +696,178 @@ if (token.value && isTokenExpired(token.value)) {
 - 预检逻辑与服务端 `functions/_middleware.js` 的 `validateToken` 保持一致
 - 仅检查时间戳，不验证 hash（客户端没有 `JWT_SECRET`）
 - 一处修改，全局生效：所有通过 `apiRequest` 发起的请求都会自动预检
+
+## AI 功能
+
+### 架构总览
+
+```
+用户操作 (Vue组件)
+    ↓
+useAI.js (composable) → 通过 apiRequest() 发请求（自动加认证头）
+    ↓
+Cloudflare Functions (functions/api/ai/*.js) → 8 个端点
+    ↓
+_shared.js (callOpenAI) → OpenAI 兼容 API (chat/completions)
+```
+
+前端不直接持有 API key，所有请求通过后端代理转发。
+
+### 配置文件与环境变量
+
+定义在 `wrangler.toml`（生产环境在 Cloudflare Pages 控制台设置）：
+
+| 变量 | 说明 | 默认值 |
+|------|------|--------|
+| `OPENAI_API_KEY` | API key（**必须**，或在 UI 中填写） | - |
+| `OPENAI_BASE_URL` | API 基础地址 | `https://api.openai.com/v1` |
+| `OPENAI_MODEL` | 模型名称 | `gpt-4o-mini` |
+| `OPENAI_AUTH_HEADER` | 认证 Header 名称 | `Authorization` |
+| `OPENAI_AUTH_PREFIX` | 认证前缀 | `Bearer ` |
+
+也支持通过 D1 的 `settings` 表存储（详见下方配置优先级）。
+
+### 配置方式（双层优先级）
+
+| 层级 | 配置途径 | 优先级 | 代码位置 |
+|------|---------|--------|---------|
+| **环境变量** | `wrangler.toml` / Cloudflare Pages 控制台 | **高** | `_shared.js:25` |
+| **D1 数据库** | 设置页面 UI → `settings` 表 | 低 | `_shared.js:25` |
+
+合并逻辑（`functions/api/ai/_shared.js:25`）：
+```javascript
+const apiKey = env.OPENAI_API_KEY || settings.secret_openai_api_key || ''
+```
+
+环境变量在前，`||` 短路求值，**环境变量完全覆盖 D1 设置**。
+
+`settings.js` 保存时检查：如果对应环境变量已设置，拒绝写入 DB（`settings.js:85`）。UI 中锁定字段显示为灰色不可编辑。
+
+### API 端点一览
+
+全部文件位于 `functions/api/ai/` 目录：
+
+| 端点 | 文件 | 方法 | 功能 | 调用 AI？ |
+|------|------|------|------|-----------|
+| `/api/ai/status` | `status.js` | GET | 检查 AI 是否启用 | 否 |
+| `/api/ai/settings` | `settings.js` | GET | 读取 AI 配置（API key 返回空字符串） | 否 |
+| `/api/ai/settings` | `settings.js` | POST | 保存 AI 配置到 D1 | 否 |
+| `/api/ai/generate-description` | `generate-description.js` | POST | **生成单个书签描述** | 是 |
+| `/api/ai/suggest-category` | `suggest-category.js` | POST | **推荐单个书签分类** | 是 |
+| `/api/ai/batch-generate-descriptions` | `batch-generate-descriptions.js` | POST | **批量生成描述** | 是 |
+| `/api/ai/batch-classify` | `batch-classify.js` | POST | **批量分类** | 是 |
+| `/api/ai/verify` | `verify.js` | POST | 验证 API key 有效性（调 GET /models） | 是（调 models） |
+| `/api/ai/proxy` | `proxy.js` | POST | 通用 OpenAI 代理转发 | 是 |
+
+### 核心实现（_shared.js）
+
+**`callOpenAI(env, { path, method, body, headers })`** (`functions/api/ai/_shared.js:55`):
+1. 调用 `getAIConfig(env)` 合并环境变量 + D1 配置
+2. 拼接 URL：`joinBaseUrl(baseUrl, path)` → `${baseUrl}/${path}`
+3. 自动注入认证头（可配置 authHeader / authPrefix）
+4. 非 2xx 响应时解析 error message 并 throw
+
+**`getAIConfig(env)`** (`functions/api/ai/_shared.js:16`):
+从 D1 `settings` 表读取 `secret_openai_api_key`、`ai_base_url`、`ai_model`、`ai_auth_header`、`ai_auth_prefix`，与环境变量合并。
+
+### useAI composable
+
+**引入**：
+```javascript
+import { useAI } from '@/composables/useAI'
+const { aiEnabled, aiSource, ... } = useAI()
+```
+
+**响应式状态**：
+
+| 状态 | 类型 | 说明 |
+|------|------|------|
+| `aiEnabled` | `Ref<boolean>` | AI 是否已启用（全局状态，模块级单例） |
+| `aiSource` | `Ref<string>` | API key 来源：`'env'` / `'db'` / `'none'` |
+| `aiApiKey` | `Ref<string>` | API key（前端存储仅用于显示） |
+| `aiBaseUrl` | `Ref<string>` | 当前 base URL |
+
+**方法**：
+
+```javascript
+// 检查 AI 状态
+checkAIAvailability()         // → { success, enabled, source }
+
+// 单条操作
+generateDescription(name, url)       // → { success, description }
+suggestCategory(name, url, description, categories)
+// → { success, categoryId, reason }
+
+// 批量操作
+batchGenerateDescriptions(bookmarks)  // → { success, results[], successCount, failedCount }
+batchClassify(bookmarks, categories)  // → { success, results[], successCount, failedCount }
+
+// 配置管理
+getAISettings()                // → { success, apiKey, baseUrl, model, authHeader, authPrefix, hasApiKey, lockedFields, customPromptDescription, customPromptDescriptionEnabled }
+saveAISettings(settings)       // → { success }
+verifyApiKey(apiKey, baseUrl, model) // → { success, valid, message }
+```
+
+所有方法通过 `apiRequest()` 发送（自动处理 token 过期、401 登出）。
+
+### 前端组件与 AI 功能对应
+
+| 组件 | 文件 | AI 功能 | 调用方式 |
+|------|------|---------|---------|
+| **BookmarkDialog** | `src/components/BookmarkDialog.vue` | 单条描述生成 + 分类推荐 | 点击"AI 生成"→ `generateDescription()`，点击"AI 推荐"→ `suggestCategory()` |
+| **EditModeToolbar** | `src/components/EditModeToolbar.vue` | 批量操作入口 | 选中书签后点击"AI 生成"/"AI 分类"，打开对应 Batch 弹窗 |
+| **BatchAIGenerateDialog** | `src/components/BatchAIGenerateDialog.vue` | 批量生成描述 UI | 逐个调 `generateDescription()` + `updateBookmark()` 实时保存，显示进度条 |
+| **BatchAIClassifyDialog** | `src/components/BatchAIClassifyDialog.vue` | 批量分类 UI | 逐个调 `suggestCategory()`，支持自动应用 / 审核后应用 |
+| **AISettings** | `src/components/settings/AISettings.vue` | 默认模式 AI 配置 | 调 `getAISettings()` / `saveAISettings()` |
+| **NavSettingsModal** | `src/components/NavSettingsModal.vue` | 导航模式 AI 配置 | 同上，嵌入侧边栏设置 |
+| **App.vue** | `src/App.vue` | 根组件 | 全局 `aiEnabled` 状态控制 AI 按钮显示/禁用 |
+
+**Browser Extension**：`browser-extension/popup.js` 直接 `fetch` 后端 API，调用 `generate-description` 和 `suggest-category`。
+
+### Prompt 机制
+
+**描述生成**（`generate-description.js:22`）：
+
+默认 Prompt 模板：
+```
+You are an assistant that generates concise and helpful descriptions for bookmarks/websites.
+Name: {name}
+URL: {url}
+→ 1-2 句描述，max 100 词，语言与书籍名称一致
+```
+
+- temperature: **0.5**, max_tokens: **150**
+- 支持**自定义 Prompt**（D1 中 `ai_custom_prompt_description`），用开关 `ai_custom_prompt_description_enabled` 控制
+- 自定义 Prompt 可用变量：`{name}`、`{url}`
+- 开关关闭或自定义 Prompt 为空时回退到默认 Prompt
+
+**分类推荐**（`suggest-category.js:35`）：
+
+默认 Prompt 模板：
+```
+Choose the most suitable existing category ID based on the bookmark information.
+Name: {name}, URL: {url}, Description: {description}
+Categories: {id}: {path}
+→ 返回 JSON: {"categoryId": "...", "reason": "..."}
+```
+
+- temperature: **0.3**（更低，追求确定性）, max_tokens: **180**
+- 用 `extractJson()` 正则 `/\{[\s\S]*\}/` 提取 AI 返回中的 JSON 对象
+- 返回的 `categoryId` 通过 `Number.parseInt` 转为整数验证
+
+**批量操作**：
+- 逐个调用单条 API
+- 描述生成间隔 **500ms**（`batch-generate-descriptions.js:105`）
+- 分类间隔 **100ms**（`batch-classify.js:133`）
+
+### 常见故障排查
+
+| 错误信息 | 原因 | 排查方向 |
+|---------|------|---------|
+| `Access denied: please complete identity verification` | OpenAI 账号未绑定支付方式或被风控 | 登录 platform.openai.com → Billing 绑定信用卡；检查 Usage 是否有余额 |
+| `401 Invalid Authentication` | API key 无效 | 检查 key 是否正确、是否过期；用 `curl Get /models` 测试 |
+| `404 The model does not exist` | 模型名拼写错误或无权访问 | 检查 `OPENAI_MODEL` 配置（默认 `gpt-4o-mini`） |
+| `Insufficient quota` | API 额度已用完 | OpenAI → Usage 查看额度/账单 |
+| AI 按钮灰色不可点击 | AI 未启用 | 调用 `checkAIAvailability()` 检查状态；配置 API key |
+| settings 输入框灰色锁定 | 对应字段已通过环境变量配置 | 修改 wrangler.toml / Cloudflare Pages 控制台 |
+| AI 返回速度慢 | 网络延迟或模型响应慢 | 检查 `baseUrl` 是否为国内可直连地址；考虑使用 `gpt-4o-mini` 而非 `gpt-4o` |

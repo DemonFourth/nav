@@ -130,7 +130,7 @@ const handleMouseLeave = () => {
   position: absolute;
   top: 0;
   left: calc(100% + 8px);
-  min-width: 140px;
+  min-width: auto;
   background: var(--nav-glass);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);

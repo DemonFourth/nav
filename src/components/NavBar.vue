@@ -331,7 +331,7 @@ defineExpose({
   top: calc(100% + 8px);
   left: 50%;
   transform: translateX(-50%) translateY(-4px);
-  min-width: 140px;
+  min-width: auto;
   background: var(--nav-glass);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
@@ -343,6 +343,16 @@ defineExpose({
   opacity: 0;
   visibility: hidden;
   transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.submenu-dropdown::before {
+  content: '';
+  position: absolute;
+  bottom: 100%;
+  left: 0;
+  right: 0;
+  height: 10px;
+  z-index: 200;
 }
 
 .submenu-dropdown.show {
@@ -502,7 +512,7 @@ defineExpose({
     position: absolute;
     left: 0;
     right: auto;
-    min-width: 180px;
+    min-width: auto;
     max-width: min(280px, 90vw);
     transform: none;
     max-height: 60vh;
