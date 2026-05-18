@@ -379,6 +379,7 @@ import { useTheme } from './composables/useTheme'
 import { useSettings } from './composables/useSettings'
 import { useSearchEngines } from './composables/useSearchEngines'
 import { useToast } from './composables/useToast'
+import { useAuthGuard } from './composables/useAuthGuard'
 import { buildCategoryTree, getCategoryPath } from './utils/categoryTree'
 import SearchBar from './components/SearchBar.vue'
 import CategorySidebar from './components/CategorySidebar.vue'
@@ -427,6 +428,7 @@ const {
 const { themeMode, isDark, setThemeMode, toggleTheme, loadThemeFromDB } = useTheme()
 const { showSearch, hideEmptyCategories, customTitle, footerContent, activeSettingsTab, publicMode, randomWallpaper, wallpaperApi, navCardAnimation, navWallpaper, avatarUrl, displayMode, iconSources, proxyUrl, toggleSearch, toggleHideEmptyCategories, togglePublicMode, updateCustomTitle, updateFooterContent, setActiveSettingsTab, toggleRandomWallpaper, updateWallpaperApi, updateAvatarUrl, toggleDisplayMode, toggleNavCardAnimation, updateNavWallpaper, addIconSource, removeIconSource, toggleIconSourceEnabled, toggleIconSourceLarger, moveIconSource, updateProxyUrl, applyWallpaper, loadSettingsFromDB } = useSettings()
 const { setToastInstance, success: toastSuccess, error: toastError } = useToast()
+const { setLoginModalInstance } = useAuthGuard()
 const {
   isBatchMode,
   selectedCount,
@@ -731,6 +733,11 @@ onMounted(async () => {
   // 初始化 Toast
   if (toast.value) {
     setToastInstance(toast.value)
+  }
+
+  // 初始化 AuthGuard
+  if (loginModal.value) {
+    setLoginModalInstance(loginModal.value)
   }
   
   // 如果已登录，检查空分类数量

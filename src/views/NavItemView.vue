@@ -74,12 +74,14 @@ import { useBookmarks } from '../composables/useBookmarks'
 import { useSettings } from '../composables/useSettings'
 import { useAuth } from '../composables/useAuth'
 import { useToast } from '../composables/useToast'
+import { useAuthGuard } from '../composables/useAuthGuard'
 import { buildCategoryTree } from '../utils/categoryTree'
 
 const { categories, bookmarks, fetchData, searchTags, updateBookmark, allTags } = useBookmarks()
 const { isAuthenticated, logout } = useAuth()
 const { customTitle, navWallpaper, showSearch, randomWallpaper, wallpaperApi, applyWallpaper } = useSettings()
 const { error: errorToast } = useToast()
+const { requireAuth } = useAuthGuard()
 
 const emit = defineEmits(['toggleStyle'])
 
@@ -243,6 +245,7 @@ const handleTagClick = (tag) => {
 }
 
 const handleShowDetail = ({ tag, bookmark }) => {
+  if (!requireAuth()) return
   if (navBookmarkEditModalRef.value) {
     navBookmarkEditModalRef.value.open(bookmark)
   }
@@ -251,7 +254,7 @@ const handleShowDetail = ({ tag, bookmark }) => {
 
 const handleSaveBookmark = async (bookmark, formData) => {
   if (!bookmark?.id) return
-  if (!isAuthenticated.value) return
+  if (!requireAuth()) return
 
   const originalBookmark = { ...bookmark }
 

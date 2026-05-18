@@ -983,6 +983,7 @@ import { useAuth } from '@/composables/useAuth'
 import { useBookmarks } from '@/composables/useBookmarks'
 import { useAI } from '@/composables/useAI'
 import { useToast } from '@/composables/useToast'
+import { useAuthGuard } from '@/composables/useAuthGuard'
 import { useCategoryEditor } from '@/composables/useCategoryEditor'
 import { buildCategoryTree, getCategoryPath } from '@/utils/categoryTree'
 import { searchBookmarks, SEARCH_FIELD_OPTIONS } from '@/utils/search'
@@ -1054,6 +1055,7 @@ const {
 
 const { bookmarks, fetchData, deleteBookmark, batchOperation, addBookmark, updateBookmark, allTags } = useBookmarks()
 const { success: toastSuccess, error: toastError, warning: toastWarning } = useToast()
+const { requireAuth } = useAuthGuard()
 
 const activeTab = ref('appearance')
 const sidebarCollapsed = ref(localStorage.getItem('navSettingsSidebarCollapsed') === 'true')
@@ -1398,6 +1400,7 @@ const openAddDialog = () => {
   setTimeout(() => newCategoryNameInput.value?.focus(), 100)
 }
 const handleConfirmAdd = async () => {
+  if (!requireAuth()) return
   categorySaving.value = true
   try {
     const result = await confirmAddCategory(newCategoryName.value, newCategoryParentId.value)
@@ -1415,6 +1418,7 @@ const handleConfirmAdd = async () => {
 }
 
 const handleApplyCategoryChanges = async () => {
+  if (!requireAuth()) return
   if (categorySaving.value) return
   categorySaving.value = true
   try {
@@ -1435,6 +1439,7 @@ const handleMoveItem = (node, direction) => {
   }
 }
 const handleConfirmDelete = async () => {
+  if (!requireAuth()) return
   categorySaving.value = true
   try {
     const result = await confirmDelete(selectedCategoryId.value)
@@ -1470,6 +1475,7 @@ const toggleSelectAll = () => {
   selectedBookmarks.value = new Set(selectedBookmarks.value)
 }
 const deleteBookmarkItem = async (bookmark) => {
+  if (!requireAuth()) return
   if (!confirm(`确定要删除书签 "${bookmark.name}" 吗？`)) return
   const result = await deleteBookmark(bookmark.id)
   if (result.success) {
@@ -1479,6 +1485,7 @@ const deleteBookmarkItem = async (bookmark) => {
   }
 }
 const batchDeleteBookmarks = async () => {
+  if (!requireAuth()) return
   const ids = Array.from(selectedBookmarks.value)
   if (ids.length === 0) return
   if (!confirm(`确定要删除 ${ids.length} 个书签吗？`)) return
@@ -1492,6 +1499,7 @@ const batchDeleteBookmarks = async () => {
   }
 }
 const batchMoveBookmarks = async () => {
+  if (!requireAuth()) return
   const ids = Array.from(selectedBookmarks.value)
   if (ids.length === 0 || !bookmarkMoveTarget.value) return
   const result = await batchOperation('moveCategory', ids, { category_id: bookmarkMoveTarget.value })
@@ -1505,12 +1513,14 @@ const batchMoveBookmarks = async () => {
   }
 }
 const openBookmarkAdd = () => {
+  if (!requireAuth()) return
   if (navBookmarkEditModalRef.value) {
     navBookmarkEditModalRef.value.open(null)
   }
   showBookmarkDialog.value = true
 }
 const openBookmarkEdit = (bookmark) => {
+  if (!requireAuth()) return
   if (navBookmarkEditModalRef.value) {
     navBookmarkEditModalRef.value.open(bookmark)
   }
