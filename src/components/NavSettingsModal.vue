@@ -3664,7 +3664,7 @@ textarea.setting-input {
   border: 1px solid var(--border);
   border-radius: 10px;
   box-shadow: 0 10px 40px rgba(0,0,0,0.15);
-  z-index: 10001;
+  z-index: 99999;
   overflow: hidden;
 }
 .select-search {
@@ -3829,7 +3829,7 @@ textarea.setting-input {
   border: 1px solid var(--border);
   border-radius: 10px;
   box-shadow: 0 10px 40px rgba(0,0,0,0.15);
-  z-index: 10001;
+  z-index: 99999;
   overflow: hidden;
 }
 .select-dropdown-fixed .select-search {
