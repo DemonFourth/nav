@@ -111,9 +111,24 @@
                     type="text"
                     class="tag-input"
                     placeholder="输入标签后回车添加"
+                    ref="tagInputRef"
+                    @input="tagSuggestionsOpen = true"
                     @keydown.enter.prevent="addTag"
                     @keydown.backspace="handleInputBackspace"
+                    @mousedown.prevent="showAllTagSuggestions"
+                    @blur="handleTagInputBlur"
+                    @keydown.escape="tagSuggestionsOpen = false"
                   />
+                  <div v-if="tagSuggestionsOpen && displayedTagSuggestions.length > 0" class="tag-suggestions">
+                    <div
+                      v-for="tag in displayedTagSuggestions"
+                      :key="tag"
+                      class="tag-suggestion-item"
+                      @mousedown.prevent="selectTag(tag)"
+                    >
+                      {{ tag }}
+                    </div>
+                  </div>
                 </div>
               </div>
 
@@ -154,15 +169,25 @@
           </div>
 
           <div class="detail-footer">
-            <button class="detail-btn secondary" @click="handleClose">取消</button>
-            <button class="detail-btn primary" @click="handleSave">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
-                <polyline points="17 21 17 13 7 13 7 21"/>
-                <polyline points="7 3 7 8 15 8"/>
-              </svg>
-              保存
-            </button>
+            <div class="footer-left">
+              <button v-if="isEdit" class="detail-btn danger" @click="handleDelete">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/>
+                </svg>
+                删除
+              </button>
+            </div>
+            <div class="footer-right">
+              <button class="detail-btn secondary" @click="handleClose">取消</button>
+              <button class="detail-btn primary" @click="handleSave">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                  <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
+                  <polyline points="17 21 17 13 7 13 7 21"/>
+                  <polyline points="7 3 7 8 15 8"/>
+                </svg>
+                保存
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -178,10 +203,11 @@ import { useToast } from '@/composables/useToast'
 
 const props = defineProps({
   show: { type: Boolean, default: false },
-  categoryOptions: { type: Array, default: () => [] }
+  categoryOptions: { type: Array, default: () => [] },
+  allTags: { type: Array, default: () => [] }
 })
 
-const emit = defineEmits(['close', 'save'])
+const emit = defineEmits(['close', 'save', 'delete'])
 
 const { iconSources, parseIconSourceUrl } = useSettings()
 const { aiEnabled, checkAIAvailability, generateDescription, suggestCategory } = useAI()
@@ -209,6 +235,8 @@ const detailIconSourceIndexes = ref({})
 const generatingDesc = ref(false)
 const suggestingCategory = ref(false)
 const aiSuggestion = ref('')
+const tagSuggestionsOpen = ref(false)
+const tagInputRef = ref(null)
 
 const isEdit = computed(() => !!internalBookmark.value)
 
@@ -225,6 +253,34 @@ const filteredCategoryOptions = computed(() => {
     cat.displayName.toLowerCase().includes(query)
   )
 })
+
+const filteredTagSuggestions = computed(() => {
+  if (!newTagInput.value) return []
+  const query = newTagInput.value.toLowerCase()
+  return props.allTags.filter(tag =>
+    !tagItems.value.includes(tag) &&
+    tag.toLowerCase().includes(query)
+  )
+})
+
+const allTagSuggestions = computed(() => {
+  return props.allTags.filter(tag => !tagItems.value.includes(tag))
+})
+
+const displayedTagSuggestions = computed(() => {
+  if (newTagInput.value) {
+    const query = newTagInput.value.toLowerCase()
+    return props.allTags.filter(tag =>
+      !tagItems.value.includes(tag) &&
+      tag.toLowerCase().includes(query)
+    )
+  }
+  return allTagSuggestions.value
+})
+
+const showAllTagSuggestions = () => {
+  tagSuggestionsOpen.value = true
+}
 
 const open = (bookmark) => {
   internalBookmark.value = bookmark
@@ -256,6 +312,7 @@ const open = (bookmark) => {
   aiSuggestion.value = ''
   generatingDesc.value = false
   suggestingCategory.value = false
+  tagSuggestionsOpen.value = false
   checkAIAvailability()
 }
 
@@ -278,18 +335,27 @@ const handleSave = () => {
   emit('save', internalBookmark.value, formData)
 }
 
+const handleDelete = () => {
+  emit('delete', internalBookmark.value)
+}
+
 const selectCategory = (cat) => {
   form.category_id = cat.id
   selectOpen.value = false
   selectSearch.value = ''
 }
 
-const addTag = () => {
-  const tag = newTagInput.value.trim()
-  if (tag && !tagItems.value.includes(tag)) {
-    tagItems.value.push(tag)
+const addTag = (tag) => {
+  const tagToAdd = tag !== undefined ? tag : newTagInput.value.trim()
+  if (tagToAdd && !tagItems.value.includes(tagToAdd)) {
+    tagItems.value.push(tagToAdd)
   }
   newTagInput.value = ''
+  tagSuggestionsOpen.value = false
+}
+
+const selectTag = (tag) => {
+  addTag(tag)
 }
 
 const removeTag = (index) => {
@@ -328,6 +394,12 @@ const handleInputBackspace = () => {
   if (newTagInput.value === '' && tagItems.value.length > 0 && editingTagIndex.value === null) {
     removeTag(tagItems.value.length - 1)
   }
+}
+
+const handleTagInputBlur = () => {
+  setTimeout(() => {
+    tagSuggestionsOpen.value = false
+  }, 200)
 }
 
 const handleGenerateDescription = async () => {
@@ -701,13 +773,18 @@ defineExpose({ open })
 
 .detail-footer {
   display: flex;
-  gap: 12px;
+  justify-content: space-between;
+  align-items: center;
   padding: 16px 24px;
   border-top: 1px solid var(--nav-border);
 }
 
+.footer-left, .footer-right {
+  display: flex;
+  gap: 12px;
+}
+
 .detail-btn {
-  flex: 1;
   padding: 10px 16px;
   border-radius: 10px;
   font-size: 0.875rem;
@@ -742,6 +819,19 @@ defineExpose({ open })
 .detail-btn.secondary:hover {
   background: var(--nav-card-hover);
   border-color: var(--nav-text-secondary);
+}
+
+.detail-btn.danger {
+  flex: initial;
+  background: transparent;
+  color: var(--danger, #ef4444);
+  border: 1px solid var(--danger, #ef4444);
+  min-width: auto;
+  padding: 10px 14px;
+}
+
+.detail-btn.danger:hover {
+  background: color-mix(in srgb, var(--danger, #ef4444) 10%, transparent);
 }
 
 .detail-btn svg {
@@ -881,6 +971,7 @@ defineExpose({ open })
   min-height: 38px;
   align-items: center;
   transition: all 0.2s;
+  position: relative;
 }
 
 .tags-input-container:focus-within {
@@ -957,6 +1048,54 @@ defineExpose({ open })
 
 .tag-input::placeholder {
   color: var(--nav-text-secondary);
+}
+
+.tag-suggestions {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  background: var(--nav-bg);
+  border: 1px solid var(--nav-border);
+  border-radius: 8px;
+  box-shadow: 0 10px 40px var(--shadow-lg, rgba(0,0,0,0.15));
+  z-index: 100;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.tag-suggestion-item {
+  padding: 8px 12px;
+  color: var(--nav-text);
+  font-size: 0.8125rem;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.tag-suggestion-item:hover {
+  background: color-mix(in srgb, var(--nav-primary) 12%, transparent);
+  color: var(--nav-primary);
+}
+
+.tag-suggestion-item:first-child {
+  border-radius: 8px 8px 0 0;
+}
+
+.tag-suggestion-item:last-child {
+  border-radius: 0 0 8px 8px;
+}
+
+.tag-suggestions::-webkit-scrollbar {
+  width: 6px;
+}
+
+.tag-suggestions::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.tag-suggestions::-webkit-scrollbar-thumb {
+  background: var(--nav-border);
+  border-radius: 3px;
 }
 
 .modal-enter-active,

@@ -697,6 +697,26 @@ if (token.value && isTokenExpired(token.value)) {
 - 仅检查时间戳，不验证 hash（客户端没有 `JWT_SECRET`）
 - 一处修改，全局生效：所有通过 `apiRequest` 发起的请求都会自动预检
 
+## 删除操作确认
+
+nav 模式所有删除操作（书签/分类）统一使用 `ConfirmDialog` 组件：
+
+```javascript
+const confirmed = await confirmDialog.value.open('确定要删除"xxx"吗？', '标题')
+if (!confirmed) return
+// 执行删除...
+```
+
+| 触发位置 | 操作 | 调用的 API |
+|----------|------|-----------|
+| 卡片详情弹窗 `NavBookmarkEditModal` → 底部删除按钮 | 删除书签 | `deleteBookmark(id)` |
+| 设置 → 书签 tab → 行内删除按钮 | 删除书签 | `deleteBookmark(id)` |
+| 设置 → 菜单 tab → 危险区域 | 删除分类 | `confirmDelete(id)` |
+
+- `ConfirmDialog` 内嵌在调用的组件模板中（`<ConfirmDialog ref="confirmDialog" />`），通过 `ref` 调用 `open()`
+- z-index 为 `99999`（定义在 `src/assets/main.css`），始终浮在所有弹窗之上
+- 确认弹窗的 `message` 支持 `\n` 换行（`.dialog-message` 设置了 `white-space: pre-line`）
+
 ## AI 功能
 
 ### 架构总览

@@ -52,6 +52,7 @@
       :all-tags="allTags"
       @close="showDetailModal = false"
       @save="handleSaveBookmark"
+      @delete="handleDeleteBookmark"
       ref="navBookmarkEditModalRef"
     />
 
@@ -60,6 +61,8 @@
       @close="showNavSettings = false"
       @action="handleSettingsAction"
     />
+
+    <ConfirmDialog ref="confirmDialog" />
   </div>
 </template>
 
@@ -70,6 +73,7 @@ import NavSearch from '../components/NavSearch.vue'
 import NavCardGrid from '../components/NavCardGrid.vue'
 import NavSettingsModal from '../components/NavSettingsModal.vue'
 import NavBookmarkEditModal from '../components/NavBookmarkEditModal.vue'
+import ConfirmDialog from '../components/ConfirmDialog.vue'
 import { useBookmarks } from '../composables/useBookmarks'
 import { useSettings } from '../composables/useSettings'
 import { useAuth } from '../composables/useAuth'
@@ -77,10 +81,10 @@ import { useToast } from '../composables/useToast'
 import { useAuthGuard } from '../composables/useAuthGuard'
 import { buildCategoryTree } from '../utils/categoryTree'
 
-const { categories, bookmarks, fetchData, searchTags, updateBookmark, allTags } = useBookmarks()
+const { categories, bookmarks, fetchData, searchTags, updateBookmark, deleteBookmark, allTags } = useBookmarks()
 const { isAuthenticated, logout } = useAuth()
 const { customTitle, navWallpaper, showSearch, randomWallpaper, wallpaperApi, applyWallpaper } = useSettings()
-const { error: errorToast } = useToast()
+const { success: toastSuccess, error: errorToast } = useToast()
 const { requireAuth } = useAuthGuard()
 
 const emit = defineEmits(['toggleStyle'])
@@ -93,6 +97,7 @@ const navBarRef = ref(null)
 const showDetailModal = ref(false)
 const showNavSettings = ref(false)
 const navBookmarkEditModalRef = ref(null)
+const confirmDialog = ref(null)
 const selectedFilterTag = ref(null)
 const searchResults = ref(null)
 
@@ -284,6 +289,22 @@ const handleSaveBookmark = async (bookmark, formData) => {
       return b
     })
     errorToast('保存失败，请重试')
+  }
+}
+
+const handleDeleteBookmark = async (bookmark) => {
+  if (!requireAuth()) return
+  const confirmed = await confirmDialog.value.open(
+    `确定要删除书签"${bookmark.name}"吗？`,
+    '删除书签'
+  )
+  if (!confirmed) return
+  const result = await deleteBookmark(bookmark.id)
+  if (result.success) {
+    showDetailModal.value = false
+    toastSuccess('书签已删除')
+  } else {
+    errorToast(result.error || '删除失败')
   }
 }
 

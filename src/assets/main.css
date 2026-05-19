@@ -1026,7 +1026,7 @@ html.dark .floating-btn {
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 3000;
+  z-index: 99999;
   padding: 1rem;
 }
 
@@ -1072,6 +1072,7 @@ html.dark .dialog-box {
   color: var(--text-secondary);
   margin-bottom: 1.5rem;
   line-height: 1.6;
+  white-space: pre-line;
 }
 
 .dialog-buttons {
