@@ -99,6 +99,16 @@
                     />
                     <span class="slider-value">{{ navCardOpacity }}%</span>
                   </div>
+                  <div class="toggle-row" style="margin-top:8px;">
+                    <div class="toggle-info">
+                      <div class="toggle-name">文字阴影</div>
+                      <div class="toggle-desc">深色壁纸时增强文字可读性</div>
+                    </div>
+                    <label class="toggle-switch">
+                      <input type="checkbox" :checked="navCardTextShadow" @change="toggleNavCardTextShadow" />
+                      <span class="toggle-slider"></span>
+                    </label>
+                  </div>
                 </div>
 
                 <div class="setting-card">
@@ -167,30 +177,36 @@
                       <span class="toggle-slider"></span>
                     </label>
                   </div>
-                  <div v-if="randomWallpaper" class="input-with-btn" style="margin-top:10px;">
-                    <div class="history-input-wrap" style="flex:1;">
-                      <input
-                        type="text"
-                        class="setting-input"
-                        :value="wallpaperApi"
-                        placeholder="输入壁纸 API 地址"
-                        @change="e => updateWallpaperApi(e.target.value)"
-                        @focus="showApiHistory = true"
-                        @blur="onApiHistoryBlur"
-                      />
-                      <div v-if="showApiHistory && wallpaperApiHistory.length > 0" class="history-dropdown">
-                        <div
-                          v-for="(item, i) in wallpaperApiHistory"
-                          :key="i"
-                          class="history-item"
-                          @mousedown.prevent="selectApiHistory(item)"
-                        >
-                          {{ item }}
+                    <div v-if="randomWallpaper">
+                      <div class="input-with-btn" style="margin-top:10px;">
+                        <div class="history-input-wrap" style="flex:1;">
+                          <input
+                            type="text"
+                            class="setting-input"
+                            :value="wallpaperApi"
+                            placeholder="输入壁纸 API 地址"
+                            @change="e => updateWallpaperApi(e.target.value)"
+                            @focus="showApiHistory = true"
+                            @blur="onApiHistoryBlur"
+                          />
+                          <div v-if="showApiHistory && wallpaperApiHistory.length > 0" class="history-dropdown">
+                            <div
+                              v-for="(item, i) in wallpaperApiHistory"
+                              :key="i"
+                              class="history-item"
+                              @mousedown.prevent="selectApiHistory(item)"
+                            >
+                              {{ item }}
+                            </div>
+                          </div>
                         </div>
                       </div>
+                      <div class="api-examples">
+                        <button class="example-api-btn" @click="updateWallpaperApi('https://api.paugram.com/wallpaper/')">Paugram 壁纸 API</button>
+                        <button class="example-api-btn" @click="updateWallpaperApi('https://picsum.photos/1920/1080')">Lorem Picsum</button>
+                      </div>
                     </div>
-                  </div>
-                  <div class="section-divider"></div>
+                    <div class="section-divider"></div>
                   <div class="toggle-row" style="border-top:none;padding-bottom:4px;">
                     <div class="toggle-info">
                       <div class="toggle-name">自定义壁纸</div>
@@ -960,6 +976,7 @@ const {
   updateCustomTitle, updateFooterContent, toggleRandomWallpaper,
   updateWallpaperApi, updateAvatarUrl, toggleDisplayMode,
   toggleNavCardAnimation, updateNavWallpaper, setNavCardBlur, setNavCardOpacity,
+  navCardTextShadow, toggleNavCardTextShadow,
   toggleIconSourceEnabled, toggleIconSourceLarger,
   moveIconSource, updateProxyUrl, parseIconSourceUrl,
   navWallpaperHistory, wallpaperApiHistory
@@ -1252,8 +1269,17 @@ watch(() => categories.value, () => {
 }, { deep: true })
 
 onMounted(() => {
+  document.addEventListener('mouseup', handleSliderMouseUp)
   checkEmptyCategories()
 })
+
+onUnmounted(() => {
+  document.removeEventListener('mouseup', handleSliderMouseUp)
+})
+
+const handleSliderMouseUp = () => {
+  sliderActive.value = false
+}
 
 const versionInfo = computed(() => {
   const stored = localStorage.getItem('version')
@@ -1452,7 +1478,9 @@ const handleDeleteCategory = async () => {
   categorySaving.value = true
   try {
     const result = await confirmDelete(selectedCategoryId.value)
-    if (!result.success) {
+    if (result.success) {
+      toastSuccess('分类已删除')
+    } else {
       toastError(result.error || '删除失败')
     }
   } finally {
@@ -1861,7 +1889,6 @@ watch(showAddDialog, (val) => {
 
 .nav-settings-overlay.slider-active {
   opacity: 0.15 !important;
-  pointer-events: none;
 }
 
 .nav-settings-modal {
@@ -3878,5 +3905,31 @@ textarea.setting-input {
 .select-dropdown-fixed .select-options::-webkit-scrollbar-thumb {
   background: var(--border);
   border-radius: 3px;
+}
+
+.api-examples {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.example-api-btn {
+  flex: 1;
+  padding: 5px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--ov-border);
+  background: var(--ov-card-bg);
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-family: inherit;
+  text-align: center;
+}
+
+.example-api-btn:hover {
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  border-color: color-mix(in srgb, var(--accent) 30%, transparent);
+  color: var(--accent);
 }
 </style>

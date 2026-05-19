@@ -29,7 +29,7 @@
             {{ bookmark.name.charAt(0) }}
           </div>
         </div>
-        <div class="card-title">{{ bookmark.name }}</div>
+        <div class="card-title" :class="{ 'has-shadow': navCardTextShadow }">{{ bookmark.name }}</div>
         <div v-if="bookmark.tags && bookmark.tags.trim()" class="card-tags">
           <span 
             v-for="(tag, tIdx) in getVisibleTags(bookmark.tags, bookmark.id)" 
@@ -77,7 +77,7 @@ const props = defineProps({
 
 const emit = defineEmits(['tag-click', 'show-detail'])
 
-const { iconSources, parseIconSourceUrl, navCardAnimation, navCardBlur, navCardOpacity } = useSettings()
+const { iconSources, parseIconSourceUrl, navCardAnimation, navCardBlur, navCardOpacity, navCardTextShadow } = useSettings()
 const { isDark } = useTheme()
 
 const iconErrors = ref({})
@@ -305,6 +305,10 @@ const handleShowDetail = (bookmark) => {
   white-space: normal;
   line-height: 1;
   min-height: 1.5em;
+}
+
+.card-title.has-shadow {
+  text-shadow: 0 0.5px 3px rgba(255, 255, 255, 0.7);
 }
 
 .card-tags {
