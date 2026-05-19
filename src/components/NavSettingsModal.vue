@@ -856,31 +856,33 @@
               <path d="M6 9l6 6 6-6"/>
             </svg>
           </div>
-          <div v-if="catSelectOpen" class="select-dropdown-fixed" :style="catDropdownStyle">
-            <input
-              v-model="catSelectSearch"
-              type="text"
-              class="select-search"
-              placeholder="搜索分类..."
-              @click.stop
-              ref="catSelectSearchInput"
-            />
-            <div class="select-options">
-              <div
-                class="select-option"
-                :class="{ selected: newCategoryParentId === null }"
-                @click="selectCatParent(null)"
-              >作为根分类</div>
-              <div
-                v-for="cat in filteredCatOptions"
-                :key="cat.id"
-                class="select-option"
-                :class="{ selected: cat.id === newCategoryParentId }"
-                @click="selectCatParent(cat.id)"
-              >{{ cat.displayName }}</div>
-              <div v-if="filteredCatOptions.length === 0 && catSelectSearch" class="select-no-results">未找到分类</div>
+          <Teleport to="body">
+            <div v-if="catSelectOpen" class="select-dropdown-fixed" :style="catDropdownStyle" @click.stop @mousedown.stop>
+              <input
+                v-model="catSelectSearch"
+                type="text"
+                class="select-search"
+                placeholder="搜索分类..."
+                @click.stop
+                ref="catSelectSearchInput"
+              />
+              <div class="select-options">
+                <div
+                  class="select-option"
+                  :class="{ selected: newCategoryParentId === null }"
+                  @click="selectCatParent(null)"
+                >作为根分类</div>
+                <div
+                  v-for="cat in filteredCatOptions"
+                  :key="cat.id"
+                  class="select-option"
+                  :class="{ selected: cat.id === newCategoryParentId }"
+                  @click="selectCatParent(cat.id)"
+                >{{ cat.displayName }}</div>
+                <div v-if="filteredCatOptions.length === 0 && catSelectSearch" class="select-no-results">未找到分类</div>
+              </div>
             </div>
-          </div>
+          </Teleport>
         </div>
       </div>
       <template #footer>
@@ -3817,5 +3819,65 @@ textarea.setting-input {
 .dropdown-leave-to {
   opacity: 0;
   transform: translateY(-4px);
+}
+
+/* Non-scoped: Teleported dropdown needs these */
+.select-dropdown-fixed {
+  position: fixed;
+  box-sizing: border-box;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: 0 10px 40px rgba(0,0,0,0.15);
+  z-index: 10001;
+  overflow: hidden;
+}
+.select-dropdown-fixed .select-search {
+  width: 100%;
+  padding: 10px 12px;
+  background: var(--input-bg);
+  border: none;
+  border-bottom: 1px solid var(--border);
+  color: var(--text);
+  font-size: 0.875rem;
+  outline: none;
+  box-sizing: border-box;
+}
+.select-dropdown-fixed .select-search::placeholder {
+  color: var(--text-secondary);
+}
+.select-dropdown-fixed .select-options {
+  max-height: 200px;
+  overflow-y: auto;
+}
+.select-dropdown-fixed .select-option {
+  padding: 9px 12px;
+  color: var(--text);
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.select-dropdown-fixed .select-option:hover {
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+.select-dropdown-fixed .select-option.selected {
+  background: color-mix(in srgb, var(--accent) 22%, transparent);
+  color: var(--accent);
+}
+.select-dropdown-fixed .select-no-results {
+  padding: 16px;
+  text-align: center;
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+}
+.select-dropdown-fixed .select-options::-webkit-scrollbar {
+  width: 6px;
+}
+.select-dropdown-fixed .select-options::-webkit-scrollbar-track {
+  background: transparent;
+}
+.select-dropdown-fixed .select-options::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 3px;
 }
 </style>
