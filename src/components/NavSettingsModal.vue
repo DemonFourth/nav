@@ -1046,13 +1046,17 @@ const categorySaving = ref(false)
 const catSelectOpen = ref(false)
 const catSelectSearch = ref('')
 const catSelectSearchInput = ref(null)
-const catDropdownStyle = reactive({ top: 0, left: 0, width: 0 })
+const catDropdownRect = reactive({ top: 0, left: 0, width: 0 })
+
+const catDropdownStyle = computed(() => (
+  `top: ${catDropdownRect.top}px; left: ${catDropdownRect.left}px; min-width: ${catDropdownRect.width}px;`
+))
 
 const toggleCatSelect = (e) => {
   const rect = e.currentTarget.getBoundingClientRect()
-  catDropdownStyle.top = rect.bottom + 4
-  catDropdownStyle.left = rect.left
-  catDropdownStyle.width = rect.width
+  catDropdownRect.top = rect.bottom + 4
+  catDropdownRect.left = rect.left
+  catDropdownRect.width = rect.width
   catSelectOpen.value = !catSelectOpen.value
 }
 
@@ -3653,6 +3657,7 @@ textarea.setting-input {
 }
 .select-dropdown-fixed {
   position: fixed;
+  box-sizing: border-box;
   background: var(--bg);
   border: 1px solid var(--border);
   border-radius: 10px;
