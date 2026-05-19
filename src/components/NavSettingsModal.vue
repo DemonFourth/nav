@@ -850,13 +850,13 @@
       <div class="form-group-menu">
         <label>父分类</label>
         <div class="custom-select" :class="{ open: catSelectOpen }">
-          <div class="select-trigger" @click="catSelectOpen = !catSelectOpen">
+          <div class="select-trigger" @click="toggleCatSelect">
             <span class="select-value" :class="{ placeholder: !selectedCatParentName }">{{ selectedCatParentName || '作为根分类' }}</span>
             <svg class="select-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M6 9l6 6 6-6"/>
             </svg>
           </div>
-          <div v-if="catSelectOpen" class="select-dropdown">
+          <div v-if="catSelectOpen" class="select-dropdown-fixed" :style="catDropdownStyle">
             <input
               v-model="catSelectSearch"
               type="text"
@@ -925,7 +925,7 @@
 </template>
 
 <script setup>
-import { ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue'
+import { ref, reactive, computed, watch, nextTick, onMounted, onUnmounted } from 'vue'
 import { useSettings } from '@/composables/useSettings'
 import { useTheme } from '@/composables/useTheme'
 import { useAuth } from '@/composables/useAuth'
@@ -1046,6 +1046,15 @@ const categorySaving = ref(false)
 const catSelectOpen = ref(false)
 const catSelectSearch = ref('')
 const catSelectSearchInput = ref(null)
+const catDropdownStyle = reactive({ top: 0, left: 0, width: 0 })
+
+const toggleCatSelect = (e) => {
+  const rect = e.currentTarget.getBoundingClientRect()
+  catDropdownStyle.top = rect.bottom + 4
+  catDropdownStyle.left = rect.left
+  catDropdownStyle.width = rect.width
+  catSelectOpen.value = !catSelectOpen.value
+}
 
 const filteredCatOptions = computed(() => {
   if (!catSelectSearch.value) return categoryFlatList.value
@@ -1070,8 +1079,16 @@ const selectCatParent = (id) => {
 watch(catSelectOpen, (val) => {
   if (val) {
     nextTick(() => catSelectSearchInput.value?.focus())
+    document.addEventListener('mousedown', closeCatSelect)
+  } else {
+    document.removeEventListener('mousedown', closeCatSelect)
   }
 })
+
+const closeCatSelect = () => {
+  catSelectOpen.value = false
+  catSelectSearch.value = ''
+}
 
 // Bookmark tab state
 const bookmarkSearch = ref('')
@@ -3632,6 +3649,15 @@ textarea.setting-input {
   border-radius: 10px;
   box-shadow: 0 10px 40px rgba(0,0,0,0.15);
   z-index: 100;
+  overflow: hidden;
+}
+.select-dropdown-fixed {
+  position: fixed;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: 0 10px 40px rgba(0,0,0,0.15);
+  z-index: 10001;
   overflow: hidden;
 }
 .select-search {
