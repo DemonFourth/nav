@@ -849,12 +849,39 @@
       </div>
       <div class="form-group-menu">
         <label>父分类</label>
-        <select v-model="newCategoryParentId" class="setting-input">
-          <option :value="null">作为根分类</option>
-          <option v-for="cat in categoryFlatList" :key="cat.id" :value="cat.id">
-            {{ cat.displayName }}
-          </option>
-        </select>
+        <div class="custom-select" :class="{ open: catSelectOpen }">
+          <div class="select-trigger" @click="catSelectOpen = !catSelectOpen">
+            <span class="select-value" :class="{ placeholder: !selectedCatParentName }">{{ selectedCatParentName || '作为根分类' }}</span>
+            <svg class="select-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M6 9l6 6 6-6"/>
+            </svg>
+          </div>
+          <div v-if="catSelectOpen" class="select-dropdown">
+            <input
+              v-model="catSelectSearch"
+              type="text"
+              class="select-search"
+              placeholder="搜索分类..."
+              @click.stop
+              ref="catSelectSearchInput"
+            />
+            <div class="select-options">
+              <div
+                class="select-option"
+                :class="{ selected: newCategoryParentId === null }"
+                @click="selectCatParent(null)"
+              >作为根分类</div>
+              <div
+                v-for="cat in filteredCatOptions"
+                :key="cat.id"
+                class="select-option"
+                :class="{ selected: cat.id === newCategoryParentId }"
+                @click="selectCatParent(cat.id)"
+              >{{ cat.displayName }}</div>
+              <div v-if="filteredCatOptions.length === 0 && catSelectSearch" class="select-no-results">未找到分类</div>
+            </div>
+          </div>
+        </div>
       </div>
       <template #footer>
         <button class="btn-secondary-sm" @click="showAddDialog = false">取消</button>
@@ -1016,6 +1043,35 @@ const newCategoryName = ref('')
 const newCategoryParentId = ref(null)
 const newCategoryNameInput = ref(null)
 const categorySaving = ref(false)
+const catSelectOpen = ref(false)
+const catSelectSearch = ref('')
+const catSelectSearchInput = ref(null)
+
+const filteredCatOptions = computed(() => {
+  if (!catSelectSearch.value) return categoryFlatList.value
+  const q = catSelectSearch.value.toLowerCase()
+  return categoryFlatList.value.filter(cat =>
+    cat.displayName.toLowerCase().includes(q)
+  )
+})
+
+const selectedCatParentName = computed(() => {
+  if (newCategoryParentId.value === null) return ''
+  const cat = categoryFlatList.value.find(c => c.id === newCategoryParentId.value)
+  return cat?.displayName || ''
+})
+
+const selectCatParent = (id) => {
+  newCategoryParentId.value = id
+  catSelectOpen.value = false
+  catSelectSearch.value = ''
+}
+
+watch(catSelectOpen, (val) => {
+  if (val) {
+    nextTick(() => catSelectSearchInput.value?.focus())
+  }
+})
 
 // Bookmark tab state
 const bookmarkSearch = ref('')
@@ -1716,6 +1772,8 @@ watch(() => props.show, async (newVal) => {
 
 watch(showAddDialog, (val) => {
   if (val) {
+    catSelectOpen.value = false
+    catSelectSearch.value = ''
     setTimeout(() => newCategoryNameInput.value?.focus(), 100)
   }
 })
@@ -3520,6 +3578,109 @@ textarea.setting-input {
   cursor: pointer;
   outline: none;
   max-width: 120px;
+}
+
+/* ===== Custom Select (新增分类父分类下拉) ===== */
+.custom-select {
+  position: relative;
+}
+.select-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 9px 12px;
+  background: var(--card-bg);
+  border: 2px solid var(--card-border);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.select-trigger:hover {
+  border-color: var(--nav-text-secondary);
+}
+.custom-select.open .select-trigger {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-alpha-10);
+}
+.select-value {
+  color: var(--text);
+  font-size: 0.875rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.select-value.placeholder {
+  color: var(--text-secondary);
+}
+.select-arrow {
+  width: 14px;
+  height: 14px;
+  color: var(--text-secondary);
+  transition: transform 0.2s;
+  flex-shrink: 0;
+}
+.custom-select.open .select-arrow {
+  transform: rotate(180deg);
+}
+.select-dropdown {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: 0 10px 40px rgba(0,0,0,0.15);
+  z-index: 100;
+  overflow: hidden;
+}
+.select-search {
+  width: 100%;
+  padding: 10px 12px;
+  background: var(--input-bg);
+  border: none;
+  border-bottom: 1px solid var(--border);
+  color: var(--text);
+  font-size: 0.875rem;
+  outline: none;
+  box-sizing: border-box;
+}
+.select-search::placeholder {
+  color: var(--text-secondary);
+}
+.select-options {
+  max-height: 200px;
+  overflow-y: auto;
+}
+.select-option {
+  padding: 9px 12px;
+  color: var(--text);
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.select-option:hover {
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+.select-option.selected {
+  background: color-mix(in srgb, var(--accent) 22%, transparent);
+  color: var(--accent);
+}
+.select-no-results {
+  padding: 16px;
+  text-align: center;
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+}
+.select-options::-webkit-scrollbar {
+  width: 6px;
+}
+.select-options::-webkit-scrollbar-track {
+  background: transparent;
+}
+.select-options::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 3px;
 }
 </style>
 

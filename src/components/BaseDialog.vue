@@ -2,7 +2,7 @@
   <Teleport to="body">
     <Transition name="modal">
       <div v-if="show" class="dialog-overlay" @click="emit('close')">
-        <div class="dialog-menu" @click.stop>
+        <div class="dialog-menu" :style="menuStyle" @click.stop>
           <div class="dialog-header">
             <h3>{{ title }}</h3>
             <button class="dialog-close" @click="emit('close')">
