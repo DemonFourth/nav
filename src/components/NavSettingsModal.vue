@@ -2648,7 +2648,7 @@ textarea.setting-input {
 .form-group-menu .setting-input {
   width: 100%;
   padding: 0.5rem 0.75rem;
-  border: 2px solid var(--card-border);
+  border: 2px solid var(--input-border);
   border-radius: 8px;
   background: var(--card-bg);
   color: var(--text);
@@ -3613,7 +3613,7 @@ textarea.setting-input {
   justify-content: space-between;
   padding: 9px 12px;
   background: var(--card-bg);
-  border: 2px solid var(--card-border);
+  border: 2px solid var(--input-border);
   border-radius: 8px;
   cursor: pointer;
   transition: all 0.2s;
