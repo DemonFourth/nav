@@ -150,6 +150,16 @@ const handleMouseLeave = () => {
   transform: translateX(4px);
 }
 
+.submenu-children::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  right: 100%;
+  width: 12px;
+  z-index: 250;
+}
+
 @media (max-width: 768px) {
   .submenu-children {
     position: static;
