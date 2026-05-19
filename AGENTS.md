@@ -717,6 +717,35 @@ if (!confirmed) return
 - z-index 为 `99999`（定义在 `src/assets/main.css`），始终浮在所有弹窗之上
 - 确认弹窗的 `message` 支持 `\n` 换行（`.dialog-message` 设置了 `white-space: pre-line`）
 
+## BaseDialog 通用弹窗
+
+`src/components/BaseDialog.vue` 是 nav 模式的通用弹窗骨架，封装 System B 模式（`.dialog-overlay` → `.dialog-menu` → header/body/footer 三段式布局），通过 CSS 变量自动跟随主题。
+
+```vue
+<BaseDialog :show="showDialog" title="标题" max-width="520px" @close="showDialog = false">
+  <p>自定义 body 内容</p>
+  <template #footer>
+    <button class="btn-secondary-sm" @click="showDialog = false">取消</button>
+    <button class="btn-primary-sm" @click="handleSave">确定</button>
+  </template>
+</BaseDialog>
+```
+
+| Prop | 类型 | 默认 | 说明 |
+|------|------|------|------|
+| `show` | boolean | `false` | 弹窗可见性 |
+| `title` | string | — | 弹窗标题 |
+| `maxWidth` | string | `'440px'` | 面板最大宽度 |
+
+- **Slots**：default（body 内容区）、`footer`（底部按钮区）
+- **CSS**：非 scoped，集中管理；依赖 `var(--nav-glass)`、`var(--nav-bg)`、`var(--nav-border)` 等主题变量
+- **不要**用于纯文字确认弹窗（用 `ConfirmDialog`）
+
+| 弹窗用途 | 使用组件 | 示例 |
+|----------|---------|------|
+| 纯文字确认（删除/放弃等） | `ConfirmDialog` | 确认删除书签、确认放弃更改 |
+| 带表单/列表内容的弹窗 | `BaseDialog` | 新增分类、确认保存更改列表 |
+
 ## AI 功能
 
 ### 架构总览

@@ -834,105 +834,54 @@
       </div>
     </Transition>
 
-    <!-- Dialog 1: Add Category -->
-    <Transition name="modal">
-      <div v-if="showAddDialog" class="dialog-overlay" @click="showAddDialog = false">
-        <div class="dialog-menu" @click.stop>
-          <div class="dialog-header">
-            <h3>新增分类</h3>
-            <button class="dialog-close" @click="showAddDialog = false">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="18" height="18">
-                <path d="M18 6L6 18M6 6l12 12"/>
-              </svg>
-            </button>
-          </div>
-          <div class="dialog-body">
-            <div class="form-group-menu">
-              <label>分类名称</label>
-              <input
-                ref="newCategoryNameInput"
-                v-model="newCategoryName"
-                type="text"
-                class="setting-input"
-                placeholder="输入分类名称"
-                @keyup.enter="handleConfirmAdd"
-              />
-            </div>
-            <div class="form-group-menu">
-              <label>父分类</label>
-              <select v-model="newCategoryParentId" class="setting-input">
-                <option :value="null">作为根分类</option>
-                <option v-for="cat in categoryFlatList" :key="cat.id" :value="cat.id">
-                  {{ cat.displayName }}
-                </option>
-              </select>
-            </div>
-          </div>
-          <div class="dialog-footer">
-            <button class="btn-secondary-sm" @click="showAddDialog = false">取消</button>
-            <button class="btn-primary-sm" :disabled="!newCategoryName.trim() || categorySaving" @click="handleConfirmAdd">
-              {{ categorySaving ? '创建中...' : '创建' }}
-            </button>
-          </div>
-        </div>
+    <!-- Dialog: Add Category -->
+    <BaseDialog :show="showAddDialog" title="新增分类" @close="showAddDialog = false">
+      <div class="form-group-menu">
+        <label>分类名称</label>
+        <input
+          ref="newCategoryNameInput"
+          v-model="newCategoryName"
+          type="text"
+          class="setting-input"
+          placeholder="输入分类名称"
+          @keyup.enter="handleConfirmAdd"
+        />
       </div>
-    </Transition>
+      <div class="form-group-menu">
+        <label>父分类</label>
+        <select v-model="newCategoryParentId" class="setting-input">
+          <option :value="null">作为根分类</option>
+          <option v-for="cat in categoryFlatList" :key="cat.id" :value="cat.id">
+            {{ cat.displayName }}
+          </option>
+        </select>
+      </div>
+      <template #footer>
+        <button class="btn-secondary-sm" @click="showAddDialog = false">取消</button>
+        <button class="btn-primary-sm" :disabled="!newCategoryName.trim() || categorySaving" @click="handleConfirmAdd">
+          {{ categorySaving ? '创建中...' : '创建' }}
+        </button>
+      </template>
+    </BaseDialog>
 
-    <!-- Dialog 3: Save Confirmation -->
-    <Transition name="modal">
-      <div v-if="showSaveDialog" class="dialog-overlay" @click="showSaveDialog = false">
-        <div class="dialog-menu dialog-save" @click.stop>
-          <div class="dialog-header">
-            <h3>确认保存</h3>
-            <button class="dialog-close" @click="showSaveDialog = false">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="18" height="18">
-                <path d="M18 6L6 18M6 6l12 12"/>
-              </svg>
-            </button>
-          </div>
-          <div class="dialog-body">
-            <p class="save-summary">共 {{ getPendingChangeCount() }} 项更改：</p>
-            <ul class="change-list">
-              <li
-                v-for="(change, idx) in pendingChanges"
-                :key="idx"
-                :class="['change-item', `change-${change.type}`]"
-              >
-                <span class="change-type">{{ getChangeTypeLabel(change.type) }}</span>
-                <span class="change-desc">{{ getChangeDescription(change) }}</span>
-              </li>
-            </ul>
-          </div>
-          <div class="dialog-footer">
-            <button class="btn-secondary-sm" @click="showSaveDialog = false">取消</button>
-            <button class="btn-primary-sm" @click="handleConfirmSave">确认保存</button>
-          </div>
-        </div>
-      </div>
-    </Transition>
-
-    <!-- Dialog 4: Discard Confirmation -->
-    <Transition name="modal">
-      <div v-if="showDiscardConfirm" class="dialog-overlay" @click="showDiscardConfirm = false">
-        <div class="dialog-menu" @click.stop>
-          <div class="dialog-header">
-            <h3>确认放弃</h3>
-            <button class="dialog-close" @click="showDiscardConfirm = false">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="18" height="18">
-                <path d="M18 6L6 18M6 6l12 12"/>
-              </svg>
-            </button>
-          </div>
-          <div class="dialog-body">
-            <p>确定要放弃全部更改吗？此操作不可恢复。</p>
-          </div>
-          <div class="dialog-footer">
-            <button class="btn-secondary-sm" @click="showDiscardConfirm = false">取消</button>
-            <button class="btn-danger-sm" @click="handleConfirmDiscard">确认放弃</button>
-          </div>
-        </div>
-      </div>
-    </Transition>
+    <!-- Dialog: Save Confirmation -->
+    <BaseDialog :show="showSaveDialog" title="确认保存" max-width="520px" @close="showSaveDialog = false">
+      <p class="save-summary">共 {{ getPendingChangeCount() }} 项更改：</p>
+      <ul class="change-list">
+        <li
+          v-for="(change, idx) in pendingChanges"
+          :key="idx"
+          :class="['change-item', `change-${change.type}`]"
+        >
+          <span class="change-type">{{ getChangeTypeLabel(change.type) }}</span>
+          <span class="change-desc">{{ getChangeDescription(change) }}</span>
+        </li>
+      </ul>
+      <template #footer>
+        <button class="btn-secondary-sm" @click="showSaveDialog = false">取消</button>
+        <button class="btn-primary-sm" @click="handleConfirmSave">确认保存</button>
+      </template>
+    </BaseDialog>
 
     <!-- Bookmark Add/Edit Dialog -->
     <NavBookmarkEditModal
@@ -962,6 +911,7 @@ import { buildCategoryTree, getCategoryPath } from '@/utils/categoryTree'
 import { searchBookmarks, SEARCH_FIELD_OPTIONS } from '@/utils/search'
 import MenuTreeNode from '@/components/MenuTreeNode.vue'
 import NavBookmarkEditModal from '@/components/NavBookmarkEditModal.vue'
+import BaseDialog from '@/components/BaseDialog.vue'
 import ConfirmDialog from '@/components/ConfirmDialog.vue'
 
 const props = defineProps({
@@ -1062,7 +1012,6 @@ const promptSaving = ref(false)
 // Dialog state
 const showAddDialog = ref(false)
 const showSaveDialog = ref(false)
-const showDiscardConfirm = ref(false)
 const newCategoryName = ref('')
 const newCategoryParentId = ref(null)
 const newCategoryNameInput = ref(null)
@@ -1436,8 +1385,11 @@ const handleConfirmSave = async () => {
   await confirmSave()
   showSaveDialog.value = false
 }
-const handleDiscardAll = () => { showDiscardConfirm.value = true }
-const handleConfirmDiscard = () => { discardAll(); showDiscardConfirm.value = false }
+const handleDiscardAll = async () => {
+  const confirmed = await confirmDialog.value.open('确定要放弃全部更改吗？此操作不可恢复。', '确认放弃')
+  if (!confirmed) return
+  discardAll()
+}
 
 // Bookmark handlers
 const toggleBookmarkSelection = (id) => {
@@ -3146,97 +3098,6 @@ textarea.setting-input {
   background: color-mix(in srgb, var(--error) 12%, transparent);
   border-color: color-mix(in srgb, var(--error) 22%, transparent);
   color: var(--error);
-}
-
-/* ===== Dialogs ===== */
-.dialog-overlay {
-  position: fixed;
-  inset: 0;
-  background: var(--nav-glass);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 10000;
-}
-.dialog-menu {
-  background: var(--nav-bg);
-  backdrop-filter: blur(24px);
-  -webkit-backdrop-filter: blur(24px);
-  border: 1px solid var(--nav-border);
-  border-radius: 16px;
-  width: 90%;
-  max-width: 440px;
-  max-height: 80vh;
-  display: flex;
-  flex-direction: column;
-  box-shadow: 0 24px 48px var(--shadow-xl);
-}
-.dialog-save {
-  max-width: 520px;
-}
-.dialog-bookmark {
-  max-width: 500px;
-}
-.dialog-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 1rem 1.25rem;
-  border-bottom: 1px solid var(--card-border);
-}
-.dialog-header h3 {
-  font-size: 1rem;
-  font-weight: 600;
-  color: var(--text-primary);
-  margin: 0;
-}
-.dialog-close {
-  width: 32px;
-  height: 32px;
-  border-radius: 8px;
-  background: transparent;
-  border: none;
-  color: var(--text-secondary);
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.2s;
-}
-.dialog-close:hover {
-  background: color-mix(in srgb, var(--error) 12%, transparent);
-  color: var(--error);
-}
-.dialog-body {
-  padding: 1.25rem;
-  overflow-y: auto;
-  flex: 1;
-}
-.dialog-footer {
-  display: flex;
-  justify-content: flex-end;
-  gap: 8px;
-  padding: 1rem 1.25rem;
-  border-top: 1px solid var(--card-border);
-}
-
-/* Delete confirmation */
-.delete-confirm-text {
-  font-size: 0.875rem;
-  color: var(--text-primary);
-  margin: 0 0 8px 0;
-}
-.delete-confirm-text strong {
-  color: var(--accent);
-}
-.delete-warning {
-  font-size: 0.8rem;
-  color: var(--error);
-  background: color-mix(in srgb, var(--error) 10%, transparent);
-  padding: 10px 12px;
-  border-radius: 8px;
-  margin: 0;
-  line-height: 1.5;
 }
 
 /* Save confirmation */
