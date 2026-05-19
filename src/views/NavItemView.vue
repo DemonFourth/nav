@@ -67,7 +67,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import NavBar from '../components/NavBar.vue'
 import NavSearch from '../components/NavSearch.vue'
 import NavCardGrid from '../components/NavCardGrid.vue'
@@ -206,6 +206,14 @@ onMounted(async () => {
   if (menuTree.value.length > 0) {
     activeMenu.value = menuTree.value[0]
   }
+
+  const onVisible = () => {
+    if (document.visibilityState === 'visible') {
+      fetchData({ forceRefresh: true, background: true })
+    }
+  }
+  document.addEventListener('visibilitychange', onVisible)
+  onUnmounted(() => document.removeEventListener('visibilitychange', onVisible))
 })
 
 watch(menuTree, (newMenus) => {
