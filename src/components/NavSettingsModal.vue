@@ -1407,7 +1407,6 @@ const handleConfirmAdd = async () => {
   try {
     const result = await confirmAddCategory(newCategoryName.value, newCategoryParentId.value)
     if (result.success) {
-      toastSuccess('已创建新分类')
       showAddDialog.value = false
       newCategoryName.value = ''
       newCategoryParentId.value = null
@@ -2648,7 +2647,7 @@ textarea.setting-input {
 .form-group-menu .setting-input {
   width: 100%;
   padding: 0.5rem 0.75rem;
-  border: 2px solid var(--input-border);
+  border: 2px solid var(--border);
   border-radius: 8px;
   background: var(--card-bg);
   color: var(--text);
@@ -3613,7 +3612,7 @@ textarea.setting-input {
   justify-content: space-between;
   padding: 9px 12px;
   background: var(--card-bg);
-  border: 2px solid var(--input-border);
+  border: 2px solid var(--border);
   border-radius: 8px;
   cursor: pointer;
   transition: all 0.2s;
