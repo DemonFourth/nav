@@ -115,7 +115,7 @@
                     @input="tagSuggestionsOpen = true"
                     @keydown.enter.prevent="addTag"
                     @keydown.backspace="handleInputBackspace"
-                    @mousedown.prevent="showAllTagSuggestions"
+                    @mousedown="showAllTagSuggestions"
                     @blur="handleTagInputBlur"
                     @keydown.escape="tagSuggestionsOpen = false"
                   />
@@ -280,6 +280,7 @@ const displayedTagSuggestions = computed(() => {
 
 const showAllTagSuggestions = () => {
   tagSuggestionsOpen.value = true
+  nextTick(() => tagInputRef.value?.focus())
 }
 
 const open = (bookmark) => {
