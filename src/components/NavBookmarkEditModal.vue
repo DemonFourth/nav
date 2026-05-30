@@ -113,7 +113,7 @@
                     placeholder="输入标签后回车添加"
                     ref="tagInputRef"
                     @input="tagSuggestionsOpen = true"
-                    @keydown.enter.prevent="addTag"
+                    @keydown.enter.prevent="addTag()"
                     @keydown.backspace="handleInputBackspace"
                     @mousedown="showAllTagSuggestions"
                     @blur="handleTagInputBlur"
