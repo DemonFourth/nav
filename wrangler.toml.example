@@ -27,4 +27,13 @@ database_id = "YOUR_DATABASE_ID_HERE"  # 替换为你的 D1 数据库 ID
 # - OPENAI_MODEL            # 模型名称（可选，默认 gpt-4o-mini）
 # - OPENAI_AUTH_HEADER      # 认证 Header 名称（可选，默认 Authorization）
 # - OPENAI_AUTH_PREFIX      # 认证前缀（可选，默认 "Bearer "，留空表示不添加前缀）
+#
+# KV 速率限制配置（可选，用于登录安全防护）
+# 1. 创建 KV namespace：npx wrangler kv:namespace create RATE_LIMIT_STORAGE
+# 2. Pages 项目 > Settings > Functions > KV namespace bindings 添加绑定
+# 3. 绑定变量名必须为 RATE_LIMIT_STORAGE
+# 配置后，同一用户名 1 分钟内最多只能尝试 5 次登录，防止暴力破解
+#[[kv_namespaces]]
+#binding = "RATE_LIMIT_STORAGE"
+#id = "YOUR_KV_NAMESPACE_ID_HERE"
 
