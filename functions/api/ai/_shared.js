@@ -86,6 +86,11 @@ export async function callOpenAI(env, { path, method = 'POST', body, headers = {
       details = await response.text()
     }
 
+    // 将 OpenAI content filter 错误映射为友好提示
+    if (details.includes('content policy') || details.includes('content filter') || details.includes('blocked by')) {
+      throw new Error('内容审核：请求内容触发了安全策略，请修改后重试')
+    }
+
     throw new Error(details || `OpenAI request failed with status ${response.status}`)
   }
 

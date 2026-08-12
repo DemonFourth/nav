@@ -27,7 +27,7 @@ URL: {url}
 
 Please generate a brief, useful description (1-2 sentences, max 100 words) that explains what this website/resource is about. The description should be clear, informative, and help users understand the purpose or content of the site.
 
-Language requirement: Respond in the same language as the bookmark name if it is clearly identifiable; otherwise, respond in Simplified Chinese. Return only the description text, without any additional formatting or quotes.`
+You MUST write the description in Simplified Chinese (简体中文), regardless of the language of the bookmark name or URL. Return only the description text, without any additional formatting or quotes.`
     
     // 获取自定义 Prompt 配置和开关状态（优先使用描述专用提示词）
     const settingsResults = await env.DB.prepare(
@@ -56,7 +56,7 @@ Language requirement: Respond in the same language as the bookmark name if it is
         messages: [
           {
             role: 'system',
-            content: 'You are a helpful assistant that generates concise bookmark descriptions. Always reply in the same language as the user/bookmark context; if uncertain, use Simplified Chinese.'
+            content: 'You are a helpful assistant that generates concise bookmark descriptions in Simplified Chinese. Always write descriptions in Simplified Chinese regardless of the bookmark language.'
           },
           {
             role: 'user',
