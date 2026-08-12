@@ -25,9 +25,7 @@ Given the following bookmark information:
 Name: {name}
 URL: {url}
 
-Please generate a brief, useful description (1-2 sentences, about 30-60 Chinese characters) that explains what this website/resource is about. The description should be clear and informative.
-
-You MUST write the description in Simplified Chinese (简体中文), regardless of the language of the bookmark name or URL. Return only the description text, without any additional formatting or quotes.`
+Please generate a brief, useful description (1-2 sentences) that explains what this website/resource is about. The description MUST be no more than 60 Chinese characters. Write in Simplified Chinese only. Return only the description text, no quotes or formatting.`
     
     // 获取自定义 Prompt 配置和开关状态（优先使用描述专用提示词）
     const settingsResults = await env.DB.prepare(
@@ -62,7 +60,7 @@ You MUST write the description in Simplified Chinese (简体中文), regardless 
             messages: [
               {
                 role: 'system',
-                content: 'You are a helpful assistant that generates concise bookmark descriptions in Simplified Chinese. Always write descriptions in Simplified Chinese.'
+                content: 'You generate bookmark descriptions in Simplified Chinese. Each description must be 60 characters or fewer.'
               },
               {
                 role: 'user',
@@ -78,7 +76,7 @@ You MUST write the description in Simplified Chinese (简体中文), regardless 
         const choice = data.choices?.[0]
         console.log('[AI desc] finish_reason:', choice?.finish_reason, 'content:', JSON.stringify(choice?.message?.content)?.slice(0, 200))
 
-        const description = choice?.message?.content?.trim()
+        const description = (choice?.message?.content?.trim() || '').slice(0, 60)
 
         if (description) {
           results.push({
