@@ -474,6 +474,35 @@ export function useCategoryEditor() {
     editForm.maxPosition = siblings.length
   }
 
+  // Record local detail change without applying to API
+  function recordCategoryDetailChange() {
+    if (!selectedCategoryId.value) return
+    const oldParentPath = formOriginal.parentId ? getPath(formOriginal.parentId) : '根分类'
+    const newParentPath = editForm.parentId ? getPath(editForm.parentId) : '根分类'
+    const existing = pendingChanges.value.find(c => c.id === selectedCategoryId.value && c.type !== 'delete')
+    if (existing) {
+      // Preserve oldName and oldParentPath from the first change
+      existing.oldName = existing.oldName || formOriginal.name
+      existing.newName = editForm.name
+      existing.oldParentId = existing.oldParentId !== undefined ? existing.oldParentId : formOriginal.parentId
+      existing.oldParentPath = existing.oldParentPath || oldParentPath
+      existing.newParentId = editForm.parentId
+      existing.newParentPath = newParentPath
+    } else {
+      recordChange({
+        type: 'detail',
+        id: selectedCategoryId.value,
+        name: editForm.name,
+        oldName: formOriginal.name,
+        newName: editForm.name,
+        oldParentId: formOriginal.parentId,
+        newParentId: editForm.parentId,
+        oldParentPath,
+        newParentPath
+      })
+    }
+  }
+
   async function applyFormChanges() {
     if (!selectedCategoryId.value) return { success: false }
     if (!editForm.name || !editForm.name.trim()) {
@@ -591,6 +620,17 @@ export function useCategoryEditor() {
     switch (change.type) {
       case 'create':
         return `"${change.name}" (父: ${change.parentPath || '根分类'})`
+      case 'detail': {
+        const parts = []
+        const nameChanged = change.newName !== change.oldName && change.oldName
+        if (nameChanged) {
+          parts.push(`"${change.oldName}" → "${change.newName}"`)
+        }
+        if (change.newParentId !== change.oldParentId) {
+          parts.push(`父分类: ${change.oldParentPath || '根分类'} → ${change.newParentPath || '根分类'}`)
+        }
+        return parts.join('、')
+      }
       case 'rename':
         return `"${change.oldName}" → "${change.newName}"`
       case 'reorder':
@@ -609,6 +649,7 @@ export function useCategoryEditor() {
     switch (type) {
       case 'create': return '新建'
       case 'rename': return '重命名'
+      case 'detail': return '编辑'
       case 'reorder': return '排序'
       case 'move': return '移动'
       case 'delete': return '删除'
@@ -666,6 +707,7 @@ export function useCategoryEditor() {
     initialDataSnapshot,
     captureInitialSnapshot,
     applyFormChanges,
+    recordCategoryDetailChange,
     confirmDelete,
     confirmAddCategory,
     confirmSave,

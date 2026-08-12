@@ -472,11 +472,11 @@
                   <div v-if="selectedCategoryData" class="detail-form-menu">
                     <div class="form-group-menu">
                       <label>分类名称</label>
-                      <input type="text" v-model="editCategoryForm.name" class="setting-input" @change="handleApplyCategoryChanges" />
+                      <input type="text" v-model="editCategoryForm.name" class="setting-input" @change="handleRecordCategoryChange" />
                     </div>
                     <div class="form-group-menu">
                       <label>父分类</label>
-                      <select v-model="editCategoryForm.parentId" class="setting-input" @change="handleApplyCategoryChanges">
+                      <select v-model="editCategoryForm.parentId" class="setting-input" @change="handleRecordCategoryChange">
                         <option :value="null">无（根分类）</option>
                         <option v-for="cat in availableParentCategories" :key="cat.id" :value="cat.id" :disabled="cat.id === selectedCategoryId">
                           {{ cat.displayName }}
@@ -489,16 +489,22 @@
                         第 {{ editCategoryForm.position }} / 共 {{ editCategoryForm.maxPosition }} 项
                       </div>
                     </div>
-                    <div class="danger-zone-menu">
-                      <h4>危险区域</h4>
+                    <div v-if="categoryDetailChanged" class="detail-unsaved-hint">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                      有未保存的更改
+                    </div>
+                    <div class="detail-actions-menu">
+                      <button class="btn-primary-sm" :disabled="!categoryDetailChanged || categorySaving" @click="handleConfirmCategoryChanges">
+                        {{ categorySaving ? '保存中...' : '确认' }}
+                      </button>
                       <button class="btn-danger-sm" @click="handleDeleteCategory">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
                           <path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/>
                         </svg>
                         删除此分类
                       </button>
-                      <p class="danger-hint-menu">删除分类将同时删除所有子分类和书签</p>
                     </div>
+                    <p class="danger-hint-menu">确认后将立即保存更改，删除分类将同时删除所有子分类和书签</p>
                   </div>
                   <div v-else class="no-selection-menu">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="48" height="48">
@@ -1142,6 +1148,7 @@ const {
   initialDataSnapshot,
   captureInitialSnapshot,
   applyFormChanges,
+  recordCategoryDetailChange,
   confirmDelete,
   confirmAddCategory,
   confirmSave,
@@ -1215,14 +1222,14 @@ const filteredCatOptions = computed(() => {
   if (!catSelectSearch.value) return categoryFlatList.value
   const q = catSelectSearch.value.toLowerCase()
   return categoryFlatList.value.filter(cat =>
-    cat.displayName.toLowerCase().includes(q)
+    (cat.displayName || cat.name || '').toLowerCase().includes(q)
   )
 })
 
 const selectedCatParentName = computed(() => {
   if (newCategoryParentId.value === null) return ''
   const cat = categoryFlatList.value.find(c => c.id === newCategoryParentId.value)
-  return cat?.displayName || ''
+  return cat?.displayName || cat?.name || ''
 })
 
 const selectCatParent = (id) => {
@@ -1690,6 +1697,30 @@ function handleIconError(bmId) {
 }
 
 // Category dialog handlers
+const categoryDetailChanged = ref(false)
+
+const handleRecordCategoryChange = () => {
+  categoryDetailChanged.value = true
+  recordCategoryDetailChange()
+}
+
+const handleApplyCategoryChanges = async () => {
+  if (!requireAuth()) return
+  if (categorySaving.value) return
+  categorySaving.value = true
+  try {
+    await applyFormChanges()
+    categoryDetailChanged.value = false
+  } finally {
+    categorySaving.value = false
+  }
+}
+
+const handleConfirmCategoryChanges = () => {
+  if (!categoryDetailChanged.value) return
+  handleApplyCategoryChanges()
+}
+
 const openAddDialog = () => {
   showAddDialog.value = true
   newCategoryName.value = ''
@@ -1712,18 +1743,6 @@ const handleConfirmAdd = async () => {
     categorySaving.value = false
   }
 }
-
-const handleApplyCategoryChanges = async () => {
-  if (!requireAuth()) return
-  if (categorySaving.value) return
-  categorySaving.value = true
-  try {
-    await applyFormChanges()
-  } finally {
-    categorySaving.value = false
-  }
-}
-
 
 
 const handleMoveItem = (node, direction) => {
@@ -2095,6 +2114,10 @@ watch(showAddDialog, (val) => {
     catSelectSearch.value = ''
     setTimeout(() => newCategoryNameInput.value?.focus(), 100)
   }
+})
+
+watch(selectedCategoryId, () => {
+  categoryDetailChanged.value = false
 })
 </script>
 
@@ -3075,6 +3098,38 @@ textarea.setting-input {
 
 .btn-danger-sm:hover {
   filter: brightness(1.1);
+}
+
+.detail-unsaved-hint {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.375rem 0.625rem;
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+  border: 1px solid var(--accent-border);
+  border-radius: 6px;
+  font-size: 0.7rem;
+  color: var(--accent);
+  margin-bottom: 0.75rem;
+}
+
+.detail-unsaved-hint svg {
+  flex-shrink: 0;
+}
+
+.detail-actions-menu {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 0.375rem;
+}
+
+.detail-actions-menu .btn-primary-sm {
+  flex: 1;
+}
+
+.detail-actions-menu .btn-danger-sm {
+  width: auto;
+  flex: 0 0 auto;
 }
 
 .danger-hint-menu {
