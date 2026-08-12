@@ -181,19 +181,44 @@ export function useAI() {
         method: 'POST',
         body: JSON.stringify({ apiKey, baseUrl, model })
       })
-      
+
       const result = await response.json()
-      return { 
-        success: result.success, 
-        valid: result.valid, 
-        message: result.message 
+      return {
+        success: result.success,
+        valid: result.valid,
+        message: result.message
       }
     } catch (error) {
-      return { 
-        success: false, 
-        valid: false, 
-        message: error.message || '验证失败' 
+      return {
+        success: false,
+        valid: false,
+        message: error.message || '验证失败'
       }
+    }
+  }
+
+  const searchBookmarks = async (options = {}) => {
+    try {
+      const params = new URLSearchParams()
+      if (options.q) params.set('q', options.q)
+      if (options.categoryId) params.set('category_id', options.categoryId)
+      if (options.tag) params.set('tag', options.tag)
+      if (options.fields) params.set('fields', options.fields)
+      if (options.limit) params.set('limit', String(options.limit))
+      if (options.offset) params.set('offset', String(options.offset))
+
+      const queryStr = params.toString()
+      const response = await apiRequest(`/api/bookmarks/search${queryStr ? `?${queryStr}` : ''}`, {
+        method: 'GET'
+      })
+
+      const result = await response.json()
+      return result
+    } catch (error) {
+      if (error.message === 'Token expired') {
+        return { success: false, error: '登录已过期，请重新登录' }
+      }
+      return { success: false, error: error.message || '搜索失败' }
     }
   }
 
@@ -207,6 +232,7 @@ export function useAI() {
     suggestCategory,
     batchGenerateDescriptions,
     batchClassify,
+    searchBookmarks,
     saveAISettings,
     getAISettings,
     verifyApiKey
