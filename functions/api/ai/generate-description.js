@@ -69,12 +69,22 @@ You MUST write the description in Simplified Chinese (简体中文), regardless 
     })
 
     const data = await response.json()
-    const description = data.choices?.[0]?.message?.content?.trim()
+    const choice = data.choices?.[0]
+    console.log('[AI desc] finish_reason:', choice?.finish_reason, 'content:', JSON.stringify(choice?.message?.content)?.slice(0, 200))
+
+    const description = choice?.message?.content?.trim()
 
     if (!description) {
+      const reason = choice?.finish_reason
+      let errorMsg = 'AI 未返回有效描述'
+      if (reason === 'content_filter') {
+        errorMsg = '内容审核：生成结果触发了安全策略，请尝试简化描述或更换网址'
+      } else if (reason) {
+        errorMsg = `AI 生成中断：${reason}`
+      }
       return new Response(JSON.stringify({
         success: false,
-        error: 'No description generated'
+        error: errorMsg
       }), {
         status: 500,
         headers: { 'Content-Type': 'application/json' }
