@@ -93,6 +93,8 @@ Please generate a brief, useful description (1-2 sentences) that explains what t
           } else if (reason) {
             errorMsg = `AI 生成中断：${reason}`
           }
+          const rawPreview = choice?.message?.content?.slice(0, 150).replace(/\n/g, ' ')
+          if (rawPreview) errorMsg += `。AI 实际回复：${rawPreview}`
           results.push({
             id: bookmark.id,
             success: false,

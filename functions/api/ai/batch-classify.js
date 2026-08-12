@@ -134,10 +134,11 @@ You may also explain your reasoning in natural language before or after the JSON
         const parsed = extractJson(message)
 
         if (!parsed || typeof parsed.categoryId === 'undefined') {
+          const rawPreview = message?.slice(0, 200).replace(/\n/g, ' ')
           results.push({
             id: bookmark.id,
             success: false,
-            error: 'AI 无法确定分类'
+            error: `AI 无法确定分类。AI 实际回复：${rawPreview}`
           })
           failedCount++
         } else {
