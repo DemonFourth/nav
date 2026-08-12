@@ -757,7 +757,7 @@
                     class="timeline-item"
                     @click="openBookmarkEdit(bm)"
                   >
-                    <span class="timeline-time">{{ bm.created_at?.slice(11, 16) }}</span>
+                    <span class="timeline-time">{{ toLocalTimeStr(bm.created_at) }}</span>
                     <div class="timeline-icon">
                       <img
                         v-if="bm.url && !iconErrors[bm.id]"
@@ -1523,9 +1523,27 @@ const trendGranularityLabel = computed(() => {
   return '日'
 })
 
+function toLocalDateStr(utcStr) {
+  if (!utcStr) return null
+  const d = new Date(String(utcStr).replace(' ', 'T') + 'Z')
+  if (isNaN(d.getTime())) return null
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
+}
+
+function toLocalTimeStr(utcStr) {
+  if (!utcStr) return ''
+  const d = new Date(String(utcStr).replace(' ', 'T') + 'Z')
+  if (isNaN(d.getTime())) return ''
+  return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0')
+}
+
 function getTrendKey(createdAt) {
   if (!createdAt) return null
-  const d = String(createdAt).slice(0, 10) // YYYY-MM-DD
+  const d = toLocalDateStr(createdAt)
+  if (!d) return null
   if (trendGranularity.value === 'day') return d
   if (trendGranularity.value === 'month') return d.slice(0, 7) // YYYY-MM
   // week: Monday-based ISO week start
@@ -1608,14 +1626,18 @@ const chartBars = computed(() => {
 const trendTimeline = computed(() => {
   const groups = {}
   bookmarks.value.forEach(bm => {
-    const d = bm.created_at ? String(bm.created_at).slice(0, 10) : '未知日期'
+    const d = toLocalDateStr(bm.created_at) || '未知日期'
     if (!groups[d]) groups[d] = { date: d, bookmarks: [] }
     groups[d].bookmarks.push(bm)
   })
   return Object.values(groups)
     .sort((a, b) => b.date.localeCompare(a.date))
     .map(g => {
-      g.bookmarks.sort((x, y) => String(y.created_at).localeCompare(String(x.created_at)))
+      g.bookmarks.sort((x, y) => {
+        const tx = x.created_at ? new Date(String(x.created_at).replace(' ', 'T') + 'Z').getTime() : 0
+        const ty = y.created_at ? new Date(String(y.created_at).replace(' ', 'T') + 'Z').getTime() : 0
+        return ty - tx
+      })
       return g
     })
 })
