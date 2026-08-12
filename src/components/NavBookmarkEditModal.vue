@@ -329,7 +329,7 @@ const open = (bookmark) => {
   generatingDesc.value = false
   suggestingCategory.value = false
   tagSuggestionsOpen.value = false
-  checkAIAvailability()
+  void checkAIAvailability().catch(() => {})
 }
 
 const handleClose = () => {
@@ -429,6 +429,11 @@ const handleGenerateDescription = async () => {
     return
   }
 
+  if (!aiEnabled.value) {
+    toastError('AI 功能未启用，请先在设置中配置 API Key')
+    return
+  }
+
   generatingDesc.value = true
 
   try {
@@ -450,6 +455,11 @@ const handleGenerateDescription = async () => {
 const handleSuggestCategory = async () => {
   if (!form.name || !form.url) {
     toastError('请先输入名称和 URL')
+    return
+  }
+
+  if (!aiEnabled.value) {
+    toastError('AI 功能未启用，请先在设置中配置 API Key')
     return
   }
 
@@ -549,7 +559,7 @@ watch(selectOpen, (val) => {
 })
 
 onMounted(() => {
-  checkAIAvailability()
+  void checkAIAvailability().catch(() => {})
 })
 
 defineExpose({ open })

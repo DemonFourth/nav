@@ -386,6 +386,11 @@ const handleGenerateDescription = async () => {
     return
   }
 
+  if (!aiEnabled.value) {
+    toastError('AI 功能未启用，请先在设置中配置 API Key')
+    return
+  }
+
   generatingDesc.value = true
   error.value = ''
 
@@ -408,6 +413,11 @@ const handleGenerateDescription = async () => {
 const handleSuggestCategory = async () => {
   if (!form.value.name || !form.value.url) {
     toastError('请先输入名称和 URL')
+    return
+  }
+
+  if (!aiEnabled.value) {
+    toastError('AI 功能未启用，请先在设置中配置 API Key')
     return
   }
 
@@ -496,7 +506,7 @@ const handleSubmit = async () => {
 }
 
 onMounted(() => {
-  checkAIAvailability()
+  void checkAIAvailability().catch(() => {})
 })
 
 defineExpose({
