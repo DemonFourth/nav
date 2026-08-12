@@ -677,7 +677,7 @@
                 >按月</button>
               </div>
 
-              <div class="trend-year-bar" v-if="trendYears.length > 1">
+              <div class="trend-year-bar" v-if="trendYears.length">
                 <button
                   class="trend-year-btn"
                   :class="{ active: !trendYearFilter }"
