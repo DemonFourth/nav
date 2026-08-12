@@ -36,7 +36,7 @@
             </svg>
           </button>
 
-          <main class="settings-content">
+          <main class="settings-content" ref="settingsContentRef">
             <!-- Appearance -->
             <div v-show="activeTab === 'appearance'" class="tab-panel">
               <div class="panel-header">
@@ -762,13 +762,21 @@
                       <div v-else class="timeline-letter-icon">{{ bm.name.charAt(0) }}</div>
                     </div>
                     <div class="timeline-info">
-                      <div class="timeline-name"><a :href="bm.url" target="_blank" rel="noopener" @click.stop>{{ bm.name }}</a></div>
+                      <div class="timeline-name">{{ bm.name }}</div>
                       <div class="timeline-meta">{{ getCategoryPathForBookmark(bm.category_id) }}</div>
                     </div>
                   </div>
                 </template>
               </div>
             </div>
+
+            <Transition name="modal">
+              <button v-if="trendShowBackTop" class="trend-back-top" @click="scrollTrendToTop" title="回到顶部">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polyline points="18 15 12 9 6 15"/>
+                </svg>
+              </button>
+            </Transition>
 
             <!-- AI -->
             <div v-show="activeTab === 'ai'" class="tab-panel">
@@ -1603,6 +1611,33 @@ const trendTimeline = computed(() => {
       g.bookmarks.sort((x, y) => String(y.created_at).localeCompare(String(x.created_at)))
       return g
     })
+})
+
+const settingsContentRef = ref(null)
+const trendShowBackTop = ref(false)
+let trendScrollHandler = null
+
+const scrollTrendToTop = () => {
+  settingsContentRef.value?.scrollTo({ top: 0, behavior: 'smooth' })
+}
+
+watch(activeTab, (tab) => {
+  if (tab === 'trend') {
+    trendShowBackTop.value = false
+    const el = settingsContentRef.value
+    if (el) {
+      trendScrollHandler = () => {
+        trendShowBackTop.value = el.scrollTop > 80
+      }
+      el.addEventListener('scroll', trendScrollHandler, { passive: true })
+    }
+  } else {
+    if (trendScrollHandler && settingsContentRef.value) {
+      settingsContentRef.value.removeEventListener('scroll', trendScrollHandler)
+      trendScrollHandler = null
+    }
+    trendShowBackTop.value = false
+  }
 })
 
 function getCategoryPathForBookmark(categoryId) {
@@ -4137,14 +4172,6 @@ textarea.setting-input {
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.timeline-name a {
-  color: var(--text);
-  text-decoration: none;
-  transition: color 0.15s;
-}
-.timeline-name a:hover {
-  color: var(--accent);
-}
 .timeline-meta {
   display: inline-block;
   font-size: 0.7rem;
@@ -4158,6 +4185,32 @@ textarea.setting-input {
   text-overflow: ellipsis;
   max-width: 100%;
   margin-top: 2px;
+}
+.trend-back-top {
+  position: fixed;
+  right: 36px;
+  bottom: 36px;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 16px color-mix(in srgb, var(--accent) 40%, transparent);
+  transition: all 0.2s;
+  z-index: 999;
+}
+.trend-back-top:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px color-mix(in srgb, var(--accent) 50%, transparent);
+}
+.trend-back-top svg {
+  width: 18px;
+  height: 18px;
 }
 </style>
 
