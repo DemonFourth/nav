@@ -2,75 +2,109 @@ import { callOpenAI, getAIConfig, extractJson } from './_shared.js'
 
 /**
  * 关键词兜底：当 AI 无法返回有效结果时，用本地关键词匹配给出推荐。
- * 匹配优先级：tags 精确匹配 > name 匹配 > URL 域名匹配 > description 匹配
+ * 核心策略：评分制 + 深度加权，优先返回最具体的子分类。
  */
 function keywordFallback({ name, url, description, tags, notes, categories }) {
   if (!categories || categories.length === 0) return null
 
-  const categoryMap = new Map()
+  const catNodes = []
   for (const cat of categories) {
     const id = Number.parseInt(cat.id, 10)
     if (!Number.isInteger(id)) continue
-    const displayName = (cat.name || '').toLowerCase()
-    const fullPath = (cat.path || '').toLowerCase()
-    categoryMap.set(id, { id, displayName, fullPath, name: cat.name, path: cat.path })
+    const depth = (cat.path || cat.name).split(' / ').length - 1
+    catNodes.push({
+      id,
+      depth,
+      name: (cat.name || '').toLowerCase(),
+      path: (cat.path || '').toLowerCase(),
+      pathRaw: cat.path || cat.name || ''
+    })
   }
 
-  // 1. tags 精确匹配（权重最高）
-  if (tags) {
-    const tagList = tags.split(',').map(t => t.trim().toLowerCase()).filter(Boolean)
-    for (const [id, cat] of categoryMap) {
+  if (catNodes.length === 0) return null
+
+  // 按深度降序排列，优先检查子分类
+  catNodes.sort((a, b) => b.depth - a.depth)
+
+  let bestMatch = null
+
+  for (const node of catNodes) {
+    let score = 0
+    let reasonPart = ''
+
+    // 1. tags 精确匹配（最高权重）
+    if (tags) {
+      const tagList = tags.split(',').map(t => t.trim().toLowerCase()).filter(Boolean)
       for (const tag of tagList) {
-        if (cat.displayName.includes(tag) || cat.fullPath.includes(tag)) {
-          return { categoryId: id, reason: `tags 匹配："${tag}"` }
-        }
+        if (node.name.includes(tag)) { score += 200; reasonPart = `tags 匹配："${tag}"`; break }
       }
     }
-  }
 
-  // 2. 书签名称匹配
-  const nameLower = (name || '').toLowerCase()
-  for (const [id, cat] of categoryMap) {
-    if (cat.displayName.includes(nameLower)) {
-      return { categoryId: id, reason: `名称包含分类关键词："${cat.name}"` }
-    }
-  }
-  for (const [id, cat] of categoryMap) {
-    if (cat.fullPath.includes(nameLower)) {
-      return { categoryId: id, reason: `路径包含名称关键词："${cat.name}"` }
-    }
-  }
+    // 2. 书签名称匹配
+    const nameLower = (name || '').toLowerCase()
+    if (node.name.includes(nameLower)) { score += 100; reasonPart = `名称匹配分类："${node.pathRaw}"` }
+    if (node.path.includes(nameLower)) { score += 60; reasonPart = `路径匹配名称："${node.pathRaw}"` }
+    if (nameLower.includes(node.name)) { score += 100; reasonPart = `名称包含分类："${node.pathRaw}"` }
 
-  // 3. 分类名称出现在书签名称中
-  for (const [id, cat] of categoryMap) {
-    if (nameLower.includes(cat.displayName)) {
-      return { categoryId: id, reason: `名称包含分类名："${cat.name}"` }
-    }
-  }
+    // 3. URL 域名匹配
+    try {
+      const domain = new URL(url).hostname.replace(/^www\./, '')
+      const domainBase = domain.split('.')[0]
+      if (domainBase.includes(node.name) || node.name.includes(domainBase)) {
+        score += 80; reasonPart = `URL 域名匹配："${node.pathRaw}"`
+      }
+    } catch (_) {}
 
-  // 4. URL 域名匹配
-  try {
-    const domain = new URL(url).hostname.replace(/^www\./, '')
-    const domainBase = domain.split('.')[0]
-    for (const [id, cat] of categoryMap) {
-      if (domainBase.includes(cat.displayName) || cat.displayName.includes(domainBase)) {
-        return { categoryId: id, reason: `URL 域名匹配分类："${cat.name}"` }
+    // 4. description / notes 匹配
+    const textFields = [description, notes].filter(Boolean)
+    for (const text of textFields) {
+      const textLower = text.toLowerCase()
+      if (textLower.includes(node.name)) {
+        score += 40; reasonPart = `描述匹配分类："${node.pathRaw}"`; break
       }
     }
-  } catch (_) {}
 
-  // 5. description / notes 匹配
-  const textFields = [description, notes].filter(Boolean)
-  for (const text of textFields) {
-    const textLower = text.toLowerCase()
-    for (const [id, cat] of categoryMap) {
-      if (textLower.includes(cat.displayName)) {
-        return { categoryId: id, reason: `描述中匹配分类："${cat.name}"` }
-      }
+    // 深度加权：越深的子分类加分越多，确保优先返回最具体的分类
+    score += node.depth * 50
+
+    if (score > 0 && (!bestMatch || score > bestMatch.score || (score === bestMatch.score && node.depth > bestMatch.depth))) {
+      bestMatch = { categoryId: node.id, score, depth: node.depth, path: node.pathRaw, reason: reasonPart || `匹配："${node.pathRaw}"` }
     }
+  }
+
+  if (bestMatch) {
+    return { categoryId: bestMatch.categoryId, reason: bestMatch.reason }
   }
 
   return null
+}
+
+/**
+ * 将分类列表组织成层级结构，便于 AI 理解父子关系。
+ */
+function buildCategoryHierarchyText(categories) {
+  const lines = []
+  const roots = categories.filter(c => !c.path.includes(' / '))
+  const children = categories.filter(c => c.path.includes(' / '))
+
+  if (roots.length === 0) {
+    for (const cat of categories) {
+      lines.push(`${cat.id}. [根] ${(cat.path || cat.name)}`)
+    }
+    return lines.join('\n')
+  }
+
+  for (const root of roots) {
+    lines.push(`${root.id}. [根] ${(root.path || root.name)}`)
+    const rootChildren = children.filter(c => c.path.startsWith(root.name + ' / '))
+    for (const child of rootChildren) {
+      const depth = child.path.split(' / ').length - 1
+      const indent = '  '.repeat(depth - 1)
+      lines.push(`${indent}${child.id}. [子${depth - 1}] ${child.path}`)
+    }
+  }
+
+  return lines.join('\n')
 }
 
 export async function onRequestPost(context) {
@@ -89,12 +123,11 @@ export async function onRequestPost(context) {
       })
     }
 
-    // 构建合法的 categoryId 集合
     const validCategoryIds = new Set(
       categories.map(cat => Number.parseInt(cat.id, 10)).filter(n => Number.isInteger(n))
     )
 
-    // 第一步：关键词兜底（免费、即时，命中就直接返回）
+    // 第一步：关键词兜底（免费、即时）
     const fallback = keywordFallback({ name, url, description, tags, notes, categories })
     if (fallback) {
       return new Response(JSON.stringify({
@@ -111,12 +144,8 @@ export async function onRequestPost(context) {
     // 第二步：AI 推荐
     const config = await getAIConfig(env)
 
-    // 构建分类列表：每行一个，包含 ID、完整路径、分类名
-    const categoryList = categories
-      .map(cat => `${cat.id}. ${(cat.path || cat.name)}`)
-      .join('\n')
+    const categoryHierarchy = buildCategoryHierarchyText(categories)
 
-    // 构建书签信息
     const bookmarkInfo = [
       `Name: ${name}`,
       `URL: ${url}`,
@@ -133,33 +162,32 @@ export async function onRequestPost(context) {
         messages: [
           {
             role: 'system',
-            content: `You are an expert bookmark organizer. Your task is to classify a bookmark into the most appropriate category.
+            content: `You are an expert bookmark organizer. Classify a bookmark into the most appropriate category.
 
-Analyze the bookmark carefully:
-1. Look at the NAME - what does this website/tool do?
-2. Look at the URL - the domain often reveals the service type
-3. Look at the DESCRIPTION - key details about functionality
-4. Look at TAGS and NOTES - these strongly indicate the intended category
+YOUR PRIORITY: Always choose the MOST SPECIFIC (deepest) subcategory.
 
-CATEGORY SELECTION RULES:
-- Choose the MOST SPECIFIC subcategory when available, not a broad parent
-- If the bookmark matches both a parent and child category, prefer the child
-- Only output a NUMBER that exists in the category list
-- Even if no perfect match exists, pick the closest reasonable one
+EXAMPLE: If the bookmark is about "AI image generation" and categories include:
+  - 153. [根] AI
+  - 198. [子1] AI / 视频制作
+  - 209. [子1] AI / Skills
+Then choose 209 (Skills) because it's the most specific match, NOT 153 (AI).
 
-OUTPUT FORMAT - return ONLY valid JSON, no markdown, no explanation:
-{"categoryId": NUMBER, "reason": "简短中文原因"}
+RULES:
+1. Analyze NAME, URL domain, DESCRIPTION, TAGS, NOTES
+2. Look at the category hierarchy - the [子N] markers show depth
+3. Choose the deepest matching subcategory, not the root
+4. Only output a NUMBER that exists in the category list
+5. If a root category has children that are more specific matches, choose the child
 
-The reason should explain WHY this category fits, in 1-2 sentences in Chinese.`
+OUTPUT: {"categoryId": NUMBER, "reason": "简短中文原因"}`
           },
           {
             role: 'user',
-            content: `Here is the bookmark to classify:
-
+            content: `Bookmark:
 ${bookmarkInfo}
 
-Available categories (format: ID. FullPath):
-${categoryList}
+Categories (hierarchy: [根] = root, [子N] = depth N):
+${categoryHierarchy}
 
 {"categoryId":`
           }
@@ -174,11 +202,10 @@ ${categoryList}
     const choice = data.choices?.[0]
     const message = choice?.message?.content
 
-    // 过滤掉安全审查等无意义回复
     if (message && !message.trim().startsWith('{') && /安全|safe|审核|filter|blocked|policy/i.test(message)) {
       return new Response(JSON.stringify({
         success: false,
-        error: 'AI 返回了安全检查消息，请检查内容后重试'
+        error: 'AI 返回了安全检查消息'
       }), { status: 500, headers: { 'Content-Type': 'application/json' } })
     }
 
@@ -191,10 +218,7 @@ ${categoryList}
       return new Response(JSON.stringify({
         success: false,
         error: `AI 无法确定分类。finish_reason=${reason}`
-      }), {
-        status: 500,
-        headers: { 'Content-Type': 'application/json' }
-      })
+      }), { status: 500, headers: { 'Content-Type': 'application/json' } })
     }
 
     const categoryId = Number.parseInt(parsed.categoryId, 10)
@@ -202,28 +226,19 @@ ${categoryList}
       return new Response(JSON.stringify({
         success: false,
         error: 'AI 返回的分类 ID 不在可选列表中'
-      }), {
-        status: 400,
-        headers: { 'Content-Type': 'application/json' }
-      })
+      }), { status: 400, headers: { 'Content-Type': 'application/json' } })
     }
 
     return new Response(JSON.stringify({
       success: true,
       categoryId,
       reason: parsed.reason || ''
-    }), {
-      status: 200,
-      headers: { 'Content-Type': 'application/json' }
-    })
+    }), { status: 200, headers: { 'Content-Type': 'application/json' } })
   } catch (error) {
     console.error('AI suggest category error:', error)
     return new Response(JSON.stringify({
       success: false,
       error: error.message || 'AI 推荐分类失败'
-    }), {
-      status: 500,
-      headers: { 'Content-Type': 'application/json' }
-    })
+    }), { status: 500, headers: { 'Content-Type': 'application/json' } })
   }
 }
