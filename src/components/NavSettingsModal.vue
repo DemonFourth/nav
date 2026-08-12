@@ -646,6 +646,134 @@
               </div>
             </div>
 
+            <!-- Trend -->
+            <div v-show="activeTab === 'trend'" class="tab-panel">
+              <div class="panel-header">
+                <h2 class="panel-title">趋势统计</h2>
+                <p class="panel-desc">书签添加趋势与时间线</p>
+              </div>
+
+              <div class="trend-toolbar">
+                <button
+                  class="trend-granularity-btn"
+                  :class="{ active: trendGranularity === 'day' }"
+                  @click="trendGranularity = 'day'"
+                >按天</button>
+                <button
+                  class="trend-granularity-btn"
+                  :class="{ active: trendGranularity === 'week' }"
+                  @click="trendGranularity = 'week'"
+                >按周</button>
+                <button
+                  class="trend-granularity-btn"
+                  :class="{ active: trendGranularity === 'month' }"
+                  @click="trendGranularity = 'month'"
+                >按月</button>
+              </div>
+
+              <div class="trend-stats-row">
+                <div class="trend-stat-block">
+                  <span class="trend-stat-value accent">{{ trendTotal }}</span>
+                  <span class="trend-stat-label">总书签</span>
+                </div>
+                <div class="trend-stat-block">
+                  <span class="trend-stat-value">{{ trendAvg }}</span>
+                  <span class="trend-stat-label">平均 / {{ trendGranularityLabel }}</span>
+                </div>
+                <div class="trend-stat-block">
+                  <span class="trend-stat-value">{{ trendMax }}</span>
+                  <span class="trend-stat-label">单{{ trendGranularityLabel }}最高</span>
+                </div>
+                <div class="trend-stat-block">
+                  <span class="trend-stat-value">{{ trendPeriodCount }}</span>
+                  <span class="trend-stat-label">{{ trendGranularityLabel === '日' ? '天数' : trendGranularityLabel === '周' ? '周数' : '月数' }}</span>
+                </div>
+              </div>
+
+              <!-- SVG Chart -->
+              <div class="trend-chart-wrap">
+                <svg v-if="chartBars.length > 0" viewBox="0 0 700 220" class="trend-chart-svg" preserveAspectRatio="xMidYMid meet">
+                  <!-- Y-axis grid lines & labels -->
+                  <g v-for="yl in chartYLabels" :key="yl.value">
+                    <line
+                      :x1="marginLeft" :y1="yl.y" :x2="700 - marginRight" :y2="yl.y"
+                      stroke="var(--border)" stroke-width="0.5"
+                    />
+                    <text
+                      :x="marginLeft - 6" :y="yl.y + 4"
+                      text-anchor="end" fill="var(--text-tertiary)" font-size="10"
+                    >{{ yl.value }}</text>
+                  </g>
+                  <!-- X-axis line -->
+                  <line
+                    :x1="marginLeft" :y1="chartBottom" :x2="700 - marginRight" :y2="chartBottom"
+                    stroke="var(--border)" stroke-width="1"
+                  />
+                  <!-- Bars -->
+                  <g
+                    v-for="(bar, i) in chartBars" :key="i"
+                    class="trend-bar-group"
+                  >
+                    <rect
+                      :x="bar.x" :y="bar.y" :width="bar.width" :height="bar.height"
+                      :rx="2" :ry="2"
+                      fill="var(--accent)"
+                      class="trend-bar"
+                    />
+                    <text
+                      v-if="bar.showLabel"
+                      :x="bar.labelX" :y="chartBottom + 18"
+                      text-anchor="end" fill="var(--text-tertiary)" font-size="9"
+                      transform="rotate(-35, bar.labelX, chartBottom + 18)"
+                    >{{ bar.label }}</text>
+                    <text
+                      :x="bar.x + bar.width / 2" :y="bar.y - 8"
+                      text-anchor="middle" fill="var(--text)" font-size="10"
+                      font-weight="600"
+                    >{{ bar.count }}</text>
+                  </g>
+                </svg>
+                <div v-else class="trend-chart-empty">
+                  <p>暂无数据</p>
+                </div>
+              </div>
+
+              <!-- Timeline -->
+              <div class="trend-timeline">
+                <div
+                  v-for="group in trendTimeline"
+                  :key="group.date"
+                  class="timeline-group"
+                >
+                  <div class="timeline-date-header">
+                    <span class="timeline-date">{{ group.date }}</span>
+                    <span class="timeline-badge">{{ group.bookmarks.length }} 个</span>
+                  </div>
+                  <div
+                    v-for="bm in group.bookmarks"
+                    :key="bm.id"
+                    class="timeline-item"
+                    @click="openBookmarkEdit(bm)"
+                  >
+                    <span class="timeline-time">{{ bm.created_at?.slice(11, 16) }}</span>
+                    <div class="timeline-icon">
+                      <img
+                        v-if="bm.url && !iconErrors[bm.id]"
+                        :src="getFaviconUrl(bm)"
+                        alt=""
+                        @error="handleIconError(bm.id)"
+                      />
+                      <div v-else class="timeline-letter-icon">{{ bm.name.charAt(0) }}</div>
+                    </div>
+                    <div class="timeline-info">
+                      <div class="timeline-name">{{ bm.name }}</div>
+                      <div class="timeline-meta">{{ getCategoryPathForBookmark(bm.category_id) }}</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
             <!-- AI -->
             <div v-show="activeTab === 'ai'" class="tab-panel">
               <div class="panel-header">
@@ -1217,6 +1345,10 @@ const tabs = [
     icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>'
   },
   {
+    id: 'trend', name: '趋势',
+    icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>'
+  },
+  {
     id: 'ai', name: 'AI',
     icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 2a4 4 0 0 1 4 4c0 2-2 3-2 5h-4c0-2-2-3-2-5a4 4 0 0 1 4-4z"/><path d="M9 17h6v2a3 3 0 0 1-6 0v-2z"/><path d="M12 22v-3"/></svg>'
   },
@@ -1369,6 +1501,112 @@ const groupedBookmarks = computed(() => {
     return (idxA === -1 ? 999 : idxA) - (idxB === -1 ? 999 : idxB)
   })
   return sorted
+})
+
+/* ===== Trend tab ===== */
+const trendGranularity = ref('day')
+
+const trendGranularityLabel = computed(() => {
+  if (trendGranularity.value === 'week') return '周'
+  if (trendGranularity.value === 'month') return '月'
+  return '日'
+})
+
+function getTrendKey(createdAt) {
+  if (!createdAt) return null
+  const d = String(createdAt).slice(0, 10) // YYYY-MM-DD
+  if (trendGranularity.value === 'day') return d
+  if (trendGranularity.value === 'month') return d.slice(0, 7) // YYYY-MM
+  // week: Monday-based ISO week start
+  const date = new Date(d + 'T00:00:00')
+  const day = date.getDay()
+  const diff = date.getDate() - day + (day === 0 ? -6 : 1)
+  const monday = new Date(date.setDate(diff))
+  return monday.toISOString().slice(0, 10)
+}
+
+function formatTrendLabel(key) {
+  if (trendGranularity.value === 'day') return key.slice(5) // MM-DD
+  if (trendGranularity.value === 'month') return key // YYYY-MM
+  return key.slice(5) // week start MM-DD
+}
+
+const trendData = computed(() => {
+  const counts = {}
+  bookmarks.value.forEach(bm => {
+    const key = getTrendKey(bm.created_at)
+    if (!key) return
+    counts[key] = (counts[key] || 0) + 1
+  })
+  return Object.entries(counts)
+    .sort((a, b) => a[0].localeCompare(b[0]))
+    .map(([key, count]) => ({ key, count, label: formatTrendLabel(key) }))
+})
+
+const trendTotal = computed(() => trendData.value.reduce((s, d) => s + d.count, 0))
+const trendAvg = computed(() => trendData.value.length ? (trendTotal.value / trendData.value.length).toFixed(1) : '0')
+const trendMax = computed(() => trendData.value.length ? Math.max(...trendData.value.map(d => d.count)) : 0)
+const trendPeriodCount = computed(() => trendData.value.length)
+
+const marginLeft = 40
+const marginRight = 20
+const marginTop = 20
+const marginBottom = 40
+const chartBottom = 220 - marginBottom
+
+const trendYLMax = computed(() => {
+  const max = trendMax.value
+  if (max <= 0) return 1
+  const step = Math.max(1, Math.ceil(max / 5))
+  return step * 5
+})
+
+const chartYLabels = computed(() => {
+  const steps = 5
+  const labels = []
+  for (let i = 0; i <= steps; i++) {
+    const val = Math.round((trendYLMax.value / steps) * i)
+    labels.push({ value: val, y: marginTop + (chartBottom - marginTop) * (1 - i / steps) })
+  }
+  return labels
+})
+
+const chartBars = computed(() => {
+  const data = trendData.value
+  const n = data.length
+  if (n === 0) return []
+  const chartW = 700 - marginLeft - marginRight
+  const chartH = chartBottom - marginTop
+  const step = chartW / n
+  const barWidth = Math.min(28, Math.max(4, step * 0.6))
+  const labelStep = Math.max(1, Math.ceil(n / 14))
+  return data.map((d, i) => {
+    const h = (d.count / trendYLMax.value) * chartH
+    const x = marginLeft + i * step + (step - barWidth) / 2
+    const y = chartBottom - h
+    return {
+      x, y, width: barWidth, height: h,
+      count: d.count,
+      label: d.label,
+      showLabel: i % labelStep === 0 || i === n - 1,
+      labelX: marginLeft + i * step + step / 2
+    }
+  })
+})
+
+const trendTimeline = computed(() => {
+  const groups = {}
+  bookmarks.value.forEach(bm => {
+    const d = bm.created_at ? String(bm.created_at).slice(0, 10) : '未知日期'
+    if (!groups[d]) groups[d] = { date: d, bookmarks: [] }
+    groups[d].bookmarks.push(bm)
+  })
+  return Object.values(groups)
+    .sort((a, b) => b.date.localeCompare(a.date))
+    .map(g => {
+      g.bookmarks.sort((x, y) => String(y.created_at).localeCompare(String(x.created_at)))
+      return g
+    })
 })
 
 function getCategoryPathForBookmark(categoryId) {
@@ -3740,6 +3978,181 @@ textarea.setting-input {
 .select-options::-webkit-scrollbar-thumb {
   background: var(--border);
   border-radius: 3px;
+}
+
+/* ===== Trend tab ===== */
+.trend-toolbar {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+.trend-granularity-btn {
+  padding: 6px 16px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.2s;
+}
+.trend-granularity-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.trend-granularity-btn.active {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+.trend-stats-row {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  margin-bottom: 20px;
+}
+.trend-stat-block {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 12px 8px;
+  border-radius: 10px;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+}
+.trend-stat-value {
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: var(--text);
+}
+.trend-stat-value.accent {
+  color: var(--accent);
+}
+.trend-stat-label {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  margin-top: 2px;
+}
+.trend-chart-wrap {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 24px;
+  overflow: hidden;
+}
+.trend-chart-svg {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+.trend-bar {
+  transition: opacity 0.15s;
+  cursor: pointer;
+}
+.trend-bar:hover {
+  opacity: 0.7;
+}
+.trend-chart-empty {
+  text-align: center;
+  padding: 40px 0;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+}
+.trend-timeline {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.timeline-group {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+}
+.timeline-date-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  background: var(--card-bg);
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+.timeline-date {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text);
+}
+.timeline-badge {
+  background: color-mix(in srgb, var(--accent) 15%, transparent);
+  color: var(--accent);
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 10px;
+}
+.timeline-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  cursor: pointer;
+  transition: background 0.15s;
+  border-bottom: 1px solid var(--border);
+}
+.timeline-item:last-child {
+  border-bottom: none;
+}
+.timeline-item:hover {
+  background: color-mix(in srgb, var(--accent) 6%, transparent);
+}
+.timeline-time {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  width: 38px;
+  flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
+}
+.timeline-icon {
+  width: 20px;
+  height: 20px;
+  border-radius: 4px;
+  flex-shrink: 0;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.timeline-icon img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+.timeline-letter-icon {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+.timeline-info {
+  flex: 1;
+  min-width: 0;
+}
+.timeline-name {
+  font-size: 0.85rem;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.timeline-meta {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 </style>
 
