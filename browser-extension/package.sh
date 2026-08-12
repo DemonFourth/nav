@@ -24,7 +24,7 @@ echo ""
 echo "🌐 打包 Chrome/Edge/Brave 版本..."
 mkdir -p dist/chromium
 cp manifest.json dist/chromium/
-cp popup.html popup.js dist/chromium/
+cp popup.html popup.js content.js dist/chromium/
 cp options.html options.js dist/chromium/
 cp background.js dist/chromium/
 cp styles.css dist/chromium/

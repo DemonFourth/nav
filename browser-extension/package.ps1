@@ -19,6 +19,7 @@ Write-Host "🌐 打包 Chrome/Edge/Brave 版本..." -ForegroundColor Yellow
 New-Item -ItemType Directory -Path "dist/chromium" -Force | Out-Null
 Copy-Item "manifest.json" "dist/chromium/"
 Copy-Item "popup.html", "popup.js" "dist/chromium/"
+Copy-Item "content.js" "dist/chromium/"
 Copy-Item "options.html", "options.js" "dist/chromium/"
 Copy-Item "background.js" "dist/chromium/"
 Copy-Item "styles.css" "dist/chromium/"
