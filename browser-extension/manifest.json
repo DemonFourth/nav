@@ -38,7 +38,7 @@
     "page": "options.html",
     "open_in_tab": true
   },
-  "optional_host_permissions": [
+  "host_permissions": [
     "*://*/*"
-  ]
+  ],
 }
