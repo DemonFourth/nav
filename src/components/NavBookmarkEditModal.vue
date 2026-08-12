@@ -441,7 +441,7 @@ const handleGenerateDescription = async () => {
       toastError(result.error || 'AI 生成描述失败')
     }
   } catch (err) {
-    toastError('AI 生成描述失败')
+    toastError(err.message || 'AI 生成描述失败')
   } finally {
     generatingDesc.value = false
   }
@@ -492,7 +492,7 @@ const handleSuggestCategory = async () => {
       toastError(result.error || 'AI 推荐分类失败')
     }
   } catch (err) {
-    toastError('AI 推荐分类失败')
+    toastError(err.message || 'AI 推荐分类失败')
   } finally {
     suggestingCategory.value = false
   }

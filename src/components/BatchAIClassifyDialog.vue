@@ -388,7 +388,7 @@ const startClassification = async () => {
         name: bookmark.name,
         url: bookmark.url,
         success: false,
-        error: '网络错误'
+        error: error.message || '网络错误'
       })
     }
     

@@ -102,7 +102,7 @@ You MUST write the description in Simplified Chinese (简体中文), regardless 
     console.error('AI generate description error:', error)
     return new Response(JSON.stringify({
       success: false,
-      error: error.message || 'Failed to generate description'
+      error: error.message || 'AI 生成描述失败'
     }), {
       status: 500,
       headers: { 'Content-Type': 'application/json' }

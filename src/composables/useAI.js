@@ -45,7 +45,7 @@ export function useAI() {
       if (error.message === 'Token expired') {
         return { success: false, error: '登录已过期，请重新登录' }
       }
-      return { success: false, error: '网络错误' }
+      return { success: false, error: error.message || '网络错误' }
     }
   }
 
@@ -65,7 +65,7 @@ export function useAI() {
       if (error.message === 'Token expired') {
         return { success: false, error: '登录已过期，请重新登录' }
       }
-      return { success: false, error: '网络错误' }
+      return { success: false, error: error.message || '网络错误' }
     }
   }
 
@@ -90,7 +90,7 @@ export function useAI() {
       if (error.message === 'Token expired') {
         return { success: false, error: '登录已过期，请重新登录' }
       }
-      return { success: false, error: '网络错误' }
+      return { success: false, error: error.message || '网络错误' }
     }
   }
 
@@ -115,7 +115,7 @@ export function useAI() {
       if (error.message === 'Token expired') {
         return { success: false, error: '登录已过期，请重新登录' }
       }
-      return { success: false, error: '网络错误' }
+      return { success: false, error: error.message || '网络错误' }
     }
   }
 
@@ -136,7 +136,7 @@ export function useAI() {
       if (error.message === 'Token expired') {
         return { success: false, error: '登录已过期，请重新登录' }
       }
-      return { success: false, error: '网络错误' }
+      return { success: false, error: error.message || '网络错误' }
     }
   }
 
@@ -171,7 +171,7 @@ export function useAI() {
       if (error.message === 'Token expired') {
         return { success: false, error: '登录已过期，请重新登录' }
       }
-      return { success: false, error: '网络错误' }
+      return { success: false, error: error.message || '网络错误' }
     }
   }
 
