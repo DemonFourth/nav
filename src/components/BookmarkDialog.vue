@@ -440,7 +440,9 @@ const handleSuggestCategory = async () => {
       form.value.name,
       form.value.url,
       form.value.description || '',
-      categoriesForAI
+      categoriesForAI,
+      form.value.tags || '',
+      form.value.notes || ''
     )
 
     if (result.success && result.categoryId) {

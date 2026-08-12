@@ -1,61 +1,59 @@
-import { callOpenAI, getAIConfig } from './_shared.js'
+import { callOpenAI, getAIConfig, extractJson } from './_shared.js'
 
-// 尝试从 AI 回复中提取 JSON 对象，支持 markdown 代码块、前后文字等多种格式
-function extractJson(text, validCategoryIds = new Set()) {
-  if (!text) return null
-  const trimmed = text.trim()
+/**
+ * 关键词兜底（batch 版）
+ */
+function keywordFallback({ name, url, description, tags, notes, categories }) {
+  if (!categories || categories.length === 0) return null
 
-  // 尝试 1：直接解析整段文本
-  try {
-    const parsed = JSON.parse(trimmed)
-    if (parsed && typeof parsed.categoryId !== 'undefined') return parsed
-  } catch (_) {}
-
-  // 尝试 2：从代码块 ```json ... ``` 或 ``` ... ``` 中提取
-  const codeBlockMatch = trimmed.match(/```(?:json)?\s*([\s\S]*?)```/)
-  if (codeBlockMatch) {
-    try {
-      const parsed = JSON.parse(codeBlockMatch[1].trim())
-      if (parsed && typeof parsed.categoryId !== 'undefined') return parsed
-    } catch (_) {}
+  const categoryMap = new Map()
+  for (const cat of categories) {
+    const id = Number.parseInt(cat.id, 10)
+    if (!Number.isInteger(id)) continue
+    const displayName = (cat.name || '').toLowerCase()
+    const fullPath = (cat.path || '').toLowerCase()
+    categoryMap.set(id, { id, displayName, fullPath, name: cat.name, path: cat.path })
   }
 
-  // 尝试 3：非贪婪匹配第一个合法 JSON 对象
-  const jsonMatch = trimmed.match(/\{[\s\S]*?\}/)
-  if (jsonMatch) {
-    try {
-      const parsed = JSON.parse(jsonMatch[0])
-      if (parsed && typeof parsed.categoryId !== 'undefined') return parsed
-    } catch (_) {}
-  }
-
-  // 尝试 4：从左往右扫描，找到第一个 { 后逐个字符尝试解析
-  for (let i = 0; i < trimmed.length; i++) {
-    if (trimmed[i] === '{') {
-      for (let j = i + 1; j <= trimmed.length; j++) {
-        const chunk = trimmed.slice(i, j)
-        if (chunk.endsWith('}')) {
-          try {
-            const parsed = JSON.parse(chunk)
-            if (parsed && typeof parsed.categoryId !== 'undefined') return parsed
-          } catch (_) {}
+  if (tags) {
+    const tagList = tags.split(',').map(t => t.trim().toLowerCase()).filter(Boolean)
+    for (const [id, cat] of categoryMap) {
+      for (const tag of tagList) {
+        if (cat.displayName.includes(tag) || cat.fullPath.includes(tag)) {
+          return { categoryId: id, reason: `tags 匹配："${tag}"` }
         }
       }
     }
   }
 
-  // 尝试 5：AI 可能直接输出自然语言，从中提取 categoryId 数字和 reason 文本
-  const idMatch = trimmed.match(/(?:categoryId|分类\s*ID|推荐)\s*[：:]\s*(\d+)/)
-  if (idMatch) {
-    const reasonMatch = trimmed.replace(/.*(?:categoryId|分类\s*ID|推荐)\s*[：:]\s*\d+.*/i, '').trim()
-    return { categoryId: Number.parseInt(idMatch[1], 10), reason: reasonMatch || '' }
+  const nameLower = (name || '').toLowerCase()
+  for (const [id, cat] of categoryMap) {
+    if (cat.displayName.includes(nameLower)) return { categoryId: id, reason: `名称包含分类关键词："${cat.name}"` }
+  }
+  for (const [id, cat] of categoryMap) {
+    if (cat.fullPath.includes(nameLower)) return { categoryId: id, reason: `路径包含名称关键词："${cat.name}"` }
+  }
+  for (const [id, cat] of categoryMap) {
+    if (nameLower.includes(cat.displayName)) return { categoryId: id, reason: `名称包含分类名："${cat.name}"` }
   }
 
-  // 尝试 6：finish_reason=length 时输出被截断，从所有数字中找匹配的 categoryId
-  for (const num of trimmed.matchAll(/\b(\d+)\b/g)) {
-    const n = Number.parseInt(num[1], 10)
-    if (validCategoryIds.has(n)) {
-      return { categoryId: n, reason: trimmed.trim() }
+  try {
+    const domain = new URL(url).hostname.replace(/^www\./, '')
+    const domainBase = domain.split('.')[0]
+    for (const [id, cat] of categoryMap) {
+      if (domainBase.includes(cat.displayName) || cat.displayName.includes(domainBase)) {
+        return { categoryId: id, reason: `URL 域名匹配分类："${cat.name}"` }
+      }
+    }
+  } catch (_) {}
+
+  const textFields = [description, notes].filter(Boolean)
+  for (const text of textFields) {
+    const textLower = text.toLowerCase()
+    for (const [id, cat] of categoryMap) {
+      if (textLower.includes(cat.displayName)) {
+        return { categoryId: id, reason: `描述中匹配分类："${cat.name}"` }
+      }
     }
   }
 
@@ -89,11 +87,23 @@ export async function onRequestPost(context) {
     }
 
     const config = await getAIConfig(env)
+    const validCategoryIds = new Set(
+      categories.map(cat => Number.parseInt(cat.id, 10)).filter(n => Number.isInteger(n))
+    )
 
-    // 构建合法的 categoryId 集合，用于后续校验
-    const validCategoryIds = new Set(categories.map(cat => Number.parseInt(cat.id, 10)).filter(n => Number.isInteger(n)))
-    // 将 categoryList 压成一行，减少 token 消耗
-    const categoryLine = categories.map(cat => `${cat.id}=${cat.path || cat.name}`).join(',')
+    const categoryList = categories
+      .map(cat => `${cat.id}. ${(cat.path || cat.name)}`)
+      .join('\n')
+
+    const systemPrompt = `You are an expert bookmark organizer. Classify each bookmark into the most appropriate category.
+
+For each bookmark:
+1. Analyze NAME, URL domain, DESCRIPTION, TAGS and NOTES
+2. Choose the MOST SPECIFIC subcategory when available
+3. Only output a NUMBER that exists in the category list
+4. Even if no perfect match, pick the closest reasonable one
+
+Output ONLY valid JSON: {"categoryId": NUMBER, "reason": "简短中文原因"}`
 
     const results = []
     let successCount = 0
@@ -101,23 +111,57 @@ export async function onRequestPost(context) {
 
     for (const bookmark of bookmarks) {
       try {
+        // 先尝试关键词兜底
+        const fallback = keywordFallback({
+          name: bookmark.name,
+          url: bookmark.url,
+          description: bookmark.description || '',
+          tags: bookmark.tags || '',
+          notes: bookmark.notes || '',
+          categories
+        })
+        if (fallback) {
+          results.push({
+            id: bookmark.id,
+            success: true,
+            categoryId: fallback.categoryId,
+            reason: fallback.reason,
+            fallback: true
+          })
+          successCount++
+          continue
+        }
+
+        // 构建书签信息
+        const bookmarkInfo = [
+          `Name: ${bookmark.name}`,
+          `URL: ${bookmark.url}`,
+          bookmark.description ? `Description: ${bookmark.description}` : null,
+          bookmark.tags ? `Tags: ${bookmark.tags}` : null,
+          bookmark.notes ? `Notes: ${bookmark.notes}` : null
+        ].filter(Boolean).join('\n')
+
         const response = await callOpenAI(env, {
           path: 'chat/completions',
           method: 'POST',
           body: {
             model: config.model,
             messages: [
-              {
-                role: 'system',
-                content: 'Output ONLY valid JSON. Format: {"categoryId":NUMBER,"reason":"中文"}. You MUST choose one of the provided category IDs. Even if none fit perfectly, pick the closest match.'
-              },
+              { role: 'system', content: systemPrompt },
               {
                 role: 'user',
-                content: `Bookmark: ${bookmark.name} | ${bookmark.url} | ${bookmark.description || ''}\nCategories: ${categoryLine}\n{"categoryId":`
+                content: `Bookmark to classify:
+
+${bookmarkInfo}
+
+Available categories (format: ID. FullPath):
+${categoryList}
+
+{"categoryId":`
               }
             ],
             temperature: 0.1,
-            max_tokens: 800,
+            max_tokens: 1024,
             reasoning: { effort: 'none' }
           }
         })
@@ -126,28 +170,24 @@ export async function onRequestPost(context) {
         const choice = data.choices?.[0]
         const message = choice?.message?.content
 
-        // 过滤掉安全审查等无意义回复
         if (message && !message.trim().startsWith('{') && /安全|safe|审核|filter|blocked|policy/i.test(message)) {
           results.push({
             id: bookmark.id,
             success: false,
-            error: 'AI 返回了安全检查消息，请检查内容后重试'
+            error: 'AI 返回了安全检查消息'
           })
           failedCount++
           continue
         }
 
-        console.log('[AI cat] finish_reason:', choice?.finish_reason, 'content_len:', message?.length, 'full:', JSON.stringify(data).slice(0, 800))
         const parsed = extractJson(message, validCategoryIds)
 
         if (!parsed || typeof parsed.categoryId === 'undefined') {
           const rawPreview = message ?? '(空)'
-          const reason = choice?.finish_reason ?? '(未知)'
-          console.error('[AI cat] extract failed:', `finish_reason=${reason}, content_len=${message?.length ?? 0}, raw=${JSON.stringify(rawPreview)}`)
           results.push({
             id: bookmark.id,
             success: false,
-            error: `AI 无法确定分类。finish_reason=${reason}，AI 实际回复：${rawPreview}`
+            error: `AI 无法确定分类`
           })
           failedCount++
         } else {
@@ -174,12 +214,11 @@ export async function onRequestPost(context) {
         results.push({
           id: bookmark.id,
           success: false,
-          error: error.message || 'Failed to classify'
+          error: error.message || '分类失败'
         })
         failedCount++
       }
 
-      // 延迟以避免API速率限制
       await new Promise(resolve => setTimeout(resolve, 500))
     }
 

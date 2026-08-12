@@ -657,23 +657,25 @@ async function maybeUseContextInfo() {
 }
 
 async function generateDescription() {
-  // 确保 token 有效
   await ensureTokenValid();
-  
+
   const titleEl = document.getElementById('title');
   const urlEl = document.getElementById('url');
   const descEl = document.getElementById('description');
   const aiBtn = document.getElementById('ai-btn');
-  
+
   if (!titleEl.value || !urlEl.value) {
     showStatus('请先填写标题和URL', 'error');
     return;
   }
-  
+
   aiBtn.disabled = true;
   aiBtn.innerHTML = '<span>⏳ 生成中...</span>';
-  
+
   try {
+    const pageMeta = await fetchPageMetadata(urlEl.value)
+    const descriptionToSend = pageMeta ? (pageMeta.metaDescription || pageMeta.ogDescription) : descEl.value
+
     const response = await fetch(`${settings.serverUrl}/api/ai/generate-description`, {
       method: 'POST',
       headers: {
@@ -682,14 +684,15 @@ async function generateDescription() {
       },
       body: JSON.stringify({
         name: titleEl.value,
-        url: urlEl.value
+        url: urlEl.value,
+        pageMeta
       })
     });
-    
+
     const result = await response.json();
-    
+
     if (result.success && result.description) {
-      descEl.value = result.description;
+      descEl.value = result.description
       showStatus('✅ AI描述生成成功', 'success');
     } else {
       showStatus(result.error || 'AI描述生成失败', 'error');
@@ -704,29 +707,31 @@ async function generateDescription() {
 }
 
 async function suggestCategory() {
-  // 确保 token 有效
   await ensureTokenValid();
-  
+
   const titleEl = document.getElementById('title');
   const urlEl = document.getElementById('url');
   const descEl = document.getElementById('description');
   const categoryEl = document.getElementById('category');
   const aiCategoryBtn = document.getElementById('ai-category-btn');
-  
+
   if (!titleEl.value || !urlEl.value) {
     showStatus('请先填写标题和URL', 'error');
     return;
   }
-  
+
   if (categories.length === 0) {
     showStatus('没有可用的分类', 'error');
     return;
   }
-  
+
   aiCategoryBtn.disabled = true;
   aiCategoryBtn.innerHTML = '<span>⏳ 推荐中...</span>';
-  
+
   try {
+    const pageMeta = await fetchPageMetadata(urlEl.value)
+    const descriptionToSend = pageMeta ? (pageMeta.metaDescription || pageMeta.ogDescription) : descEl.value
+
     const response = await fetch(`${settings.serverUrl}/api/ai/suggest-category`, {
       method: 'POST',
       headers: {
@@ -736,24 +741,26 @@ async function suggestCategory() {
       body: JSON.stringify({
         name: titleEl.value,
         url: urlEl.value,
-        description: descEl.value || '',
+        description: descriptionToSend || '',
         categories: categories.map(cat => ({
           id: cat.id,
           name: cat.name,
           path: cat.path
-        }))
+        })),
+        tags: tagItems.join(','),
+        notes: document.getElementById('notes')?.value || ''
       })
     });
-    
+
     const result = await response.json();
-    
+
     if (result.success && result.categoryId !== undefined && result.categoryId !== null) {
       const categoryId = String(result.categoryId);
       const matchedCategory = categories.find(cat => String(cat.id) === categoryId);
 
       if (matchedCategory) {
-        categoryEl.value = categoryId;
-        const reason = result.reason ? `（${result.reason}）` : '';
+        selectCategory(matchedCategory.id, matchedCategory.path)
+        const reason = result.reason ? `（${result.reason}）` : ''
         showStatus(`✅ 推荐分类：${matchedCategory.path}${reason}`, 'success');
       } else {
         showStatus('AI推荐的分类不存在，请刷新分类后重试', 'error');
@@ -882,6 +889,45 @@ async function getTabInfo() {
       titleEl.value = tab.title || '';
     }
     document.getElementById('url').value = tab.url || '';
+  }
+
+  // 抓取页面元数据用于 AI 功能
+  fetchPageMetadata(tab?.url).then(pageMeta => {
+    if (!pageMeta) return
+
+    const descEl = document.getElementById('description')
+    if (descEl && !descEl.value) {
+      descEl.value = pageMeta.metaDescription || pageMeta.ogDescription || ''
+    }
+  })
+}
+
+/**
+ * 从当前标签页抓取页面元数据（title, meta description, OG description, h1, keywords）
+ * 用于增强 AI 生成描述和推荐分类的上下文
+ */
+async function fetchPageMetadata(tabUrl) {
+  if (!tabUrl) return null
+  if (tabUrl.startsWith('chrome://') || tabUrl.startsWith('edge://') || tabUrl.startsWith('about:')) {
+    return null
+  }
+
+  try {
+    const tab = await getCurrentTab()
+    if (!tab || !tab.id) return null
+
+    return new Promise((resolve) => {
+      chrome.tabs.sendMessage(tab.id, { type: 'get-page-metadata' }, (response) => {
+        if (chrome.runtime.lastError || !response) {
+          resolve(null)
+        } else {
+          resolve(response)
+        }
+      })
+    })
+  } catch (error) {
+    console.error('Failed to fetch page metadata:', error)
+    return null
   }
 }
 

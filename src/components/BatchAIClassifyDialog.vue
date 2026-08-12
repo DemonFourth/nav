@@ -346,7 +346,9 @@ const startClassification = async () => {
         bookmark.name,
         bookmark.url,
         bookmark.description || '',
-        categoriesForAI
+        categoriesForAI,
+        bookmark.tags || '',
+        bookmark.notes || ''
       )
       
       if (result.success) {

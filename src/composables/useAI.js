@@ -29,11 +29,11 @@ export function useAI() {
     }
   }
 
-  const generateDescription = async (name, url) => {
+  const generateDescription = async (name, url, pageMeta) => {
     try {
       const response = await apiRequest('/api/ai/generate-description', {
         method: 'POST',
-        body: JSON.stringify({ name, url })
+        body: JSON.stringify({ name, url, pageMeta })
       })
       
       const result = await response.json()
@@ -49,11 +49,11 @@ export function useAI() {
     }
   }
 
-  const suggestCategory = async (name, url, description, categories) => {
+  const suggestCategory = async (name, url, description, categories, tags = '', notes = '') => {
     try {
       const response = await apiRequest('/api/ai/suggest-category', {
         method: 'POST',
-        body: JSON.stringify({ name, url, description, categories })
+        body: JSON.stringify({ name, url, description, tags, notes, categories })
       })
       
       const result = await response.json()

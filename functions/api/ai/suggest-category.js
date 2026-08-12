@@ -1,61 +1,72 @@
-import { callOpenAI, getAIConfig } from './_shared.js'
+import { callOpenAI, getAIConfig, extractJson } from './_shared.js'
 
-// 尝试从 AI 回复中提取 JSON 对象，支持 markdown 代码块、前后文字等多种格式
-function extractJson(text, validCategoryIds = new Set()) {
-  if (!text) return null
-  const trimmed = text.trim()
+/**
+ * 关键词兜底：当 AI 无法返回有效结果时，用本地关键词匹配给出推荐。
+ * 匹配优先级：tags 精确匹配 > name 匹配 > URL 域名匹配 > description 匹配
+ */
+function keywordFallback({ name, url, description, tags, notes, categories }) {
+  if (!categories || categories.length === 0) return null
 
-  // 尝试 1：直接解析整段文本
-  try {
-    const parsed = JSON.parse(trimmed)
-    if (parsed && typeof parsed.categoryId !== 'undefined') return parsed
-  } catch (_) {}
-
-  // 尝试 2：从代码块 ```json ... ``` 或 ``` ... ``` 中提取
-  const codeBlockMatch = trimmed.match(/```(?:json)?\s*([\s\S]*?)```/)
-  if (codeBlockMatch) {
-    try {
-      const parsed = JSON.parse(codeBlockMatch[1].trim())
-      if (parsed && typeof parsed.categoryId !== 'undefined') return parsed
-    } catch (_) {}
+  const categoryMap = new Map()
+  for (const cat of categories) {
+    const id = Number.parseInt(cat.id, 10)
+    if (!Number.isInteger(id)) continue
+    const displayName = (cat.name || '').toLowerCase()
+    const fullPath = (cat.path || '').toLowerCase()
+    categoryMap.set(id, { id, displayName, fullPath, name: cat.name, path: cat.path })
   }
 
-  // 尝试 3：非贪婪匹配第一个合法 JSON 对象
-  const jsonMatch = trimmed.match(/\{[\s\S]*?\}/)
-  if (jsonMatch) {
-    try {
-      const parsed = JSON.parse(jsonMatch[0])
-      if (parsed && typeof parsed.categoryId !== 'undefined') return parsed
-    } catch (_) {}
-  }
-
-  // 尝试 4：从左往右扫描，找到第一个 { 后逐个字符尝试解析
-  for (let i = 0; i < trimmed.length; i++) {
-    if (trimmed[i] === '{') {
-      for (let j = i + 1; j <= trimmed.length; j++) {
-        const chunk = trimmed.slice(i, j)
-        if (chunk.endsWith('}')) {
-          try {
-            const parsed = JSON.parse(chunk)
-            if (parsed && typeof parsed.categoryId !== 'undefined') return parsed
-          } catch (_) {}
+  // 1. tags 精确匹配（权重最高）
+  if (tags) {
+    const tagList = tags.split(',').map(t => t.trim().toLowerCase()).filter(Boolean)
+    for (const [id, cat] of categoryMap) {
+      for (const tag of tagList) {
+        if (cat.displayName.includes(tag) || cat.fullPath.includes(tag)) {
+          return { categoryId: id, reason: `tags 匹配："${tag}"` }
         }
       }
     }
   }
 
-  // 尝试 5：AI 可能直接输出自然语言，从中提取 categoryId 数字和 reason 文本
-  const idMatch = trimmed.match(/(?:categoryId|分类\s*ID|推荐)\s*[：:]\s*(\d+)/)
-  if (idMatch) {
-    const reasonMatch = trimmed.replace(/.*(?:categoryId|分类\s*ID|推荐)\s*[：:]\s*\d+.*/i, '').trim()
-    return { categoryId: Number.parseInt(idMatch[1], 10), reason: reasonMatch || '' }
+  // 2. 书签名称匹配
+  const nameLower = (name || '').toLowerCase()
+  for (const [id, cat] of categoryMap) {
+    if (cat.displayName.includes(nameLower)) {
+      return { categoryId: id, reason: `名称包含分类关键词："${cat.name}"` }
+    }
+  }
+  for (const [id, cat] of categoryMap) {
+    if (cat.fullPath.includes(nameLower)) {
+      return { categoryId: id, reason: `路径包含名称关键词："${cat.name}"` }
+    }
   }
 
-  // 尝试 6：finish_reason=length 时输出被截断，从所有数字中找匹配的 categoryId
-  for (const num of trimmed.matchAll(/\b(\d+)\b/g)) {
-    const n = Number.parseInt(num[1], 10)
-    if (validCategoryIds.has(n)) {
-      return { categoryId: n, reason: trimmed.trim() }
+  // 3. 分类名称出现在书签名称中
+  for (const [id, cat] of categoryMap) {
+    if (nameLower.includes(cat.displayName)) {
+      return { categoryId: id, reason: `名称包含分类名："${cat.name}"` }
+    }
+  }
+
+  // 4. URL 域名匹配
+  try {
+    const domain = new URL(url).hostname.replace(/^www\./, '')
+    const domainBase = domain.split('.')[0]
+    for (const [id, cat] of categoryMap) {
+      if (domainBase.includes(cat.displayName) || cat.displayName.includes(domainBase)) {
+        return { categoryId: id, reason: `URL 域名匹配分类："${cat.name}"` }
+      }
+    }
+  } catch (_) {}
+
+  // 5. description / notes 匹配
+  const textFields = [description, notes].filter(Boolean)
+  for (const text of textFields) {
+    const textLower = text.toLowerCase()
+    for (const [id, cat] of categoryMap) {
+      if (textLower.includes(cat.displayName)) {
+        return { categoryId: id, reason: `描述中匹配分类："${cat.name}"` }
+      }
     }
   }
 
@@ -66,7 +77,7 @@ export async function onRequestPost(context) {
   const { request, env } = context
 
   try {
-    const { name, url, description = '', categories } = await request.json()
+    const { name, url, description = '', tags = '', notes = '', categories } = await request.json()
 
     if (!name || !url || !Array.isArray(categories) || categories.length === 0) {
       return new Response(JSON.stringify({
@@ -78,17 +89,41 @@ export async function onRequestPost(context) {
       })
     }
 
-    // 构建合法的 categoryId 集合，用于后续校验
-    const validCategoryIds = new Set(categories.map(cat => Number.parseInt(cat.id, 10)).filter(n => Number.isInteger(n)))
-    const categoryList = categories
-      .map(cat => `${cat.id}: ${cat.path || cat.name}`)
-      .join('\n')
+    // 构建合法的 categoryId 集合
+    const validCategoryIds = new Set(
+      categories.map(cat => Number.parseInt(cat.id, 10)).filter(n => Number.isInteger(n))
+    )
 
+    // 第一步：关键词兜底（免费、即时，命中就直接返回）
+    const fallback = keywordFallback({ name, url, description, tags, notes, categories })
+    if (fallback) {
+      return new Response(JSON.stringify({
+        success: true,
+        categoryId: fallback.categoryId,
+        reason: fallback.reason,
+        fallback: true
+      }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' }
+      })
+    }
+
+    // 第二步：AI 推荐
     const config = await getAIConfig(env)
 
-    // 将 categoryList 压成一行，减少 token 消耗
-    const categoryLine = categories.map(cat => `${cat.id}=${cat.path || cat.name}`).join(',')
-    const validIds = Array.from(validCategoryIds).join(',')
+    // 构建分类列表：每行一个，包含 ID、完整路径、分类名
+    const categoryList = categories
+      .map(cat => `${cat.id}. ${(cat.path || cat.name)}`)
+      .join('\n')
+
+    // 构建书签信息
+    const bookmarkInfo = [
+      `Name: ${name}`,
+      `URL: ${url}`,
+      description ? `Description: ${description}` : null,
+      tags ? `Tags: ${tags}` : null,
+      notes ? `Notes: ${notes}` : null
+    ].filter(Boolean).join('\n')
 
     const response = await callOpenAI(env, {
       path: 'chat/completions',
@@ -98,15 +133,39 @@ export async function onRequestPost(context) {
         messages: [
           {
             role: 'system',
-            content: 'Output ONLY valid JSON. Format: {"categoryId":NUMBER,"reason":"中文"}. You MUST choose one of the provided category IDs. Even if none fit perfectly, pick the closest match.'
+            content: `You are an expert bookmark organizer. Your task is to classify a bookmark into the most appropriate category.
+
+Analyze the bookmark carefully:
+1. Look at the NAME - what does this website/tool do?
+2. Look at the URL - the domain often reveals the service type
+3. Look at the DESCRIPTION - key details about functionality
+4. Look at TAGS and NOTES - these strongly indicate the intended category
+
+CATEGORY SELECTION RULES:
+- Choose the MOST SPECIFIC subcategory when available, not a broad parent
+- If the bookmark matches both a parent and child category, prefer the child
+- Only output a NUMBER that exists in the category list
+- Even if no perfect match exists, pick the closest reasonable one
+
+OUTPUT FORMAT - return ONLY valid JSON, no markdown, no explanation:
+{"categoryId": NUMBER, "reason": "简短中文原因"}
+
+The reason should explain WHY this category fits, in 1-2 sentences in Chinese.`
           },
           {
             role: 'user',
-            content: `Bookmark: ${name} | ${url} | ${description || ''}\nCategories: ${categoryLine}\n{"categoryId":`
+            content: `Here is the bookmark to classify:
+
+${bookmarkInfo}
+
+Available categories (format: ID. FullPath):
+${categoryList}
+
+{"categoryId":`
           }
         ],
         temperature: 0.1,
-        max_tokens: 800,
+        max_tokens: 1024,
         reasoning: { effort: 'none' }
       }
     })
@@ -123,17 +182,15 @@ export async function onRequestPost(context) {
       }), { status: 500, headers: { 'Content-Type': 'application/json' } })
     }
 
-    console.log('[AI cat] finish_reason:', choice?.finish_reason, 'content_len:', message?.length, 'full:', JSON.stringify(data).slice(0, 800))
     const parsed = extractJson(message, validCategoryIds)
 
     if (!parsed || typeof parsed.categoryId === 'undefined') {
       const rawPreview = message ?? '(空)'
       const reason = choice?.finish_reason ?? '(未知)'
-      const logDetails = `finish_reason=${reason}, content_len=${message?.length ?? 0}, raw=${JSON.stringify(rawPreview)}`
-      console.error('[AI cat] extract failed:', logDetails)
+      console.error('[AI cat] extract failed:', `finish_reason=${reason}, raw=${JSON.stringify(rawPreview)}`)
       return new Response(JSON.stringify({
         success: false,
-        error: `AI 无法确定分类。finish_reason=${reason}，AI 实际回复：${rawPreview}`
+        error: `AI 无法确定分类。finish_reason=${reason}`
       }), {
         status: 500,
         headers: { 'Content-Type': 'application/json' }
@@ -144,7 +201,7 @@ export async function onRequestPost(context) {
     if (!Number.isInteger(categoryId) || !validCategoryIds.has(categoryId)) {
       return new Response(JSON.stringify({
         success: false,
-        error: 'AI 返回的分类 ID 不在可选列表中，请重试'
+        error: 'AI 返回的分类 ID 不在可选列表中'
       }), {
         status: 400,
         headers: { 'Content-Type': 'application/json' }

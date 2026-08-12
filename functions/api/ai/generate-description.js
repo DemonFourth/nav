@@ -4,47 +4,77 @@ export async function onRequestPost(context) {
   const { request, env } = context
 
   try {
-    const { name, url } = await request.json()
+  const { name, url, pageMeta } = await request.json()
 
-    if (!name || !url) {
-      return new Response(JSON.stringify({
-        success: false,
-        error: 'Missing name or url'
-      }), {
-        status: 400,
-        headers: { 'Content-Type': 'application/json' }
-      })
-    }
+  if (!name || !url) {
+    return new Response(JSON.stringify({
+      success: false,
+      error: 'Missing name or url'
+    }), {
+      status: 400,
+      headers: { 'Content-Type': 'application/json' }
+    })
+  }
 
-    const config = await getAIConfig(env)
-    
-    // 默认 Prompt
-    const defaultPrompt = `You are an assistant that generates concise and helpful descriptions for bookmarks/websites.
+  const config = await getAIConfig(env)
+
+  // 默认 Prompt（无 pageMeta）
+  const defaultPrompt = `You are an assistant that generates concise and helpful descriptions for bookmarks/websites.
 
 Given the following bookmark information:
 Name: {name}
 URL: {url}
 
 Please generate a brief, useful description (1-2 sentences) that explains what this website/resource is about. The description MUST be no more than 60 Chinese characters. Write in Simplified Chinese only. Return only the description text, no quotes or formatting.`
-    
-    // 获取自定义 Prompt 配置和开关状态（优先使用描述专用提示词）
-    const settingsResults = await env.DB.prepare(
-      'SELECT key, value FROM settings WHERE key IN (?, ?)'
-    ).bind('ai_custom_prompt_description', 'ai_custom_prompt_description_enabled').all()
-    
-    const settings = {}
-    settingsResults.results.forEach(row => {
-      settings[row.key] = row.value
-    })
-    
-    const customPromptEnabled = settings.ai_custom_prompt_description_enabled === 'true'
-    const customPrompt = settings.ai_custom_prompt_description
-    const promptTemplate = (customPromptEnabled && customPrompt && customPrompt.trim()) ? customPrompt : defaultPrompt
-    
-    // 替换变量
-    const prompt = promptTemplate
-      .replace(/\{name\}/g, name)
-      .replace(/\{url\}/g, url)
+
+  // 增强 Prompt（有 pageMeta 时使用页面元数据）
+  const enhancedPrompt = `You are an expert assistant that generates concise and helpful descriptions for bookmarks/websites.
+
+Given the following bookmark information:
+Name: {name}
+URL: {url}
+{pageMetaContext}
+
+Based on the above information, generate a brief, useful description (1-2 sentences) that explains what this website/resource is about. The description MUST be no more than 60 Chinese characters. Write in Simplified Chinese only. Return only the description text, no quotes or formatting.`
+
+  // 获取自定义 Prompt 配置
+  const settingsResults = await env.DB.prepare(
+    'SELECT key, value FROM settings WHERE key IN (?, ?)'
+  ).bind('ai_custom_prompt_description', 'ai_custom_prompt_description_enabled').all()
+
+  const settings = {}
+  settingsResults.results.forEach(row => {
+    settings[row.key] = row.value
+  })
+
+  const customPromptEnabled = settings.ai_custom_prompt_description_enabled === 'true'
+  const customPrompt = settings.ai_custom_prompt_description
+
+  let promptTemplate
+  if (customPromptEnabled && customPrompt && customPrompt.trim()) {
+    promptTemplate = customPrompt
+  } else if (pageMeta) {
+    promptTemplate = enhancedPrompt
+  } else {
+    promptTemplate = defaultPrompt
+  }
+
+  // 构建页面元数据上下文
+  const pageMetaContext = pageMeta
+    ? [
+        pageMeta.title ? `Page Title: ${pageMeta.title}` : null,
+        pageMeta.metaDescription ? `Meta Description: ${pageMeta.metaDescription}` : null,
+        pageMeta.ogDescription ? `OG Description: ${pageMeta.ogDescription}` : null,
+        pageMeta.h1 ? `H1: ${pageMeta.h1}` : null,
+        pageMeta.keywords ? `Keywords: ${pageMeta.keywords}` : null
+      ].filter(Boolean).join('\n')
+    : ''
+
+  // 替换变量
+  const prompt = promptTemplate
+    .replace(/\{name\}/g, name)
+    .replace(/\{url\}/g, url)
+    .replace(/\{pageMetaContext\}/g, pageMetaContext)
 
     const response = await callOpenAI(env, {
       path: 'chat/completions',
