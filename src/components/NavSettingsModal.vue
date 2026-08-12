@@ -677,6 +677,21 @@
                 >按月</button>
               </div>
 
+              <div class="trend-year-bar" v-if="trendYears.length > 1">
+                <button
+                  class="trend-year-btn"
+                  :class="{ active: !trendYearFilter }"
+                  @click="trendYearFilter = null; scrollChartToEnd()"
+                >全部</button>
+                <button
+                  v-for="year in trendYears"
+                  :key="year"
+                  class="trend-year-btn"
+                  :class="{ active: trendYearFilter === year }"
+                  @click="trendYearFilter = year; scrollChartToEnd()"
+                >{{ year }}年</button>
+              </div>
+
               <div class="trend-stats-row">
                 <div class="trend-stat-block">
                   <span class="trend-stat-value accent">{{ trendTotal }}</span>
@@ -1567,17 +1582,40 @@ function getTrendKey(createdAt) {
   return monday.toISOString().slice(0, 10)
 }
 
+function getWeekNumber(mondayStr) {
+  const d = new Date(mondayStr + 'T00:00:00')
+  const yearStart = new Date(d.getFullYear(), 0, 1)
+  const weekNum = Math.ceil((((d - yearStart) / 86400000) + yearStart.getDay() + 1) / 7)
+  return weekNum
+}
+
 function formatTrendLabel(key, showYear) {
   if (trendGranularity.value === 'month') return key // YYYY-MM
+  if (trendGranularity.value === 'week') {
+    const week = getWeekNumber(key)
+    return showYear ? `${key.slice(0, 4)}-W${week}` : `W${week}`
+  }
   if (showYear) return key // YYYY-MM-DD full
   return key.slice(5) // MM-DD
 }
+
+const trendYears = computed(() => {
+  const years = new Set()
+  bookmarks.value.forEach(bm => {
+    const d = toLocalDateStr(bm.created_at)
+    if (d) years.add(d.slice(0, 4))
+  })
+  return [...years].sort()
+})
+
+const trendYearFilter = ref(null)
 
 const trendData = computed(() => {
   const counts = {}
   bookmarks.value.forEach(bm => {
     const key = getTrendKey(bm.created_at)
     if (!key) return
+    if (trendYearFilter.value && !key.startsWith(trendYearFilter.value)) return
     counts[key] = (counts[key] || 0) + 1
   })
   const entries = Object.entries(counts).sort((a, b) => a[0].localeCompare(b[0]))
@@ -1649,6 +1687,7 @@ const trendTimeline = computed(() => {
   const groups = {}
   bookmarks.value.forEach(bm => {
     const d = toLocalDateStr(bm.created_at) || '未知日期'
+    if (trendYearFilter.value && !d.startsWith(trendYearFilter.value)) return
     if (!groups[d]) groups[d] = { date: d, bookmarks: [] }
     groups[d].bookmarks.push(bm)
   })
@@ -1673,13 +1712,23 @@ const trendFilterLabel = computed(() => {
 
 const trendFilterCount = computed(() => {
   if (!trendFilter.value) return 0
-  return bookmarks.value.filter(bm => getTrendKey(bm.created_at) === trendFilter.value).length
+  return bookmarks.value.filter(bm => {
+    if (trendYearFilter.value) {
+      const d = toLocalDateStr(bm.created_at)
+      if (!d || !d.startsWith(trendYearFilter.value)) return false
+    }
+    return getTrendKey(bm.created_at) === trendFilter.value
+  }).length
 })
 
 const filteredTimeline = computed(() => {
   if (!trendFilter.value) return trendTimeline.value
   const groups = {}
   bookmarks.value.forEach(bm => {
+    if (trendYearFilter.value) {
+      const d = toLocalDateStr(bm.created_at)
+      if (!d || !d.startsWith(trendYearFilter.value)) return
+    }
     if (getTrendKey(bm.created_at) !== trendFilter.value) return
     const d = toLocalDateStr(bm.created_at) || '未知日期'
     if (!groups[d]) groups[d] = { date: d, bookmarks: [] }
@@ -1712,6 +1761,10 @@ const clearTrendFilter = () => {
 watch(trendGranularity, () => {
   trendFilter.value = null
   scrollChartToEnd()
+})
+
+watch(trendYearFilter, () => {
+  trendFilter.value = null
 })
 
 watch(() => chartBars.value, () => {
@@ -4178,6 +4231,32 @@ textarea.setting-input {
   display: flex;
   gap: 8px;
   margin-bottom: 16px;
+}
+.trend-year-bar {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+.trend-year-btn {
+  padding: 4px 14px;
+  border-radius: 9999px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.2s;
+}
+.trend-year-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.trend-year-btn.active {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
 }
 .trend-granularity-btn {
   padding: 6px 16px;
