@@ -732,6 +732,14 @@ async function suggestCategory() {
     const pageMeta = await fetchPageMetadata(urlEl.value)
     const descriptionToSend = pageMeta ? (pageMeta.metaDescription || pageMeta.ogDescription) : descEl.value
 
+    console.log('[suggestCategory] input:', {
+      name: titleEl.value,
+      url: urlEl.value,
+      description: descriptionToSend,
+      pageMeta,
+      tags: tagItems
+    })
+
     const response = await fetch(`${settings.serverUrl}/api/ai/suggest-category`, {
       method: 'POST',
       headers: {
@@ -753,6 +761,7 @@ async function suggestCategory() {
     });
 
     const result = await response.json();
+    console.log('[suggestCategory] result:', result)
 
     if (result.success && result.categoryId !== undefined && result.categoryId !== null) {
       const categoryId = String(result.categoryId);
@@ -891,13 +900,15 @@ async function getTabInfo() {
     document.getElementById('url').value = tab.url || '';
   }
 
-  // 抓取页面元数据用于 AI 功能
+  // 抓取页面元数据用于 AI 功能（同时清除旧描述）
   fetchPageMetadata(tab?.url).then(pageMeta => {
-    if (!pageMeta) return
-
     const descEl = document.getElementById('description')
-    if (descEl && !descEl.value) {
-      descEl.value = pageMeta.metaDescription || pageMeta.ogDescription || ''
+    if (!descEl) return
+
+    if (pageMeta && (pageMeta.metaDescription || pageMeta.ogDescription)) {
+      descEl.value = pageMeta.metaDescription || pageMeta.ogDescription
+    } else {
+      descEl.value = ''
     }
   })
 }
