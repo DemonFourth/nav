@@ -1567,10 +1567,10 @@ function getTrendKey(createdAt) {
   return monday.toISOString().slice(0, 10)
 }
 
-function formatTrendLabel(key) {
-  if (trendGranularity.value === 'day') return key.slice(5) // MM-DD
+function formatTrendLabel(key, showYear) {
   if (trendGranularity.value === 'month') return key // YYYY-MM
-  return key.slice(5) // week start MM-DD
+  if (showYear) return key // YYYY-MM-DD full
+  return key.slice(5) // MM-DD
 }
 
 const trendData = computed(() => {
@@ -1580,9 +1580,10 @@ const trendData = computed(() => {
     if (!key) return
     counts[key] = (counts[key] || 0) + 1
   })
-  return Object.entries(counts)
-    .sort((a, b) => a[0].localeCompare(b[0]))
-    .map(([key, count]) => ({ key, count, label: formatTrendLabel(key) }))
+  const entries = Object.entries(counts).sort((a, b) => a[0].localeCompare(b[0]))
+  const years = new Set(entries.map(([key]) => key.slice(0, 4)))
+  const showYear = years.size > 1
+  return entries.map(([key, count]) => ({ key, count, label: formatTrendLabel(key, showYear) }))
 })
 
 const trendTotal = computed(() => trendData.value.reduce((s, d) => s + d.count, 0))
@@ -1667,10 +1668,7 @@ const trendFilter = ref(null)
 
 const trendFilterLabel = computed(() => {
   if (!trendFilter.value) return ''
-  const d = trendData.value.find(x => x.key === trendFilter.value)
-  if (d) return d.label
-  if (trendGranularity.value === 'month') return trendFilter.value
-  return trendFilter.value.slice(5)
+  return trendFilter.value
 })
 
 const trendFilterCount = computed(() => {
@@ -4238,6 +4236,19 @@ textarea.setting-input {
   overflow-x: auto;
   overflow-y: hidden;
   -webkit-overflow-scrolling: touch;
+}
+.trend-chart-wrap::-webkit-scrollbar {
+  height: 6px;
+}
+.trend-chart-wrap::-webkit-scrollbar-track {
+  background: transparent;
+}
+.trend-chart-wrap::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 3px;
+}
+.trend-chart-wrap::-webkit-scrollbar-thumb:hover {
+  background: var(--text-secondary);
 }
 .trend-chart-svg {
   display: block;
