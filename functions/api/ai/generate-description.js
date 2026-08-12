@@ -25,7 +25,7 @@ Given the following bookmark information:
 Name: {name}
 URL: {url}
 
-Please generate a brief, useful description (1-2 sentences, max 100 words) that explains what this website/resource is about. The description should be clear, informative, and help users understand the purpose or content of the site.
+Please generate a brief, useful description (1-2 sentences, about 30-60 Chinese characters) that explains what this website/resource is about. The description should be clear and informative.
 
 You MUST write the description in Simplified Chinese (简体中文), regardless of the language of the bookmark name or URL. Return only the description text, without any additional formatting or quotes.`
     
@@ -64,7 +64,7 @@ You MUST write the description in Simplified Chinese (简体中文), regardless 
           }
         ],
         temperature: 0.5,
-        max_tokens: 150
+        max_tokens: 200
       }
     })
 
