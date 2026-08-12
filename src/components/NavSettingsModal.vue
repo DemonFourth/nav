@@ -660,36 +660,37 @@
               </div>
 
               <div class="trend-toolbar">
-                <button
-                  class="trend-granularity-btn"
-                  :class="{ active: trendGranularity === 'day' }"
-                  @click="trendGranularity = 'day'"
-                >按天</button>
-                <button
-                  class="trend-granularity-btn"
-                  :class="{ active: trendGranularity === 'week' }"
-                  @click="trendGranularity = 'week'"
-                >按周</button>
-                <button
-                  class="trend-granularity-btn"
-                  :class="{ active: trendGranularity === 'month' }"
-                  @click="trendGranularity = 'month'"
-                >按月</button>
-              </div>
-
-              <div class="trend-year-bar" v-if="trendYears.length">
-                <button
-                  class="trend-year-btn"
-                  :class="{ active: !trendYearFilter }"
-                  @click="trendYearFilter = null; scrollChartToEnd()"
-                >全部</button>
-                <button
-                  v-for="year in trendYears"
-                  :key="year"
-                  class="trend-year-btn"
-                  :class="{ active: trendYearFilter === year }"
-                  @click="trendYearFilter = year; scrollChartToEnd()"
-                >{{ year }}年</button>
+                <div class="trend-year-group" v-if="trendYears.length">
+                  <button
+                    class="trend-year-btn"
+                    :class="{ active: !trendYearFilter }"
+                    @click="trendYearFilter = null; scrollChartToEnd()"
+                  >全部</button>
+                  <button
+                    v-for="year in trendYears"
+                    :key="year"
+                    class="trend-year-btn"
+                    :class="{ active: trendYearFilter === year }"
+                    @click="trendYearFilter = year; scrollChartToEnd()"
+                  >{{ year }}年</button>
+                </div>
+                <div class="trend-granularity-group">
+                  <button
+                    class="trend-granularity-btn"
+                    :class="{ active: trendGranularity === 'day' }"
+                    @click="trendGranularity = 'day'"
+                  >按天</button>
+                  <button
+                    class="trend-granularity-btn"
+                    :class="{ active: trendGranularity === 'week' }"
+                    @click="trendGranularity = 'week'"
+                  >按周</button>
+                  <button
+                    class="trend-granularity-btn"
+                    :class="{ active: trendGranularity === 'month' }"
+                    @click="trendGranularity = 'month'"
+                  >按月</button>
+                </div>
               </div>
 
               <div class="trend-stats-row">
@@ -4229,14 +4230,20 @@ textarea.setting-input {
 /* ===== Trend tab ===== */
 .trend-toolbar {
   display: flex;
+  justify-content: space-between;
+  align-items: center;
   gap: 8px;
   margin-bottom: 16px;
 }
-.trend-year-bar {
+.trend-year-group {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.trend-granularity-group {
   display: flex;
   gap: 8px;
-  margin-bottom: 16px;
-  flex-wrap: wrap;
+  flex-shrink: 0;
 }
 .trend-year-btn {
   padding: 4px 14px;
