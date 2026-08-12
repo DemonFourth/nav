@@ -117,7 +117,7 @@ export async function onRequestPost(context) {
               }
             ],
             temperature: 0.1,
-            max_tokens: 200,
+            max_tokens: 600,
             reasoning: { effort: 'none' }
           }
         })
@@ -125,6 +125,18 @@ export async function onRequestPost(context) {
         const data = await response.json()
         const choice = data.choices?.[0]
         const message = choice?.message?.content
+
+        // 过滤掉安全审查等无意义回复
+        if (message && !message.trim().startsWith('{') && /安全|safe|审核|filter|blocked|policy/i.test(message)) {
+          results.push({
+            id: bookmark.id,
+            success: false,
+            error: 'AI 返回了安全检查消息，请检查内容后重试'
+          })
+          failedCount++
+          continue
+        }
+
         console.log('[AI cat] finish_reason:', choice?.finish_reason, 'content_len:', message?.length, 'full:', JSON.stringify(data).slice(0, 800))
         const parsed = extractJson(message, validCategoryIds)
 
