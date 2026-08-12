@@ -1,7 +1,7 @@
 import { callOpenAI, getAIConfig } from './_shared.js'
 
 // 尝试从 AI 回复中提取 JSON 对象，支持 markdown 代码块、前后文字等多种格式
-function extractJson(text) {
+function extractJson(text, validCategoryIds = new Set()) {
   if (!text) return null
   const trimmed = text.trim()
 
@@ -51,6 +51,14 @@ function extractJson(text) {
     return { categoryId: Number.parseInt(idMatch[1], 10), reason: reasonMatch || '' }
   }
 
+  // 尝试 6：finish_reason=length 时输出被截断，从所有数字中找匹配的 categoryId
+  for (const num of trimmed.matchAll(/\b(\d+)\b/g)) {
+    const n = Number.parseInt(num[1], 10)
+    if (validCategoryIds.has(n)) {
+      return { categoryId: n, reason: trimmed.trim() }
+    }
+  }
+
   return null
 }
 
@@ -78,20 +86,15 @@ export async function onRequestPost(context) {
 
     const config = await getAIConfig(env)
 
-    const prompt = `You are a bookmark categorization assistant. Please select the single most appropriate category for the following bookmark from the list below.
+    const prompt = `Pick the best category ID for this bookmark from the list.
 
-Bookmark:
-- Name: ${name}
-- URL: ${url}
-- Description: ${description || 'N/A'}
+Bookmark: ${name} | ${url} | ${description || 'N/A'}
 
-Available categories (format: ID: path):
+Categories:
 ${categoryList}
 
-Please return your recommendation in JSON format:
-{"categoryId": <the chosen category ID as a number>, "reason": "<brief explanation in Chinese>"}
-
-You may also explain your reasoning in natural language before or after the JSON. The important thing is to pick a valid category ID from the list above.`
+Output only: {"categoryId": <ID number>, "reason": "<short Chinese explanation>"}
+Choose from: ${Array.from(validCategoryIds).join(', ')}`
 
     const response = await callOpenAI(env, {
       path: 'chat/completions',
@@ -101,7 +104,7 @@ You may also explain your reasoning in natural language before or after the JSON
         messages: [
           {
             role: 'system',
-            content: 'You are a helpful bookmark categorization assistant. Return your answer as JSON when possible, but natural language explanations are also fine.'
+            content: 'You are a bookmark categorization assistant. Always respond with a compact JSON object containing only categoryId (integer) and reason (short Chinese text).'
           },
           {
             role: 'user',
@@ -109,7 +112,7 @@ You may also explain your reasoning in natural language before or after the JSON
           }
         ],
         temperature: 0.3,
-        max_tokens: 200
+        max_tokens: 100
       }
     })
 
@@ -117,7 +120,7 @@ You may also explain your reasoning in natural language before or after the JSON
     const choice = data.choices?.[0]
     const message = choice?.message?.content
     console.log('[AI cat] finish_reason:', choice?.finish_reason, 'content:', JSON.stringify(message)?.slice(0, 300), 'full_data:', JSON.stringify(data)?.slice(0, 500))
-    const parsed = extractJson(message)
+    const parsed = extractJson(message, validCategoryIds)
 
     if (!parsed || typeof parsed.categoryId === 'undefined') {
       const rawPreview = message ?? '(空)'
