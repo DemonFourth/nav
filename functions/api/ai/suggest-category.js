@@ -112,19 +112,21 @@ Choose from: ${Array.from(validCategoryIds).join(', ')}`
           }
         ],
         temperature: 0.3,
-        max_tokens: 100
+        max_tokens: 200
       }
     })
 
     const data = await response.json()
     const choice = data.choices?.[0]
     const message = choice?.message?.content
-    console.log('[AI cat] finish_reason:', choice?.finish_reason, 'content:', JSON.stringify(message)?.slice(0, 300), 'full_data:', JSON.stringify(data)?.slice(0, 500))
+    console.log('[AI cat] finish_reason:', choice?.finish_reason, 'content_len:', message?.length, 'full:', JSON.stringify(data).slice(0, 800))
     const parsed = extractJson(message, validCategoryIds)
 
     if (!parsed || typeof parsed.categoryId === 'undefined') {
       const rawPreview = message ?? '(空)'
-      const reason = data.choices?.[0]?.finish_reason ?? '(未知)'
+      const reason = choice?.finish_reason ?? '(未知)'
+      const logDetails = `finish_reason=${reason}, content_len=${message?.length ?? 0}, raw=${JSON.stringify(rawPreview)}`
+      console.error('[AI cat] extract failed:', logDetails)
       return new Response(JSON.stringify({
         success: false,
         error: `AI 无法确定分类。finish_reason=${reason}，AI 实际回复：${rawPreview}`

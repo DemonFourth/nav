@@ -128,19 +128,20 @@ Choose from: ${Array.from(validCategoryIds).join(', ')}`
               }
             ],
             temperature: 0.3,
-            max_tokens: 100
+            max_tokens: 200
           }
         })
 
         const data = await response.json()
         const choice = data.choices?.[0]
         const message = choice?.message?.content
-        console.log('[AI cat] finish_reason:', choice?.finish_reason, 'content:', JSON.stringify(message)?.slice(0, 300), 'full_data:', JSON.stringify(data)?.slice(0, 500))
-        const parsed = extractJson(message)
+        console.log('[AI cat] finish_reason:', choice?.finish_reason, 'content_len:', message?.length, 'full:', JSON.stringify(data).slice(0, 800))
+        const parsed = extractJson(message, validCategoryIds)
 
         if (!parsed || typeof parsed.categoryId === 'undefined') {
           const rawPreview = message ?? '(空)'
           const reason = choice?.finish_reason ?? '(未知)'
+          console.error('[AI cat] extract failed:', `finish_reason=${reason}, content_len=${message?.length ?? 0}, raw=${JSON.stringify(rawPreview)}`)
           results.push({
             id: bookmark.id,
             success: false,
