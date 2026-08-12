@@ -1,74 +1,5 @@
 import { callOpenAI, getAIConfig, extractJson } from './_shared.js'
 
-function keywordFallback({ name, url, description, tags, notes, categories }) {
-  if (!categories || categories.length === 0) return null
-
-  const catNodes = []
-  for (const cat of categories) {
-    const id = Number.parseInt(cat.id, 10)
-    if (!Number.isInteger(id)) continue
-    const depth = (cat.path || cat.name).split(' / ').length - 1
-    catNodes.push({
-      id,
-      depth,
-      name: (cat.name || '').toLowerCase(),
-      path: (cat.path || '').toLowerCase(),
-      pathRaw: cat.path || cat.name || ''
-    })
-  }
-
-  if (catNodes.length === 0) return null
-
-  catNodes.sort((a, b) => b.depth - a.depth)
-
-  let bestMatch = null
-
-  for (const node of catNodes) {
-    let score = 0
-    let reasonPart = ''
-
-    if (tags) {
-      const tagList = tags.split(',').map(t => t.trim().toLowerCase()).filter(Boolean)
-      for (const tag of tagList) {
-        if (node.name.includes(tag)) { score += 200; reasonPart = `tags 匹配："${tag}"`; break }
-      }
-    }
-
-    const nameLower = (name || '').toLowerCase()
-    if (node.name.includes(nameLower)) { score += 100; reasonPart = `名称匹配分类："${node.pathRaw}"` }
-    if (node.path.includes(nameLower)) { score += 60; reasonPart = `路径匹配名称："${node.pathRaw}"` }
-    if (nameLower.includes(node.name)) { score += 100; reasonPart = `名称包含分类："${node.pathRaw}"` }
-
-    try {
-      const domain = new URL(url).hostname.replace(/^www\./, '')
-      const domainBase = domain.split('.')[0]
-      if (domainBase.includes(node.name) || node.name.includes(domainBase)) {
-        score += 80; reasonPart = `URL 域名匹配："${node.pathRaw}"`
-      }
-    } catch (_) {}
-
-    const textFields = [description, notes].filter(Boolean)
-    for (const text of textFields) {
-      const textLower = text.toLowerCase()
-      if (textLower.includes(node.name)) {
-        score += 40; reasonPart = `描述匹配分类："${node.pathRaw}"`; break
-      }
-    }
-
-    score += node.depth * 50
-
-    if (score > 0 && (!bestMatch || score > bestMatch.score || (score === bestMatch.score && node.depth > bestMatch.depth))) {
-      bestMatch = { categoryId: node.id, score, depth: node.depth, path: node.pathRaw, reason: reasonPart || `匹配："${node.pathRaw}"` }
-    }
-  }
-
-  if (bestMatch) {
-    return { categoryId: bestMatch.categoryId, reason: bestMatch.reason }
-  }
-
-  return null
-}
-
 function buildCategoryHierarchyText(categories) {
   const lines = []
   const roots = categories.filter(c => !c.path.includes(' / '))
@@ -76,18 +7,18 @@ function buildCategoryHierarchyText(categories) {
 
   if (roots.length === 0) {
     for (const cat of categories) {
-      lines.push(`${cat.id}. [根] ${(cat.path || cat.name)}`)
+      lines.push(`${cat.id}. ${(cat.path || cat.name)}`)
     }
     return lines.join('\n')
   }
 
   for (const root of roots) {
-    lines.push(`${root.id}. [根] ${(root.path || root.name)}`)
+    lines.push(`${root.id}. ${(root.path || root.name)}`)
     const rootChildren = children.filter(c => c.path.startsWith(root.name + ' / '))
     for (const child of rootChildren) {
       const depth = child.path.split(' / ').length - 1
       const indent = '  '.repeat(depth - 1)
-      lines.push(`${indent}${child.id}. [子${depth - 1}] ${child.path}`)
+      lines.push(`${indent}${child.id}. ${child.path}`)
     }
   }
 
@@ -131,13 +62,12 @@ export async function onRequestPost(context) {
 
 YOUR PRIORITY: Always choose the MOST SPECIFIC (deepest) subcategory.
 
-EXAMPLE: If categories include "153. [根] AI" and "198. [子1] AI / 视频制作", and the bookmark is about AI image generation, choose 198 (子分类), NOT 153 (根分类).
+EXAMPLE: If categories include "153. AI" and "198.   AI / 视频制作", and the bookmark is about AI image generation, choose 198 (sub-category), NOT 153 (root).
 
 RULES:
 1. Analyze NAME, URL domain, DESCRIPTION, TAGS, NOTES
-2. The [子N] markers show category depth - prefer deeper matches
+2. Indented items are subcategories - prefer deeper matches
 3. Only output a NUMBER that exists in the list
-4. If a root category has a more specific child match, choose the child
 
 Output ONLY valid JSON: {"categoryId": NUMBER, "reason": "简短中文原因"}`
 
@@ -147,26 +77,6 @@ Output ONLY valid JSON: {"categoryId": NUMBER, "reason": "简短中文原因"}`
 
     for (const bookmark of bookmarks) {
       try {
-        const fallback = keywordFallback({
-          name: bookmark.name,
-          url: bookmark.url,
-          description: bookmark.description || '',
-          tags: bookmark.tags || '',
-          notes: bookmark.notes || '',
-          categories
-        })
-        if (fallback) {
-          results.push({
-            id: bookmark.id,
-            success: true,
-            categoryId: fallback.categoryId,
-            reason: fallback.reason,
-            fallback: true
-          })
-          successCount++
-          continue
-        }
-
         const bookmarkInfo = [
           `Name: ${bookmark.name}`,
           `URL: ${bookmark.url}`,
