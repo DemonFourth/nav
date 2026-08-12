@@ -130,15 +130,18 @@ You may also explain your reasoning in natural language before or after the JSON
         })
 
         const data = await response.json()
-        const message = data.choices?.[0]?.message?.content
+        const choice = data.choices?.[0]
+        const message = choice?.message?.content
+        console.log('[AI cat] finish_reason:', choice?.finish_reason, 'content:', JSON.stringify(message)?.slice(0, 300), 'full_data:', JSON.stringify(data)?.slice(0, 500))
         const parsed = extractJson(message)
 
         if (!parsed || typeof parsed.categoryId === 'undefined') {
-          const rawPreview = message?.slice(0, 200).replace(/\n/g, ' ')
+          const rawPreview = message ?? '(空)'
+          const reason = choice?.finish_reason ?? '(未知)'
           results.push({
             id: bookmark.id,
             success: false,
-            error: `AI 无法确定分类。AI 实际回复：${rawPreview}`
+            error: `AI 无法确定分类。finish_reason=${reason}，AI 实际回复：${rawPreview}`
           })
           failedCount++
         } else {
