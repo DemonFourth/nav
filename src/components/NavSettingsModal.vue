@@ -698,11 +698,11 @@
 
               <!-- SVG Chart -->
               <div class="trend-chart-wrap">
-                <svg v-if="chartBars.length > 0" viewBox="0 0 700 220" class="trend-chart-svg" preserveAspectRatio="xMidYMid meet">
+                <svg v-if="chartBars.length > 0" :viewBox="`0 0 ${chartSvgWidth} 220`" class="trend-chart-svg" preserveAspectRatio="xMinYMin meet">
                   <!-- Y-axis grid lines & labels -->
                   <g v-for="yl in chartYLabels" :key="yl.value">
                     <line
-                      :x1="marginLeft" :y1="yl.y" :x2="700 - marginRight" :y2="yl.y"
+                      :x1="marginLeft" :y1="yl.y" :x2="chartSvgWidth - marginRight" :y2="yl.y"
                       stroke="var(--border)" stroke-width="0.5"
                     />
                     <text
@@ -712,13 +712,16 @@
                   </g>
                   <!-- X-axis line -->
                   <line
-                    :x1="marginLeft" :y1="chartBottom" :x2="700 - marginRight" :y2="chartBottom"
+                    :x1="marginLeft" :y1="chartBottom" :x2="chartSvgWidth - marginRight" :y2="chartBottom"
                     stroke="var(--border)" stroke-width="1"
                   />
                   <!-- Bars -->
                   <g
                     v-for="(bar, i) in chartBars" :key="i"
                     class="trend-bar-group"
+                    :class="{ active: trendFilter === bar.key }"
+                    @click="handleBarClick(bar.key)"
+                    style="cursor:pointer"
                   >
                     <rect
                       :x="bar.x" :y="bar.y" :width="bar.width" :height="bar.height"
@@ -745,8 +748,18 @@
               </div>
 
               <!-- Timeline -->
+              <div class="trend-filter-bar" v-if="trendFilter">
+                <span class="trend-filter-chip">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
+                    <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>
+                  </svg>
+                  筛选：{{ trendFilterLabel }}
+                  <span class="trend-filter-count">{{ trendFilterCount }} 个</span>
+                </span>
+                <button class="trend-filter-clear" @click="clearTrendFilter">清除筛选</button>
+              </div>
               <div class="trend-timeline">
-                <template v-for="group in trendTimeline" :key="group.date">
+                <template v-for="group in filteredTimeline" :key="group.date">
                   <div class="timeline-date-header">
                     <span class="timeline-date">{{ group.date }}</span>
                     <span class="timeline-badge">{{ group.bookmarks.length }} 个</span>
@@ -1583,6 +1596,11 @@ const marginTop = 20
 const marginBottom = 40
 const chartBottom = 220 - marginBottom
 
+const chartSvgWidth = computed(() => {
+  const n = trendData.value.length
+  return Math.max(700, n * 28)
+})
+
 const trendYLMax = computed(() => {
   const max = trendMax.value
   if (max <= 0) return 1
@@ -1593,6 +1611,7 @@ const trendYLMax = computed(() => {
 const chartYLabels = computed(() => {
   const steps = 5
   const labels = []
+  const w = chartSvgWidth.value
   for (let i = 0; i <= steps; i++) {
     const val = Math.round((trendYLMax.value / steps) * i)
     labels.push({ value: val, y: marginTop + (chartBottom - marginTop) * (1 - i / steps) })
@@ -1604,10 +1623,11 @@ const chartBars = computed(() => {
   const data = trendData.value
   const n = data.length
   if (n === 0) return []
-  const chartW = 700 - marginLeft - marginRight
+  const w = chartSvgWidth.value
+  const chartW = w - marginLeft - marginRight
   const chartH = chartBottom - marginTop
   const step = chartW / n
-  const barWidth = Math.min(28, Math.max(4, step * 0.6))
+  const barWidth = Math.min(28, Math.max(8, step * 0.6))
   const labelStep = Math.max(1, Math.ceil(n / 14))
   return data.map((d, i) => {
     const h = (d.count / trendYLMax.value) * chartH
@@ -1616,6 +1636,7 @@ const chartBars = computed(() => {
     return {
       x, y, width: barWidth, height: h,
       count: d.count,
+      key: d.key,
       label: d.label,
       showLabel: i % labelStep === 0 || i === n - 1,
       labelX: marginLeft + i * step + step / 2
@@ -1640,6 +1661,58 @@ const trendTimeline = computed(() => {
       })
       return g
     })
+})
+
+const trendFilter = ref(null)
+
+const trendFilterLabel = computed(() => {
+  if (!trendFilter.value) return ''
+  const d = trendData.value.find(x => x.key === trendFilter.value)
+  if (d) return d.label
+  if (trendGranularity.value === 'month') return trendFilter.value
+  return trendFilter.value.slice(5)
+})
+
+const trendFilterCount = computed(() => {
+  if (!trendFilter.value) return 0
+  return bookmarks.value.filter(bm => getTrendKey(bm.created_at) === trendFilter.value).length
+})
+
+const filteredTimeline = computed(() => {
+  if (!trendFilter.value) return trendTimeline.value
+  const groups = {}
+  bookmarks.value.forEach(bm => {
+    if (getTrendKey(bm.created_at) !== trendFilter.value) return
+    const d = toLocalDateStr(bm.created_at) || '未知日期'
+    if (!groups[d]) groups[d] = { date: d, bookmarks: [] }
+    groups[d].bookmarks.push(bm)
+  })
+  return Object.values(groups)
+    .sort((a, b) => b.date.localeCompare(a.date))
+    .map(g => {
+      g.bookmarks.sort((x, y) => {
+        const tx = x.created_at ? new Date(String(x.created_at).replace(' ', 'T') + 'Z').getTime() : 0
+        const ty = y.created_at ? new Date(String(y.created_at).replace(' ', 'T') + 'Z').getTime() : 0
+        return ty - tx
+      })
+      return g
+    })
+})
+
+const handleBarClick = (key) => {
+  if (trendFilter.value === key) {
+    trendFilter.value = null
+  } else {
+    trendFilter.value = key
+  }
+}
+
+const clearTrendFilter = () => {
+  trendFilter.value = null
+}
+
+watch(trendGranularity, () => {
+  trendFilter.value = null
 })
 
 const settingsContentRef = ref(null)
@@ -4148,12 +4221,13 @@ textarea.setting-input {
   border-radius: 12px;
   padding: 16px;
   margin-bottom: 24px;
-  overflow: hidden;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
 }
 .trend-chart-svg {
-  width: 100%;
-  height: auto;
   display: block;
+  min-width: 100%;
+  height: auto;
 }
 .trend-bar {
   transition: opacity 0.15s;
@@ -4161,6 +4235,13 @@ textarea.setting-input {
 }
 .trend-bar:hover {
   opacity: 0.7;
+}
+.trend-bar-group.active .trend-bar {
+  fill: var(--primary);
+  opacity: 1;
+}
+.trend-bar-group:not(.active) .trend-bar {
+  fill: var(--accent);
 }
 .trend-chart-empty {
   text-align: center;
@@ -4288,6 +4369,50 @@ textarea.setting-input {
 .trend-back-top svg {
   width: 18px;
   height: 18px;
+}
+.trend-filter-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 14px;
+  margin-bottom: 8px;
+  background: color-mix(in srgb, var(--primary) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--primary) 25%, transparent);
+  border-radius: 10px;
+}
+.trend-filter-chip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--primary);
+}
+.trend-filter-chip svg {
+  flex-shrink: 0;
+}
+.trend-filter-count {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+  background: var(--bg-secondary);
+  padding: 0 6px;
+  border-radius: 6px;
+}
+.trend-filter-clear {
+  margin-left: auto;
+  padding: 4px 12px;
+  border-radius: 6px;
+  border: 1px solid color-mix(in srgb, var(--primary) 25%, transparent);
+  background: transparent;
+  color: var(--primary);
+  font-size: 0.8rem;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.15s;
+}
+.trend-filter-clear:hover {
+  background: color-mix(in srgb, var(--primary) 12%, transparent);
 }
 </style>
 
