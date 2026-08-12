@@ -92,9 +92,8 @@ export async function onRequestPost(context) {
 
     // 构建合法的 categoryId 集合，用于后续校验
     const validCategoryIds = new Set(categories.map(cat => Number.parseInt(cat.id, 10)).filter(n => Number.isInteger(n)))
-    const categoryList = categories
-      .map(cat => `${cat.id}: ${cat.path || cat.name}`)
-      .join('\n')
+    // 将 categoryList 压成一行，减少 token 消耗
+    const categoryLine = categories.map(cat => `${cat.id}=${cat.path || cat.name}`).join(',')
 
     const results = []
     let successCount = 0
@@ -102,16 +101,6 @@ export async function onRequestPost(context) {
 
     for (const bookmark of bookmarks) {
       try {
-        const prompt = `Pick the best category ID for this bookmark from the list.
-
-Bookmark: ${bookmark.name} | ${bookmark.url} | ${bookmark.description || 'N/A'}
-
-Categories:
-${categoryList}
-
-Output only: {"categoryId": <ID number>, "reason": "<short Chinese explanation>"}
-Choose from: ${Array.from(validCategoryIds).join(', ')}`
-
         const response = await callOpenAI(env, {
           path: 'chat/completions',
           method: 'POST',
@@ -120,15 +109,16 @@ Choose from: ${Array.from(validCategoryIds).join(', ')}`
             messages: [
               {
                 role: 'system',
-                content: 'You are a bookmark categorization assistant. Always respond with a compact JSON object containing only categoryId (integer) and reason (short Chinese text).'
+                content: 'Output ONLY valid JSON. No other text. Format: {"categoryId":NUMBER,"reason":"中文"}'
               },
               {
                 role: 'user',
-                content: prompt
+                content: `Bookmark: ${bookmark.name} | ${bookmark.url} | ${bookmark.description || ''}\nCategories: ${categoryLine}\n{"categoryId":`
               }
             ],
-            temperature: 0.3,
-            max_tokens: 200
+            temperature: 0.1,
+            max_tokens: 200,
+            reasoning: { effort: 'none' }
           }
         })
 

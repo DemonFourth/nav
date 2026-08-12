@@ -86,15 +86,9 @@ export async function onRequestPost(context) {
 
     const config = await getAIConfig(env)
 
-    const prompt = `Pick the best category ID for this bookmark from the list.
-
-Bookmark: ${name} | ${url} | ${description || 'N/A'}
-
-Categories:
-${categoryList}
-
-Output only: {"categoryId": <ID number>, "reason": "<short Chinese explanation>"}
-Choose from: ${Array.from(validCategoryIds).join(', ')}`
+    // 将 categoryList 压成一行，减少 token 消耗
+    const categoryLine = categories.map(cat => `${cat.id}=${cat.path || cat.name}`).join(',')
+    const validIds = Array.from(validCategoryIds).join(',')
 
     const response = await callOpenAI(env, {
       path: 'chat/completions',
@@ -104,15 +98,16 @@ Choose from: ${Array.from(validCategoryIds).join(', ')}`
         messages: [
           {
             role: 'system',
-            content: 'You are a bookmark categorization assistant. Always respond with a compact JSON object containing only categoryId (integer) and reason (short Chinese text).'
+            content: 'Output ONLY valid JSON. No other text. Format: {"categoryId":NUMBER,"reason":"中文"}'
           },
           {
             role: 'user',
-            content: prompt
+            content: `Bookmark: ${name} | ${url} | ${description || ''}\nCategories: ${categoryLine}\n{"categoryId":`
           }
         ],
-        temperature: 0.3,
-        max_tokens: 200
+        temperature: 0.1,
+        max_tokens: 200,
+        reasoning: { effort: 'none' }
       }
     })
 
