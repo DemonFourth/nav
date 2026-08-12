@@ -98,7 +98,7 @@ export async function onRequestPost(context) {
         messages: [
           {
             role: 'system',
-            content: 'Output ONLY valid JSON. No other text. Format: {"categoryId":NUMBER,"reason":"中文"}'
+            content: 'Output ONLY valid JSON. Format: {"categoryId":NUMBER,"reason":"中文"}. You MUST choose one of the provided category IDs. Even if none fit perfectly, pick the closest match.'
           },
           {
             role: 'user',
@@ -106,7 +106,7 @@ export async function onRequestPost(context) {
           }
         ],
         temperature: 0.1,
-        max_tokens: 600,
+        max_tokens: 800,
         reasoning: { effort: 'none' }
       }
     })

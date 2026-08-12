@@ -62,8 +62,7 @@ Please generate a brief, useful description (1-2 sentences) that explains what t
           }
         ],
         temperature: 0.5,
-        max_tokens: 600,
-        reasoning: { effort: 'none' }
+        max_tokens: 400
       }
     })
 
