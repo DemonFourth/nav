@@ -30,7 +30,6 @@ function extractJson(text) {
   }
 
   // 尝试 4：从左往右扫描，找到第一个 { 后逐个字符尝试解析
-  let braceCount = 0
   for (let i = 0; i < trimmed.length; i++) {
     if (trimmed[i] === '{') {
       for (let j = i + 1; j <= trimmed.length; j++) {
@@ -43,8 +42,13 @@ function extractJson(text) {
         }
       }
     }
-    if (trimmed[i] === '{') braceCount++
-    if (trimmed[i] === '}') braceCount--
+  }
+
+  // 尝试 5：AI 可能直接输出自然语言，从中提取 categoryId 数字和 reason 文本
+  const idMatch = trimmed.match(/(?:categoryId|分类\s*ID|推荐)\s*[：:]\s*(\d+)/)
+  if (idMatch) {
+    const reasonMatch = trimmed.replace(/.*(?:categoryId|分类\s*ID|推荐)\s*[：:]\s*\d+.*/i, '').trim()
+    return { categoryId: Number.parseInt(idMatch[1], 10), reason: reasonMatch || '' }
   }
 
   return null
@@ -74,7 +78,7 @@ export async function onRequestPost(context) {
 
     const config = await getAIConfig(env)
 
-    const prompt = `You are a bookmark categorization assistant. Your ONLY task is to select the single most appropriate category ID from the list below for the given bookmark.
+    const prompt = `You are a bookmark categorization assistant. Please select the single most appropriate category for the following bookmark from the list below.
 
 Bookmark:
 - Name: ${name}
@@ -84,14 +88,10 @@ Bookmark:
 Available categories (format: ID: path):
 ${categoryList}
 
-You MUST respond with ONLY a valid JSON object in this exact format, with no other text before or after:
-{"categoryId": <one of the IDs above>, "reason": "brief reason in Chinese"}
+Please return your recommendation in JSON format:
+{"categoryId": <the chosen category ID as a number>, "reason": "<brief explanation in Chinese>"}
 
-Rules:
-- categoryId MUST be an integer that appears in the list above
-- Do NOT invent new category IDs
-- Do NOT include any text outside the JSON object
-- Write the reason in Simplified Chinese`
+You may also explain your reasoning in natural language before or after the JSON. The important thing is to pick a valid category ID from the list above.`
 
     const response = await callOpenAI(env, {
       path: 'chat/completions',
@@ -101,7 +101,7 @@ Rules:
         messages: [
           {
             role: 'system',
-            content: 'You are a precise categorization assistant. Always respond with valid JSON only, no extra text.'
+            content: 'You are a helpful bookmark categorization assistant. Return your answer as JSON when possible, but natural language explanations are also fine.'
           },
           {
             role: 'user',
@@ -109,12 +109,13 @@ Rules:
           }
         ],
         temperature: 0.3,
-        max_tokens: 180
+        max_tokens: 200
       }
     })
 
     const data = await response.json()
     const message = data.choices?.[0]?.message?.content
+    console.log('[AI cat] raw:', message?.slice(0, 300))
     const parsed = extractJson(message)
 
     if (!parsed || typeof parsed.categoryId === 'undefined') {
@@ -150,7 +151,7 @@ Rules:
     console.error('AI suggest category error:', error)
     return new Response(JSON.stringify({
       success: false,
-      error: error.message || 'Failed to suggest category'
+      error: error.message || 'AI 推荐分类失败'
     }), {
       status: 500,
       headers: { 'Content-Type': 'application/json' }
