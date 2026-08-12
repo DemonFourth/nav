@@ -698,7 +698,7 @@
 
               <!-- SVG Chart -->
               <div class="trend-chart-wrap">
-                <svg v-if="chartBars.length > 0" :viewBox="`0 0 ${chartSvgWidth} 220`" class="trend-chart-svg" preserveAspectRatio="xMinYMin meet">
+                <svg v-if="chartBars.length > 0" :viewBox="`0 0 ${chartSvgWidth} 220`" class="trend-chart-svg" :style="chartSvgWidth > 700 ? { width: chartSvgWidth + 'px' } : { width: '100%' }" preserveAspectRatio="xMinYMin meet">
                   <!-- Y-axis grid lines & labels -->
                   <g v-for="yl in chartYLabels" :key="yl.value">
                     <line
@@ -4222,11 +4222,11 @@ textarea.setting-input {
   padding: 16px;
   margin-bottom: 24px;
   overflow-x: auto;
+  overflow-y: hidden;
   -webkit-overflow-scrolling: touch;
 }
 .trend-chart-svg {
   display: block;
-  min-width: 100%;
   height: auto;
 }
 .trend-bar {
