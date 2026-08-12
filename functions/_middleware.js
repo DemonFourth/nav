@@ -51,6 +51,18 @@ async function validateToken(token, env) {
 export async function onRequest(context) {
   const { request, env, next } = context;
   const url = new URL(request.url);
+
+  // CORS 头
+  const corsHeaders = {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization'
+  }
+
+  // 处理 OPTIONS 预检请求
+  if (request.method === 'OPTIONS') {
+    return new Response(null, { status: 204, headers: corsHeaders })
+  }
   
   // 添加安全响应头
   const securityHeaders = {
@@ -83,7 +95,7 @@ export async function onRequest(context) {
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
       return new Response(JSON.stringify({ error: 'Unauthorized' }), {
         status: 401,
-        headers: { 'Content-Type': 'application/json' }
+        headers: { 'Content-Type': 'application/json', ...corsHeaders }
       });
     }
     
@@ -93,7 +105,7 @@ export async function onRequest(context) {
     if (!validation.valid) {
       return new Response(JSON.stringify({ error: validation.error }), {
         status: 401,
-        headers: { 'Content-Type': 'application/json' }
+        headers: { 'Content-Type': 'application/json', ...corsHeaders }
       });
     }
   }
@@ -105,7 +117,7 @@ export async function onRequest(context) {
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
       return new Response(JSON.stringify({ error: 'Unauthorized' }), {
         status: 401,
-        headers: { 'Content-Type': 'application/json' }
+        headers: { 'Content-Type': 'application/json', ...corsHeaders }
       });
     }
     
@@ -115,15 +127,18 @@ export async function onRequest(context) {
     if (!validation.valid) {
       return new Response(JSON.stringify({ error: validation.error }), {
         status: 401,
-        headers: { 'Content-Type': 'application/json' }
+        headers: { 'Content-Type': 'application/json', ...corsHeaders }
       });
     }
   }
   
   const response = await next();
   
-  // 添加安全头到响应
+  // 添加安全头和 CORS 头到响应
   Object.entries(securityHeaders).forEach(([key, value]) => {
+    response.headers.set(key, value);
+  });
+  Object.entries(corsHeaders).forEach(([key, value]) => {
     response.headers.set(key, value);
   });
   
