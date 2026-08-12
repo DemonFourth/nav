@@ -697,7 +697,7 @@
               </div>
 
               <!-- SVG Chart -->
-              <div class="trend-chart-wrap">
+              <div class="trend-chart-wrap" ref="trendChartWrapRef">
                 <svg v-if="chartBars.length > 0" :viewBox="`0 0 ${chartSvgWidth} 220`" class="trend-chart-svg" :style="chartSvgWidth > 700 ? { width: chartSvgWidth + 'px' } : { width: '100%' }" preserveAspectRatio="xMinYMin meet">
                   <!-- Y-axis grid lines & labels -->
                   <g v-for="yl in chartYLabels" :key="yl.value">
@@ -1713,9 +1713,15 @@ const clearTrendFilter = () => {
 
 watch(trendGranularity, () => {
   trendFilter.value = null
+  scrollChartToEnd()
 })
 
+watch(() => chartBars.value, () => {
+  scrollChartToEnd()
+}, { deep: false })
+
 const settingsContentRef = ref(null)
+const trendChartWrapRef = ref(null)
 const trendShowBackTop = ref(false)
 let trendScrollHandler = null
 
@@ -1723,8 +1729,16 @@ const scrollTrendToTop = () => {
   settingsContentRef.value?.scrollTo({ top: 0, behavior: 'smooth' })
 }
 
+const scrollChartToEnd = () => {
+  nextTick(() => {
+    const el = trendChartWrapRef.value
+    if (el) el.scrollLeft = el.scrollWidth
+  })
+}
+
 watch(activeTab, (tab) => {
   if (tab === 'trend') {
+    scrollChartToEnd()
     trendShowBackTop.value = false
     const el = settingsContentRef.value
     if (el) {
