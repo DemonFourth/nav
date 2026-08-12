@@ -226,12 +226,14 @@ export function useCategoryEditor() {
     return result
   }
 
-  async function removeCategory(id) {
+  async function removeCategory(id, options = {}) {
     if (!confirm('确定要删除该分类吗？这将同时删除所有子分类和书签。')) return { success: false }
-    const result = await deleteCategory(id)
+    const result = await deleteCategory(id, options)
     if (result.success) {
       selectedCategoryId.value = null
       toastSuccess('已删除分类')
+    } else if (result.needsDecision) {
+      return result
     } else {
       toastError(result.error || '删除失败')
     }
@@ -545,13 +547,13 @@ export function useCategoryEditor() {
     return result
   }
 
-  async function confirmDelete(id) {
+  async function confirmDelete(id, options = {}) {
     if (!id) return { success: false }
 
     const item = categories.value.find(c => c.id === id)
     if (!item) return { success: false }
 
-    const result = await deleteCategory(id)
+    const result = await deleteCategory(id, options)
     if (result.success && selectedCategoryId.value === id) {
       selectedCategoryId.value = null
     }

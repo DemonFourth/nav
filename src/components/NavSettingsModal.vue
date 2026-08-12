@@ -1192,7 +1192,7 @@ const {
 } = useCategoryEditor()
 
 const { bookmarks, fetchData, deleteBookmark, batchOperation, addBookmark, updateBookmark, allTags } = useBookmarks()
-const { success: toastSuccess, error: toastError, warning: toastWarning } = useToast()
+const { success: toastSuccess, error: toastError } = useToast()
 const { requireAuth } = useAuthGuard()
 
 const activeTab = ref('appearance')
@@ -1514,10 +1514,25 @@ const moveCategory = (index, direction) => {
 // Use functions from useCategoryEditor (already imported)
 
 // Bookmark tab computed
+// 收集选中分类及其所有后代分类的 ID（用于筛选书签）
+const getCategoryWithDescendants = (categoryId) => {
+  const ids = new Set()
+  const visit = (id) => {
+    if (ids.has(id)) return
+    ids.add(id)
+    categoryFlatList.value
+      .filter(c => c.parent_id === id)
+      .forEach(child => visit(child.id))
+  }
+  visit(categoryId)
+  return ids
+}
+
 const filteredBookmarks = computed(() => {
   let result = bookmarks.value
   if (bookmarkCategoryFilter.value) {
-    result = result.filter(b => b.category_id === bookmarkCategoryFilter.value)
+    const ids = getCategoryWithDescendants(Number(bookmarkCategoryFilter.value))
+    result = result.filter(b => ids.has(Number(b.category_id)))
   }
   if (bookmarkSearch.value) {
     result = searchBookmarks(result, bookmarkSearch.value, { field: bookmarkSearchField.value })
@@ -1929,9 +1944,33 @@ const handleDeleteCategory = async () => {
     const result = await confirmDelete(selectedCategoryId.value)
     if (result.success) {
       toastSuccess('分类已删除')
-    } else {
-      toastError(result.error || '删除失败')
+      return
     }
+    if (result.needsDecision) {
+      const choice = await confirmDialog.value.openWithChoices(
+        `分类"${cat.name}"下有 ${result.bookmarkCount} 个书签，如何处理？`,
+        '删除分类',
+        [
+          { text: '取消', value: null },
+          { text: '查看并迁移书签', value: 'migrate' },
+          { text: '连同书签一起删除', value: 'cascade', primary: true }
+        ]
+      )
+      if (choice === 'cascade') {
+        const cascadeResult = await confirmDelete(selectedCategoryId.value, { cascade: 'true' })
+        if (cascadeResult.success) {
+          toastSuccess(`分类已删除，${cascadeResult.deletedBookmarks ?? result.bookmarkCount} 个书签已一并删除`)
+        } else {
+          toastError(cascadeResult.error || '删除失败')
+        }
+      } else if (choice === 'migrate') {
+        bookmarkCategoryFilter.value = selectedCategoryId.value
+        activeTab.value = 'bookmark'
+        toastSuccess(`已切换到书签管理，可迁移或删除"${cat.name}"分类及其子分类下的书签`)
+      }
+      return
+    }
+    toastError(result.error || '删除失败')
   } finally {
     categorySaving.value = false
   }

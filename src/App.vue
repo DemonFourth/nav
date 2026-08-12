@@ -946,14 +946,38 @@ const handleDeleteCategory = async (category) => {
     `确定要删除分类"${displayName}"吗？该分类下的所有书签也将被删除。`,
     '删除分类'
   )
-  if (confirmed) {
-    const result = await deleteCategory(category.id)
-    if (result.success) {
-      toastSuccess('分类已删除')
-    } else {
-      toastError(result.error || '删除分类失败')
-    }
+  if (!confirmed) return
+
+  const result = await deleteCategory(category.id)
+  if (result.success) {
+    toastSuccess('分类已删除')
+    return
   }
+if (result.needsDecision) {
+    const choice = await confirmDialog.value.openWithChoices(
+      `分类"${displayName}"下有 ${result.bookmarkCount} 个书签，如何处理？`,
+      '删除分类',
+      [
+        { text: '取消', value: null },
+        { text: '查看并迁移书签', value: 'migrate' },
+        { text: '连同书签一起删除', value: 'cascade', primary: true }
+      ]
+    )
+    if (choice === 'cascade') {
+      const cascadeResult = await deleteCategory(category.id, { cascade: 'true' })
+      if (cascadeResult.success) {
+        toastSuccess(`分类已删除，${cascadeResult.deletedBookmarks ?? result.bookmarkCount} 个书签已一并删除`)
+      } else {
+        toastError(cascadeResult.error || '删除分类失败')
+      }
+    } else if (choice === 'migrate') {
+      searchCategoryId.value = category.id
+      toastSuccess(`已切换到分类"${displayName}"，可移动或删除其中的书签后再删除分类`)
+      return
+    }
+    return
+  }
+  toastError(result.error || '删除分类失败')
 }
 
 const handleEditBookmark = (bookmark) => {

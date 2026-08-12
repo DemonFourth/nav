@@ -51,7 +51,7 @@ export async function onRequestPost(context) {
         }
         break;
         
-      case 'delete-categories':
+      case 'delete-categories': {
         // Batch delete categories (cascade delete bookmarks)
         if (!categoryIds || !Array.isArray(categoryIds) || categoryIds.length === 0) {
           return new Response(JSON.stringify({ error: 'Invalid category IDs' }), {
@@ -59,11 +59,32 @@ export async function onRequestPost(context) {
             headers: { 'Content-Type': 'application/json' }
           });
         }
-        const categoryPlaceholders = categoryIds.map(() => '?').join(',');
+        // Collect all descendant category IDs (recursive)
+        const allDeleteIds = new Set(categoryIds.map(Number));
+        const queue = categoryIds.map(Number);
+        while (queue.length > 0) {
+          const current = queue.shift();
+          const children = await env.DB.prepare(
+            'SELECT id FROM categories WHERE parent_id = ?'
+          ).bind(current).all();
+          for (const child of children.results) {
+            if (!allDeleteIds.has(child.id)) {
+              allDeleteIds.add(child.id);
+              queue.push(child.id);
+            }
+          }
+        }
+        const allDeleteIdsArr = [...allDeleteIds];
+        const categoryPlaceholders = allDeleteIdsArr.map(() => '?').join(',');
+        // Delete bookmarks in these categories first
+        await env.DB.prepare(
+          `DELETE FROM bookmarks WHERE category_id IN (${categoryPlaceholders})`
+        ).bind(...allDeleteIdsArr).run();
         await env.DB.prepare(
           `DELETE FROM categories WHERE id IN (${categoryPlaceholders})`
-        ).bind(...categoryIds).run();
+        ).bind(...allDeleteIdsArr).run();
         break;
+      }
         
       case 'move':
         // Batch move to category

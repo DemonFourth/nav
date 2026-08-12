@@ -62,7 +62,17 @@ export function useBookmarks() {
     let result = bookmarks.value
 
     if (searchCategoryId.value) {
-      result = result.filter(bookmark => bookmark.category_id === searchCategoryId.value)
+      // 收集选中分类及其所有后代分类的 ID
+      const ids = new Set()
+      const visit = (id) => {
+        if (ids.has(id)) return
+        ids.add(id)
+        categories.value
+          .filter(c => c.parent_id === id)
+          .forEach(child => visit(child.id))
+      }
+      visit(Number(searchCategoryId.value))
+      result = result.filter(bookmark => ids.has(Number(bookmark.category_id)))
     }
 
     if (searchTags.value && searchTags.value.length > 0) {
@@ -319,16 +329,28 @@ export function useBookmarks() {
     }
   }
 
-  const deleteCategory = async (id) => {
+  const deleteCategory = async (id, options = {}) => {
     try {
-      const response = await apiRequest(`/api/categories/${id}`, {
+      const { cascade = 'ask' } = options
+      const query = cascade === 'true' || cascade === 'false'
+        ? `?cascade=${cascade}`
+        : ''
+      const response = await apiRequest(`/api/categories/${id}${query}`, {
         method: 'DELETE'
       })
 
       const result = await response.json()
       if (result.success) {
         await fetchData({ forceRefresh: true })
-        return { success: true }
+        return { success: true, deletedBookmarks: result.deletedBookmarks }
+      }
+      if (result.needsDecision) {
+        return {
+          success: false,
+          needsDecision: true,
+          hasBookmarks: true,
+          bookmarkCount: result.bookmarkCount
+        }
       }
       return { success: false, error: '删除失败' }
     } catch (error) {

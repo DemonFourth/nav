@@ -170,16 +170,66 @@ async function updateDescendantsDepth(db, parentId, depthDiff) {
   }
 }
 
-// DELETE category (cascade delete bookmarks)
+// DELETE category (with cascade option for bookmarks)
 export async function onRequestDelete(context) {
-  const { env, params } = context;
-  const id = params.id;
-  
+  const { env, params, request } = context;
+  const id = Number(params.id);
+
   try {
-    // D1支持外键级联删除
+    // Collect all descendant category IDs (recursive)
+    const allDescendantIds = [];
+    const queue = [id];
+    while (queue.length > 0) {
+      const current = queue.shift();
+      const children = await env.DB.prepare(
+        'SELECT id FROM categories WHERE parent_id = ?'
+      ).bind(current).all();
+      for (const child of children.results) {
+        allDescendantIds.push(child.id);
+        queue.push(child.id);
+      }
+    }
+
+    // Count bookmarks in current category + all descendants
+    const allIds = [id, ...allDescendantIds];
+    const placeholders = allIds.map(() => '?').join(',');
+    const { count: totalBookmarkCount } = await env.DB.prepare(
+      `SELECT COUNT(*) as count FROM bookmarks WHERE category_id IN (${placeholders})`
+    ).bind(...allIds).first();
+
+    const url = new URL(request.url);
+    const cascade = url.searchParams.get('cascade');
+
+    // If there are bookmarks and cascade not requested, ask frontend to decide
+    if (totalBookmarkCount > 0 && cascade !== 'true') {
+      return new Response(JSON.stringify({
+        success: false,
+        hasBookmarks: true,
+        bookmarkCount: totalBookmarkCount,
+        needsDecision: true
+      }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+
+    // Delete all bookmarks in this category tree
+    if (totalBookmarkCount > 0) {
+      await env.DB.prepare(
+        `DELETE FROM bookmarks WHERE category_id IN (${placeholders})`
+      ).bind(...allIds).run();
+    }
+
+    // Delete all descendant categories (bottom-up to avoid FK issues)
+    for (const childId of allDescendantIds.reverse()) {
+      await env.DB.prepare('DELETE FROM categories WHERE id = ?').bind(childId).run();
+    }
     await env.DB.prepare('DELETE FROM categories WHERE id = ?').bind(id).run();
-    
-    return new Response(JSON.stringify({ success: true }), {
+
+    return new Response(JSON.stringify({
+      success: true,
+      ...(totalBookmarkCount > 0 ? { deletedBookmarks: totalBookmarkCount } : {})
+    }), {
       status: 200,
       headers: { 'Content-Type': 'application/json' }
     });
