@@ -740,11 +740,7 @@
 
               <!-- Timeline -->
               <div class="trend-timeline">
-                <div
-                  v-for="group in trendTimeline"
-                  :key="group.date"
-                  class="timeline-group"
-                >
+                <template v-for="group in trendTimeline" :key="group.date">
                   <div class="timeline-date-header">
                     <span class="timeline-date">{{ group.date }}</span>
                     <span class="timeline-badge">{{ group.bookmarks.length }} 个</span>
@@ -766,11 +762,11 @@
                       <div v-else class="timeline-letter-icon">{{ bm.name.charAt(0) }}</div>
                     </div>
                     <div class="timeline-info">
-                      <div class="timeline-name">{{ bm.name }}</div>
+                      <div class="timeline-name"><a :href="bm.url" target="_blank" rel="noopener" @click.stop>{{ bm.name }}</a></div>
                       <div class="timeline-meta">{{ getCategoryPathForBookmark(bm.category_id) }}</div>
                     </div>
                   </div>
-                </div>
+                </template>
               </div>
             </div>
 
@@ -4063,23 +4059,17 @@ textarea.setting-input {
 .trend-timeline {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-}
-.timeline-group {
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  overflow: hidden;
 }
 .timeline-date-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: 10px 14px;
-  background: var(--card-bg);
+  background: var(--bg);
   border-bottom: 1px solid var(--border);
   position: sticky;
   top: 0;
-  z-index: 1;
+  z-index: 2;
 }
 .timeline-date {
   font-size: 0.9rem;
@@ -4147,12 +4137,27 @@ textarea.setting-input {
   overflow: hidden;
   text-overflow: ellipsis;
 }
+.timeline-name a {
+  color: var(--text);
+  text-decoration: none;
+  transition: color 0.15s;
+}
+.timeline-name a:hover {
+  color: var(--accent);
+}
 .timeline-meta {
-  font-size: 0.75rem;
+  display: inline-block;
+  font-size: 0.7rem;
   color: var(--text-secondary);
+  padding: 1px 8px;
+  border: 1px solid var(--border);
+  border-radius: 9999px;
+  background: color-mix(in srgb, var(--bg-secondary) 60%, transparent);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  max-width: 100%;
+  margin-top: 2px;
 }
 </style>
 

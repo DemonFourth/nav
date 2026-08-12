@@ -33,7 +33,22 @@
 
               <div class="detail-section">
                 <div class="detail-section-title">URL</div>
-                <input v-model="form.url" type="text" class="detail-input" placeholder="https://..." />
+                <div class="input-with-btn">
+                  <input v-model="form.url" type="text" class="detail-input" placeholder="https://..." />
+                  <button
+                    v-if="form.url"
+                    type="button"
+                    class="url-open-btn"
+                    @click="openUrl(form.url)"
+                    title="在新标签页中打开"
+                  >
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+                      <polyline points="15 3 21 3 21 9"/>
+                      <line x1="10" y1="14" x2="21" y2="3"/>
+                    </svg>
+                  </button>
+                </div>
               </div>
 
               <div class="detail-section">
@@ -319,6 +334,11 @@ const open = (bookmark) => {
 
 const handleClose = () => {
   emit('close')
+}
+
+const openUrl = (url) => {
+  if (!url) return
+  window.open(url, '_blank', 'noopener,noreferrer')
 }
 
 const handleSave = () => {
@@ -1159,6 +1179,29 @@ defineExpose({ open })
   width: 16px;
   height: 16px;
   stroke-width: 2;
+}
+
+.url-open-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 9px 12px;
+  background: var(--nav-card-bg);
+  border: 1px solid var(--nav-border);
+  border-radius: 10px;
+  color: var(--nav-primary);
+  cursor: pointer;
+  transition: all 0.2s;
+  flex-shrink: 0;
+}
+.url-open-btn:hover {
+  background: color-mix(in srgb, var(--nav-primary) 12%, transparent);
+  border-color: var(--nav-primary);
+  transform: translateY(-1px);
+}
+.url-open-btn svg {
+  width: 16px;
+  height: 16px;
 }
 
 .ai-suggestion {
