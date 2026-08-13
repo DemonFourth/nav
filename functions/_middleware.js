@@ -21,9 +21,9 @@ async function validateToken(token, env) {
     const now = Date.now();
     
     // 根据token类型设置有效期
-    const expiryTime = tokenType === 'long' 
+const expiryTime = tokenType === 'long'
       ? 30 * 24 * 60 * 60 * 1000  // 30天
-      : 15 * 60 * 1000;            // 15分钟
+      : 30 * 60 * 1000;            // 30分钟
     
     // 检查token是否过期
     if (now - tokenTime > expiryTime) {

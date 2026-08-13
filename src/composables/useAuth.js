@@ -19,7 +19,7 @@ function isTokenExpired(tokenStr) {
   }
   const tokenTime = parseInt(timestamp)
   if (isNaN(tokenTime)) return true
-  const expiryMs = tokenType === 'long' ? 30 * 24 * 60 * 60 * 1000 : 15 * 60 * 1000
+  const expiryMs = tokenType === 'long' ? 30 * 24 * 60 * 60 * 1000 : 30 * 60 * 1000
   return Date.now() - tokenTime > expiryMs
 }
 
