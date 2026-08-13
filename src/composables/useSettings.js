@@ -1,6 +1,34 @@
 import { ref, watch } from 'vue'
 import { useAuth } from './useAuth'
 
+const RETRY_ATTEMPTS = 3
+const RETRY_DELAY_MS = 500
+const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms))
+
+async function fetchWithRetry(url, options) {
+  let lastError = null
+  for (let attempt = 0; attempt < RETRY_ATTEMPTS; attempt++) {
+    try {
+      const response = await fetch(url, options)
+      if (response.status >= 500) {
+        lastError = new Error(`Server error ${response.status}`)
+        if (attempt < RETRY_ATTEMPTS - 1) {
+          await sleep(RETRY_DELAY_MS * (attempt + 1))
+          continue
+        }
+      }
+      return response
+    } catch (error) {
+      lastError = error
+      if (attempt < RETRY_ATTEMPTS - 1) {
+        await sleep(RETRY_DELAY_MS * (attempt + 1))
+        continue
+      }
+    }
+  }
+  throw lastError
+}
+
 const showSearch = ref(localStorage.getItem('showSearch') !== 'false')
 const hideEmptyCategories = ref(localStorage.getItem('hideEmptyCategories') === 'true')
 const customTitle = ref(localStorage.getItem('customTitle') || '📚 书签管理')
@@ -41,7 +69,7 @@ export function useSettings() {
   const loadSettingsFromDB = async () => {
     isLoadingFromDB.value = true
     try {
-      const response = await fetch('/api/settings', {
+      const response = await fetchWithRetry('/api/settings', {
         headers: isAuthenticated.value ? getAuthHeaders() : {}
       })
 

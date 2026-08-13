@@ -1,6 +1,10 @@
 import { ref } from 'vue'
 import { useAuth } from './useAuth'
 
+const RETRY_ATTEMPTS = 3
+const RETRY_DELAY_MS = 500
+const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms))
+
 const aiEnabled = ref(false)
 const aiSource = ref('none')
 const aiApiKey = ref('')
@@ -9,12 +13,36 @@ const aiBaseUrl = ref('')
 export function useAI() {
   const { apiRequest } = useAuth()
 
-  const checkAIAvailability = async () => {
+const checkAIAvailability = async () => {
     try {
-      const response = await apiRequest('/api/ai/status', {
-        method: 'GET'
-      })
-      
+      let response = null
+      for (let attempt = 0; attempt < RETRY_ATTEMPTS; attempt++) {
+        try {
+          response = await apiRequest('/api/ai/status', {
+            method: 'GET'
+          })
+          if (response.status >= 500) {
+            if (attempt < RETRY_ATTEMPTS - 1) {
+              await sleep(RETRY_DELAY_MS * (attempt + 1))
+              continue
+            }
+            break
+          }
+          break
+        } catch (err) {
+          if (attempt === RETRY_ATTEMPTS - 1) {
+            throw err
+          }
+          await sleep(RETRY_DELAY_MS * (attempt + 1))
+        }
+      }
+
+      if (!response || response.status >= 500) {
+        aiEnabled.value = false
+        aiSource.value = 'none'
+        return { success: false, enabled: false }
+      }
+
       const result = await response.json()
       if (result.success) {
         aiEnabled.value = result.enabled

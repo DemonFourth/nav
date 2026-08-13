@@ -4,6 +4,36 @@ import { useToast } from './useToast'
 
 const CACHE_KEY = 'nav_bookmarks_cache'
 const CACHE_EXPIRY_MS = 5 * 60 * 1000 // 5 minutes
+const RETRY_ATTEMPTS = 3
+const RETRY_DELAY_MS = 500
+
+const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms))
+
+async function fetchWithRetry(url, options) {
+  let lastError = null
+  for (let attempt = 0; attempt < RETRY_ATTEMPTS; attempt++) {
+    try {
+      const response = await fetch(url, options)
+      if (response.status >= 500) {
+        lastError = new Error(`Server error ${response.status}`)
+        if (attempt < RETRY_ATTEMPTS - 1) {
+          const delay = RETRY_DELAY_MS * (attempt + 1)
+          await sleep(delay)
+          continue
+        }
+      }
+      return response
+    } catch (error) {
+      lastError = error
+      if (attempt < RETRY_ATTEMPTS - 1) {
+        const delay = RETRY_DELAY_MS * (attempt + 1)
+        await sleep(delay)
+        continue
+      }
+    }
+  }
+  throw lastError
+}
 
 const categories = ref([])
 const bookmarks = ref([])
@@ -124,7 +154,6 @@ export function useBookmarks() {
     const { forceRefresh = false, background = false } = options
     const isAuth = isAuthenticated.value
 
-    // Load from cache first (instant)
     if (!forceRefresh) {
       const cached = loadFromCache(isAuth)
       if (cached) {
@@ -137,7 +166,7 @@ export function useBookmarks() {
       try {
         const authHeaders = getAuthHeaders()
 
-        const categoriesRes = await fetch('/api/categories', {
+        const categoriesRes = await fetchWithRetry('/api/categories', {
           headers: authHeaders
         })
 
@@ -154,7 +183,7 @@ export function useBookmarks() {
         const categoriesData = await categoriesRes.json()
         categories.value = categoriesData.data || []
 
-        const bookmarksRes = await fetch('/api/bookmarks', {
+        const bookmarksRes = await fetchWithRetry('/api/bookmarks', {
           headers: authHeaders
         })
 
@@ -169,13 +198,12 @@ export function useBookmarks() {
         const bookmarksData = await bookmarksRes.json()
         bookmarks.value = bookmarksData.data || []
 
-        // Save to cache
         saveToCache(isAuth, {
           categories: categories.value,
           bookmarks: bookmarks.value
         })
       } catch (error) {
-        console.error('Failed to fetch data:', error)
+        console.error('Failed to fetch data (after retries):', error)
       }
     }
 
