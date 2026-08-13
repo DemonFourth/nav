@@ -17,6 +17,7 @@ async function fetchWithRetry(url, options) {
           await sleep(RETRY_DELAY_MS * (attempt + 1))
           continue
         }
+        break
       }
       return response
     } catch (error) {
