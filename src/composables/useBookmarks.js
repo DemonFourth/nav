@@ -85,7 +85,7 @@ function clearCache() {
 
 export function useBookmarks() {
   const { getAuthHeaders, logout, apiRequest, isAuthenticated } = useAuth()
-  const { error: toastError } = useToast()
+  const { error: toastError, warning: toastWarning } = useToast()
 
 
   const filteredBookmarks = computed(() => {
@@ -204,6 +204,12 @@ export function useBookmarks() {
         })
       } catch (error) {
         console.error('Failed to fetch data (after retries):', error)
+        const hasData = bookmarks.value.length > 0 || categories.value.length > 0
+        if (hasData) {
+          toastWarning('数据加载失败，显示缓存数据')
+        } else {
+          toastError('数据加载失败，请刷新页面重试')
+        }
       }
     }
 

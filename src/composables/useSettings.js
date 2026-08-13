@@ -1,5 +1,6 @@
 import { ref, watch } from 'vue'
 import { useAuth } from './useAuth'
+import { useToast } from './useToast'
 
 const RETRY_ATTEMPTS = 3
 const RETRY_DELAY_MS = 500
@@ -64,6 +65,7 @@ const isLoadingFromDB = ref(false)
 
 export function useSettings() {
   const { isAuthenticated, getAuthHeaders, apiRequest } = useAuth()
+  const { warning: toastWarning } = useToast()
 
   // 从数据库加载设置（未登录用户也可以访问）
   const loadSettingsFromDB = async () => {
@@ -121,6 +123,7 @@ export function useSettings() {
       }
     } catch (error) {
       console.error('Failed to load settings from database:', error)
+      toastWarning('设置加载失败，将使用本地缓存')
     } finally {
       isLoadingFromDB.value = false
     }
