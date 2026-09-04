@@ -104,8 +104,7 @@ ${categoryHierarchy}
               }
             ],
             temperature: 0.1,
-            max_tokens: 1024,
-            reasoning: { effort: 'none' }
+            max_tokens: 1024
           }
         })
 
