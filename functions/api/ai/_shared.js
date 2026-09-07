@@ -146,20 +146,19 @@ export async function callOpenAI(env, { path, method = 'POST', body, headers = {
   })
 
   if (!response.ok) {
-    let details = ''
+    const rawText = await response.text()
+    let details = rawText
     try {
-      const errorData = await response.json()
+      const errorData = JSON.parse(rawText)
       details = errorData.error?.message || errorData.error || JSON.stringify(errorData)
-    } catch (err) {
-      details = await response.text()
-    }
+    } catch (_) {}
 
     // 将 OpenAI content filter 错误映射为友好提示
     if (details.includes('content policy') || details.includes('content filter') || details.includes('blocked by')) {
       throw new Error('内容审核：请求内容触发了安全策略，请修改后重试')
     }
 
-    throw new Error(details || `OpenAI request failed with status ${response.status}`)
+    throw new Error(`[${response.status}] ${details || 'OpenAI request failed'}`)
   }
 
   return response
