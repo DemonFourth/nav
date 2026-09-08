@@ -416,13 +416,15 @@ onMounted(() => {
 
 .tag-table-header .col-count {
   width: 80px;
-  text-align: center;
+  display: flex;
+  justify-content: center;
   flex-shrink: 0;
 }
 
 .tag-table-header .col-actions {
   width: 64px;
-  text-align: center;
+  display: flex;
+  justify-content: center;
   flex-shrink: 0;
 }
 
