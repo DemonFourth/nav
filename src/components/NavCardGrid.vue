@@ -1,6 +1,6 @@
 <template>
   <div class="nav-card-grid">
-    <div v-if="bookmarks.length > 0" class="cards-container" :class="animationClass">
+    <div v-if="bookmarks.length > 0" class="cards-container" :class="animationClass" :style="{ '--columns': columns }">
       <NavCard
         v-for="(bookmark, index) in bookmarks"
         :key="bookmark.id"
