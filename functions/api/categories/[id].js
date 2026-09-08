@@ -97,7 +97,7 @@ export async function onRequestPut(context) {
     // 处理 description
     let newDescription = existing.description;
     if (Object.prototype.hasOwnProperty.call(body, 'description')) {
-      newDescription = description || '';
+      newDescription = (description || '').substring(0, 50);
     }
     
     // 检查同一父分类下是否已存在同名分类（排除自己）

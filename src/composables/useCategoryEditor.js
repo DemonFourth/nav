@@ -474,6 +474,7 @@ export function useCategoryEditor() {
     editForm.name = formOriginal.name
     editForm.parentId = formOriginal.parentId
     editForm.position = formOriginal.position
+    editForm.description = formOriginal.description
     const siblings = getSiblings(selectedCategoryId.value)
     editForm.maxPosition = siblings.length
   }

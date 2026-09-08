@@ -54,7 +54,7 @@ export async function onRequestPost(context) {
     name = body.name;
     parent_id = body.parent_id;
     const is_private = body.is_private;
-    const description = body.description || '';
+    const description = (body.description || '').substring(0, 50);
     
     // 计算depth
     let depth = 0;
