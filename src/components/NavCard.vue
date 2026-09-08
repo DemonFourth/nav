@@ -190,8 +190,8 @@ const handleShowDetail = () => {
 .nav-card-horizontal {
   position: relative;
   display: flex;
-  align-items: flex-start;
-  gap: 16px;
+  flex-direction: column;
+  gap: 0;
   padding: 16px;
   border-radius: 12px;
   border: 1px solid var(--nav-border);
