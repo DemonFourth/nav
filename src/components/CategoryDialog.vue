@@ -51,6 +51,17 @@
             </label>
           </div>
           
+          <div class="form-group">
+            <label>描述（可选，悬浮时显示）</label>
+            <input 
+              v-model="form.description" 
+              type="text" 
+              maxlength="50"
+              placeholder="最多50字符"
+            >
+            <span class="char-count">{{ (form.description || '').length }}/50</span>
+          </div>
+          
           <div v-if="form.parent_id && categoryType === 'sub'" class="preview-box">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
               <path d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
@@ -91,7 +102,8 @@ const categoryType = ref('main')
 const form = ref({
   name: '',
   parent_id: '',
-  is_private: false
+  is_private: false,
+  description: ''
 })
 
 // 可用的父分类列表
@@ -152,7 +164,8 @@ const open = (category = null, presetParentId = null) => {
     form.value = {
       name: category.name,
       parent_id: category.parent_id || '',
-      is_private: !!category.is_private
+      is_private: !!category.is_private,
+      description: category.description || ''
     }
     categoryType.value = category.parent_id ? 'sub' : 'main'
   } else {
@@ -162,7 +175,8 @@ const open = (category = null, presetParentId = null) => {
     form.value = {
       name: '',
       parent_id: presetParentId || '',
-      is_private: false
+      is_private: false,
+      description: ''
     }
     categoryType.value = presetParentId ? 'sub' : 'main'
   }
@@ -198,11 +212,11 @@ const handleSubmit = async () => {
   
   let result
   if (isEdit.value) {
-    // 编辑分类时更新名称、父分类和私密状态
-    result = await updateCategory(editId.value, form.value.name.trim(), parentId, form.value.is_private)
+    // 编辑分类时更新名称、父分类、私密状态和描述
+    result = await updateCategory(editId.value, form.value.name.trim(), parentId, form.value.is_private, form.value.description.trim())
   } else {
     // 新建分类
-    result = await addCategory(form.value.name.trim(), parentId, form.value.is_private)
+    result = await addCategory(form.value.name.trim(), parentId, form.value.is_private, form.value.description.trim())
   }
   
   if (result.success) {

@@ -210,8 +210,8 @@ export function useCategoryEditor() {
   }
 
   // CRUD operations (now local-only with pending)
-  async function createCategory(name, parentId = null, isPrivate = false) {
-    const result = await addCategory(name, parentId, isPrivate)
+  async function createCategory(name, parentId = null, isPrivate = false, description = '') {
+    const result = await addCategory(name, parentId, isPrivate, description)
     if (result.success) {
       toastSuccess('已创建新分类')
     } else {

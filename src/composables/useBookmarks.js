@@ -309,9 +309,9 @@ export function useBookmarks() {
     }
   }
 
-  const addCategory = async (name, parentId = null, isPrivate = false) => {
+  const addCategory = async (name, parentId = null, isPrivate = false, description = '') => {
     try {
-      const body = { name, is_private: isPrivate }
+      const body = { name, is_private: isPrivate, description }
       if (parentId !== null) {
         body.parent_id = parentId
       }
