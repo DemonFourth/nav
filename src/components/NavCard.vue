@@ -4,26 +4,30 @@
     @click="handleCardClick"
     :title="shouldShowTitle ? hoverTitle : undefined"
   >
-    <!-- 图标 -->
-    <div class="nav-card-icon">
-      <img 
-        v-if="!iconError"
-        :src="iconUrl"
-        :alt="bookmark.name"
-        loading="lazy"
-        @error="handleIconError"
-      />
-      <div v-if="iconError" class="letter-icon">
-        {{ bookmark.name.charAt(0) }}
+    <!-- 第一行：图标 + 名称 + 描述 -->
+    <div class="nav-card-top">
+      <div class="nav-card-icon">
+        <img 
+          v-if="!iconError"
+          :src="iconUrl"
+          :alt="bookmark.name"
+          loading="lazy"
+          @error="handleIconError"
+        />
+        <div v-if="iconError" class="letter-icon">
+          {{ bookmark.name.charAt(0) }}
+        </div>
+      </div>
+      <div class="nav-card-info">
+        <h3 ref="titleRef" class="nav-card-title">{{ bookmark.name }}</h3>
+        <p v-if="bookmark.description" ref="descRef" class="nav-card-description">
+          {{ bookmark.description }}
+        </p>
       </div>
     </div>
     
-    <!-- 内容区域 -->
-    <div class="nav-card-content">
-      <h3 ref="titleRef" class="nav-card-title">{{ bookmark.name }}</h3>
-      <p v-if="bookmark.description" ref="descRef" class="nav-card-description">
-        {{ bookmark.description }}
-      </p>
+    <!-- 第二行：标签 + URL -->
+    <div class="nav-card-bottom">
       <div v-if="bookmark.tags && bookmark.tags.trim()" class="nav-card-tags">
         <span 
           v-for="(tag, index) in visibleTags" 
@@ -186,16 +190,36 @@ const handleShowDetail = () => {
 .nav-card-horizontal {
   position: relative;
   display: flex;
-  align-items: flex-start;
-  gap: 16px;
+  flex-direction: column;
+  gap: 8px;
   padding: 16px;
   border-radius: 12px;
   border: 1px solid var(--nav-border);
   cursor: pointer;
-  transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: all 0.3s ease;
   min-height: 100px;
   max-width: 100%;
   overflow: hidden;
+}
+
+.nav-card-top {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.nav-card-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.nav-card-bottom {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 }
 
 .nav-card-horizontal::before {
@@ -231,7 +255,7 @@ const handleShowDetail = () => {
 
 .nav-card-horizontal:hover {
   background: var(--nav-card-hover);
-  transform: translateY(-3px);
+  transform: translateY(-4px);
   box-shadow: 0 12px 40px -8px var(--shadow-lg), 0 0 0 1px color-mix(in srgb, var(--nav-primary) 12%, transparent);
   border-color: color-mix(in srgb, var(--nav-primary) 20%, transparent);
 }
@@ -279,12 +303,8 @@ const handleShowDetail = () => {
   transform: scale(1.08);
 }
 
-.nav-card-content {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
+.nav-card-horizontal:hover .nav-card-title {
+  color: var(--nav-primary);
 }
 
 .nav-card-title {
@@ -294,6 +314,7 @@ const handleShowDetail = () => {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  transition: color 0.3s ease;
 }
 
 .nav-card-description {
@@ -316,8 +337,8 @@ const handleShowDetail = () => {
   padding: 2px 8px;
   background: color-mix(in srgb, var(--nav-primary) 12%, transparent);
   color: var(--nav-primary);
-  border: 1px solid color-mix(in srgb, var(--nav-primary) 25%, transparent);
-  border-radius: 4px;
+  border: none;
+  border-radius: 9999px;
   font-size: 11px;
   font-weight: 500;
   transition: all 0.2s ease;
@@ -326,13 +347,11 @@ const handleShowDetail = () => {
 
 .tag-badge:hover {
   background: color-mix(in srgb, var(--nav-primary) 25%, transparent);
-  border-color: color-mix(in srgb, var(--nav-primary) 50%, transparent);
 }
 
 .tag-badge.more-tags {
   cursor: pointer;
   background: var(--nav-card-bg);
-  border-color: var(--nav-border);
   color: var(--nav-text-secondary);
 }
 
