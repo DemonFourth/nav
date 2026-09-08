@@ -418,6 +418,7 @@ onMounted(() => {
   width: 72px;
   text-align: center;
   flex-shrink: 0;
+  border-right: 1px solid var(--border);
 }
 
 .tag-table-header .col-actions {
@@ -454,6 +455,7 @@ onMounted(() => {
 
 .col-name {
   flex: 1;
+  min-width: 0;
   display: flex;
   align-items: center;
   gap: 0.5rem;
@@ -476,6 +478,7 @@ onMounted(() => {
   display: flex;
   justify-content: center;
   flex-shrink: 0;
+  border-right: 1px solid var(--border);
 }
 
 .count-badge {
