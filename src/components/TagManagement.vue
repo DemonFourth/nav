@@ -416,8 +416,7 @@ onMounted(() => {
 
 .tag-table-header .col-count {
   width: 72px;
-  display: flex;
-  justify-content: center;
+  text-align: center;
   flex-shrink: 0;
 }
 
