@@ -194,6 +194,8 @@ const handleShowDetail = () => {
   cursor: pointer;
   transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1);
   min-height: 100px;
+  max-width: 100%;
+  overflow: hidden;
 }
 
 .nav-card-horizontal::before {
