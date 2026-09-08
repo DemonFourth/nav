@@ -407,9 +407,11 @@ onMounted(() => {
   padding: 0.5rem 0.875rem;
   background: var(--bg-secondary);
   border-bottom: 1px solid var(--border);
-  font-size: 0.75rem;
+  font-size: 0.7rem;
   font-weight: 600;
-  color: var(--text-secondary);
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
 }
 
 .tag-table-header .col-count {
@@ -419,7 +421,7 @@ onMounted(() => {
 }
 
 .tag-table-header .col-actions {
-  width: 60px;
+  width: 64px;
   text-align: right;
   flex-shrink: 0;
 }
@@ -485,7 +487,7 @@ onMounted(() => {
 }
 
 .col-actions {
-  width: 60px;
+  width: 64px;
   display: flex;
   justify-content: flex-end;
   gap: 0.25rem;
