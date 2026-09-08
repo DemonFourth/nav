@@ -110,10 +110,6 @@
         </div>
         
         <div v-if="expandedTags.has(tag.name)" class="expanded-content">
-          <div class="tag-expand-header">
-            <span class="tag-expand-name">{{ tag.name }}</span>
-            <span class="tag-expand-count">{{ tag.count }} 个书签</span>
-          </div>
           <div v-if="tag.bookmarks && tag.bookmarks.length > 0" class="bookmark-list">
             <div 
               v-for="bookmark in tag.bookmarks" 
@@ -456,6 +452,9 @@ onMounted(() => {
 
 .tag-row.expanded {
   background: var(--bg-secondary);
+  position: sticky;
+  top: 0;
+  z-index: 1;
 }
 
 .col-name {
@@ -537,29 +536,6 @@ onMounted(() => {
   padding: 0;
   background: var(--bg-secondary);
   border-top: 1px solid var(--border);
-}
-
-.tag-expand-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 8px 14px;
-  background: var(--bg-secondary);
-  border-bottom: 1px solid var(--border);
-  position: sticky;
-  top: 0;
-  z-index: 1;
-}
-
-.tag-expand-name {
-  font-size: 0.8rem;
-  font-weight: 600;
-  color: var(--primary);
-}
-
-.tag-expand-count {
-  font-size: 0.7rem;
-  color: var(--text-secondary);
 }
 
 .bookmark-list {
