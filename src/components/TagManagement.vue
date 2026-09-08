@@ -419,8 +419,6 @@ onMounted(() => {
   width: 72px;
   text-align: center;
   flex-shrink: 0;
-  border-left: 1px solid var(--border);
-  border-right: 1px solid var(--border);
 }
 
 .tag-table-header .col-actions {
@@ -479,20 +477,19 @@ onMounted(() => {
   display: flex;
   justify-content: center;
   flex-shrink: 0;
-  border-left: 1px solid var(--border);
-  border-right: 1px solid var(--border);
 }
 
 .count-badge {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 0.125rem 0.375rem;
-  background: var(--bg-secondary);
-  border-radius: var(--radius-sm);
+  min-width: 24px;
+  padding: 2px 8px;
+  background: color-mix(in srgb, var(--primary) 12%, transparent);
+  border-radius: 9999px;
   font-size: 0.75rem;
-  font-weight: 500;
-  color: var(--text-secondary);
+  font-weight: 600;
+  color: var(--primary);
 }
 
 .col-actions {
