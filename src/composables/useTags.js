@@ -64,7 +64,7 @@ export function useTags() {
       
       if (result.success) {
         await fetchTags()
-        await fetchData({ forceRefresh: true })
+        fetchData({ forceRefresh: true })
         if (result.merged) {
           toastSuccess(`已将书签合并到"${newName}"`)
         } else {
@@ -90,7 +90,7 @@ export function useTags() {
       
       if (result.success) {
         await fetchTags()
-        await fetchData({ forceRefresh: true })
+        fetchData({ forceRefresh: true })
         toastSuccess(`已从${result.affectedCount}个书签中移除标签`)
         return { success: true }
       } else {
@@ -104,11 +104,13 @@ export function useTags() {
   }
 
   const toggleExpand = (tagName) => {
-    if (expandedTags.value.has(tagName)) {
-      expandedTags.value.delete(tagName)
+    const next = new Set(expandedTags.value)
+    if (next.has(tagName)) {
+      next.delete(tagName)
     } else {
-      expandedTags.value.add(tagName)
+      next.add(tagName)
     }
+    expandedTags.value = next
   }
 
   return {
