@@ -475,6 +475,18 @@
                       <input type="text" v-model="editCategoryForm.name" class="setting-input" @change="handleRecordCategoryChange" />
                     </div>
                     <div class="form-group-menu">
+                      <label>描述</label>
+                      <input
+                        type="text"
+                        v-model="editCategoryForm.description"
+                        class="setting-input"
+                        maxlength="50"
+                        placeholder="可选，悬浮时显示"
+                        @change="handleRecordCategoryChange"
+                      />
+                      <span class="char-count">{{ (editCategoryForm.description || '').length }}/50</span>
+                    </div>
+                    <div class="form-group-menu">
                       <label>父分类</label>
                       <select v-model="editCategoryForm.parentId" class="setting-input" @change="handleRecordCategoryChange">
                         <option :value="null">无（根分类）</option>
@@ -3178,6 +3190,13 @@ textarea.setting-input {
   outline: none;
   border-color: var(--accent);
   box-shadow: 0 0 0 3px var(--accent-alpha-10);
+}
+
+.char-count {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  margin-top: 0.25rem;
+  display: block;
 }
 
 .position-controls-menu {
