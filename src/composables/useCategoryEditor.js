@@ -187,6 +187,7 @@ export function useCategoryEditor() {
     selectedCategoryId.value = category.id
     editForm.name = category.name
     editForm.parentId = category.parent_id || null
+    editForm.description = category.description || ''
     const parent = findParent(category.id)
     const siblings = parent ? parent.children : categoryTree.value
     const idx = siblings.findIndex(s => s.id === category.id)
@@ -199,6 +200,7 @@ export function useCategoryEditor() {
     }
     formOriginal.name = category.name
     formOriginal.parentId = category.parent_id || null
+    formOriginal.description = category.description || ''
     formOriginal.position = idx + 1
   }
 
