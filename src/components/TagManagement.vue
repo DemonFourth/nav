@@ -474,12 +474,16 @@ onMounted(() => {
 
 .col-count {
   width: 80px;
-  text-align: center;
+  display: flex;
+  justify-content: center;
   flex-shrink: 0;
 }
 
 .count-badge {
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 28px;
   padding: 0.125rem 0.5rem;
   background: var(--bg-secondary);
   border-radius: var(--radius-sm);
@@ -491,7 +495,7 @@ onMounted(() => {
 .col-actions {
   width: 64px;
   display: flex;
-  justify-content: flex-end;
+  justify-content: center;
   gap: 0.25rem;
   flex-shrink: 0;
 }
