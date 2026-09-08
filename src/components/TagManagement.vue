@@ -127,13 +127,15 @@
               </div>
               <div class="bookmark-info">
                 <div class="bookmark-name">{{ bookmark.name }}</div>
-                <div class="bookmark-meta">{{ getCategoryPathForBookmark(bookmark.category_id) }}</div>
-                <div v-if="bookmark.tags" class="bookmark-tags">
-                  <span 
-                    v-for="tag in parseTags(bookmark.tags)" 
-                    :key="tag" 
-                    class="bookmark-tag"
-                  >{{ tag }}</span>
+                <div class="bookmark-meta-row">
+                  <span class="bookmark-meta">{{ getCategoryPathForBookmark(bookmark.category_id) }}</span>
+                  <template v-if="bookmark.tags">
+                    <span 
+                      v-for="tag in parseTags(bookmark.tags)" 
+                      :key="tag" 
+                      class="bookmark-tag"
+                    >{{ tag }}</span>
+                  </template>
                 </div>
               </div>
               <a :href="bookmark.url" target="_blank" rel="noopener" class="bookmark-url">
@@ -561,6 +563,14 @@ onMounted(() => {
   text-overflow: ellipsis;
 }
 
+.bookmark-meta-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 2px;
+}
+
 .bookmark-meta {
   display: inline-block;
   font-size: 0.7rem;
@@ -573,14 +583,6 @@ onMounted(() => {
   overflow: hidden;
   text-overflow: ellipsis;
   max-width: 100%;
-  margin-top: 2px;
-}
-
-.bookmark-tags {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-  margin-top: 4px;
 }
 
 .bookmark-tag {
