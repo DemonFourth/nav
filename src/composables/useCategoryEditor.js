@@ -39,19 +39,21 @@ export function useCategoryEditor() {
     name: '',
     parentId: null,
     position: 1,
-    maxPosition: 1
+    maxPosition: 1,
+    description: ''
   })
 
   // Pending system state
   const initialDataSnapshot = ref([])
   const pendingChanges = ref([])
-  const formOriginal = reactive({ name: '', parentId: null, position: 1 })
+  const formOriginal = reactive({ name: '', parentId: null, position: 1, description: '' })
 
   // Form reset
   function resetEditForm() {
     if (!selectedCategory.value) return
     editForm.name = selectedCategory.value.name
     editForm.parentId = selectedCategory.value.parent_id || null
+    editForm.description = selectedCategory.value.description || ''
     const parent = findParent(selectedCategoryId.value)
     const siblings = parent ? parent.children : categoryTree.value
     const idx = siblings.findIndex(s => s.id === selectedCategoryId.value)
@@ -216,8 +218,8 @@ export function useCategoryEditor() {
     return result
   }
 
-  async function editCategory(id, name, parentId, isPrivate = undefined) {
-    const result = await updateCategory(id, name, parentId, isPrivate)
+  async function editCategory(id, name, parentId, isPrivate = undefined, description = undefined) {
+    const result = await updateCategory(id, name, parentId, isPrivate, description)
     if (result.success) {
       toastSuccess('已保存更改')
     } else {
@@ -515,12 +517,15 @@ export function useCategoryEditor() {
     const result = await editCategory(
       selectedCategoryId.value,
       editForm.name.trim(),
-      editForm.parentId
+      editForm.parentId,
+      undefined,
+      editForm.description.trim()
     )
 
     if (result.success) {
       formOriginal.name = editForm.name.trim()
       formOriginal.parentId = editForm.parentId
+      formOriginal.description = editForm.description.trim()
       pendingChanges.value = pendingChanges.value.filter(change => change.id !== selectedCategoryId.value)
       captureInitialSnapshot()
     } else {
