@@ -22,7 +22,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, watch } from 'vue'
 import NavCard from './NavCard.vue'
 import { useSettings } from '../composables/useSettings'
 import { useTheme } from '../composables/useTheme'
@@ -46,6 +46,10 @@ const { isDark } = useTheme()
 const animationClass = ref('')
 
 onMounted(() => {
+  triggerAnimation()
+})
+
+watch(() => props.bookmarks.length, () => {
   triggerAnimation()
 })
 
