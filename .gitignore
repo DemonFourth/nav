@@ -33,3 +33,6 @@ images/.DS_Store
 .wrangler/
 wrangler.toml.backup
 wrangler.toml
+
+# Codegraph
+.codegraph/
