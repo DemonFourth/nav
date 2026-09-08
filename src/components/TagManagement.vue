@@ -116,7 +116,18 @@
               :key="bookmark.id" 
               class="bookmark-item"
             >
-              <span class="bookmark-name">{{ bookmark.name }}</span>
+              <div class="bookmark-icon">
+                <img
+                  v-if="bookmark.url"
+                  :src="`https://www.google.com/s2/favicons?domain=${new URL(bookmark.url).hostname}&sz=32`"
+                  alt=""
+                  @error="(e) => e.target.style.display = 'none'"
+                />
+              </div>
+              <div class="bookmark-info">
+                <div class="bookmark-name">{{ bookmark.name }}</div>
+                <div class="bookmark-meta">{{ getCategoryPathForBookmark(bookmark.category_id) }}</div>
+              </div>
               <a :href="bookmark.url" target="_blank" rel="noopener" class="bookmark-url">
                 {{ truncateUrl(bookmark.url) }}
               </a>
@@ -146,6 +157,8 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { useTags } from '@/composables/useTags'
+import { useBookmarks } from '@/composables/useBookmarks'
+import { buildCategoryTree, getCategoryPath } from '@/utils/categoryTree'
 import TagRenameDialog from './TagRenameDialog.vue'
 import ConfirmDialog from './ConfirmDialog.vue'
 
@@ -163,6 +176,8 @@ const {
   toggleExpand
 } = useTags()
 
+const { categories } = useBookmarks()
+
 const renameDialogRef = ref(null)
 const confirmDialogRef = ref(null)
 
@@ -177,6 +192,13 @@ const truncateUrl = (url) => {
   } catch {
     return url.slice(0, 40) + (url.length > 40 ? '...' : '')
   }
+}
+
+function getCategoryPathForBookmark(categoryId) {
+  if (!categoryId) return '无分类'
+  const { map } = buildCategoryTree(categories.value)
+  const path = getCategoryPath(categoryId, map)
+  return path.map(c => c.name).join(' / ')
 }
 
 const toggleSortBy = (field) => {
@@ -461,30 +483,63 @@ onMounted(() => {
 .bookmark-item {
   display: flex;
   align-items: center;
-  gap: 1rem;
-  padding: 0.5rem 0.75rem;
-  background: var(--bg);
-  border-radius: var(--radius-sm);
-  font-size: 0.875rem;
+  gap: 12px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+}
+
+.bookmark-item:last-child {
+  border-bottom: none;
+}
+
+.bookmark-icon {
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.bookmark-icon img {
+  width: 16px;
+  height: 16px;
+  border-radius: 2px;
+}
+
+.bookmark-info {
+  flex: 1;
+  min-width: 0;
 }
 
 .bookmark-name {
-  flex: 1;
+  font-size: 13px;
+  font-weight: 500;
   color: var(--text);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
+.bookmark-meta {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  margin-top: 2px;
+}
+
 .bookmark-url {
+  flex-shrink: 0;
+  font-size: 12px;
   color: var(--text-tertiary);
   text-decoration: none;
-  font-size: 0.75rem;
+  max-width: 200px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .bookmark-url:hover {
   color: var(--primary);
-  text-decoration: underline;
 }
 
 .no-bookmarks {

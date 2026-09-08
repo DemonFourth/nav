@@ -62,7 +62,7 @@ export async function onRequestGet(context) {
       // Fetch bookmark details
       const placeholders = bookmarkIds.map(() => '?').join(',');
       const bookmarksResult = await env.DB.prepare(
-        `SELECT id, name, url FROM bookmarks WHERE id IN (${placeholders}) LIMIT 10`
+        `SELECT id, name, url, category_id FROM bookmarks WHERE id IN (${placeholders}) LIMIT 10`
       ).bind(...bookmarkIds).all();
       
       tags.push({
