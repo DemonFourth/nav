@@ -415,7 +415,7 @@ onMounted(() => {
 }
 
 .tag-table-header .col-count {
-  width: 80px;
+  width: 72px;
   display: flex;
   justify-content: center;
   flex-shrink: 0;
@@ -473,7 +473,7 @@ onMounted(() => {
 }
 
 .col-count {
-  width: 80px;
+  width: 72px;
   display: flex;
   justify-content: center;
   flex-shrink: 0;
@@ -483,8 +483,7 @@ onMounted(() => {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 28px;
-  padding: 0.125rem 0.5rem;
+  padding: 0.125rem 0.375rem;
   background: var(--bg-secondary);
   border-radius: var(--radius-sm);
   font-size: 0.75rem;
