@@ -664,6 +664,11 @@
               </div>
             </div>
 
+            <!-- Tags -->
+            <div v-show="activeTab === 'tags'" class="tab-panel">
+              <TagManagement />
+            </div>
+
             <!-- Trend -->
             <div v-show="activeTab === 'trend'" class="tab-panel">
               <div class="panel-header">
@@ -1137,6 +1142,7 @@ import MenuTreeNode from '@/components/MenuTreeNode.vue'
 import NavBookmarkEditModal from '@/components/NavBookmarkEditModal.vue'
 import BaseDialog from '@/components/BaseDialog.vue'
 import ConfirmDialog from '@/components/ConfirmDialog.vue'
+import TagManagement from '@/components/TagManagement.vue'
 
 const props = defineProps({
   show: {
@@ -1395,6 +1401,10 @@ const tabs = [
   {
     id: 'bookmark', name: '书签',
     icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>'
+  },
+  {
+    id: 'tags', name: '标签',
+    icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>'
   },
   {
     id: 'trend', name: '趋势',
