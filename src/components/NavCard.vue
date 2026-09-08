@@ -4,30 +4,26 @@
     @click="handleCardClick"
     :title="shouldShowTitle ? hoverTitle : undefined"
   >
-    <!-- 上半部分：图标 + 名称 + 描述 -->
-    <div class="nav-card-top">
-      <div class="nav-card-icon">
-        <img 
-          v-if="!iconError"
-          :src="iconUrl"
-          :alt="bookmark.name"
-          loading="lazy"
-          @error="handleIconError"
-        />
-        <div v-if="iconError" class="letter-icon">
-          {{ bookmark.name.charAt(0) }}
-        </div>
-      </div>
-      <div class="nav-card-info">
-        <h3 ref="titleRef" class="nav-card-title">{{ bookmark.name }}</h3>
-        <p v-if="bookmark.description" ref="descRef" class="nav-card-description">
-          {{ bookmark.description }}
-        </p>
+    <!-- 图标 -->
+    <div class="nav-card-icon">
+      <img 
+        v-if="!iconError"
+        :src="iconUrl"
+        :alt="bookmark.name"
+        loading="lazy"
+        @error="handleIconError"
+      />
+      <div v-if="iconError" class="letter-icon">
+        {{ bookmark.name.charAt(0) }}
       </div>
     </div>
     
-    <!-- 下半部分：标签 + URL -->
-    <div class="nav-card-bottom">
+    <!-- 内容区域 -->
+    <div class="nav-card-content">
+      <h3 ref="titleRef" class="nav-card-title">{{ bookmark.name }}</h3>
+      <p v-if="bookmark.description" ref="descRef" class="nav-card-description">
+        {{ bookmark.description }}
+      </p>
       <div v-if="bookmark.tags && bookmark.tags.trim()" class="nav-card-tags">
         <span 
           v-for="(tag, index) in visibleTags" 
@@ -190,8 +186,8 @@ const handleShowDetail = () => {
 .nav-card-horizontal {
   position: relative;
   display: flex;
-  flex-direction: column;
-  gap: 0;
+  align-items: flex-start;
+  gap: 16px;
   padding: 16px;
   border-radius: 12px;
   border: 1px solid var(--nav-border);
@@ -283,29 +279,12 @@ const handleShowDetail = () => {
   transform: scale(1.08);
 }
 
-.nav-card-top {
-  display: flex;
-  align-items: flex-start;
-  gap: 12px;
+.nav-card-content {
   flex: 1;
   min-width: 0;
-}
-
-.nav-card-info {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.nav-card-bottom {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  margin-top: 8px;
-  padding-top: 8px;
-  border-top: 1px solid var(--nav-border);
 }
 
 .nav-card-title {
