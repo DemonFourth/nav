@@ -398,7 +398,6 @@ onMounted(() => {
 .tag-list {
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  overflow: hidden;
 }
 
 .tag-table-header {
@@ -416,6 +415,7 @@ onMounted(() => {
   position: sticky;
   top: 0;
   z-index: 2;
+  border-radius: var(--radius) var(--radius) 0 0;
 }
 
 .tag-table-header .col-count {
@@ -437,6 +437,7 @@ onMounted(() => {
 
 .tag-row-wrapper:last-child {
   border-bottom: none;
+  border-radius: 0 0 var(--radius) var(--radius);
 }
 
 .tag-row {
