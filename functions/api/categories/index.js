@@ -54,6 +54,7 @@ export async function onRequestPost(context) {
     name = body.name;
     parent_id = body.parent_id;
     const is_private = body.is_private;
+    const description = body.description || '';
     
     // 计算depth
     let depth = 0;
@@ -109,8 +110,8 @@ export async function onRequestPost(context) {
     const isPrivate = is_private ? 1 : 0;
     
     const result = await env.DB.prepare(
-      'INSERT INTO categories (name, position, parent_id, depth, is_private) VALUES (?, ?, ?, ?, ?)'
-    ).bind(name, newPosition, parent_id || null, depth, isPrivate).run();
+      'INSERT INTO categories (name, position, parent_id, depth, is_private, description) VALUES (?, ?, ?, ?, ?, ?)'
+    ).bind(name, newPosition, parent_id || null, depth, isPrivate, description).run();
     
     return new Response(JSON.stringify({
       success: true,
