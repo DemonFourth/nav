@@ -6,6 +6,7 @@ CREATE TABLE categories (
   parent_id INTEGER REFERENCES categories(id) ON DELETE CASCADE,
   depth INTEGER NOT NULL DEFAULT 0,
   is_private INTEGER DEFAULT 0,
+  description TEXT DEFAULT '',
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   UNIQUE(name, parent_id)
 );
