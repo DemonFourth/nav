@@ -16,7 +16,7 @@
                 :class="{ active: activeMenu?.id === menu.id }"
                 @click="handleSelectMenu(menu)"
               >
-                <span class="menu-text">{{ menu.name }}</span>
+                <span class="menu-text" :title="menu.description || ''">{{ menu.name }}</span>
                 <svg 
                   v-if="menu.children && menu.children.length > 0"
                   class="chevron-icon"
