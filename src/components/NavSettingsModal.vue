@@ -666,7 +666,11 @@
 
             <!-- Tags -->
             <div v-show="activeTab === 'tags'" class="tab-panel">
-              <TagManagement />
+              <TagManagement 
+                :get-favicon-url="getFaviconUrl" 
+                :icon-errors="iconErrors"
+                :handle-icon-error="handleIconError"
+              />
             </div>
 
             <!-- Trend -->
