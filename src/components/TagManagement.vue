@@ -118,12 +118,12 @@
             >
               <div class="bookmark-icon">
                 <img
-                  v-if="bookmark.url && getBookmarkHostname(bookmark.url) && !iconErrors[bookmark.id]"
-                  :src="`https://www.google.com/s2/favicons?domain=${getBookmarkHostname(bookmark.url)}&sz=32`"
+                  v-if="bookmark.icon && bookmark.icon.trim()"
+                  :src="bookmark.icon"
                   alt=""
-                  @error="() => handleIconError(bookmark.id)"
+                  @error="(e) => e.target.style.display = 'none'"
                 />
-                <div v-if="!bookmark.url || !getBookmarkHostname(bookmark.url) || iconErrors[bookmark.id]" class="letter-icon">
+                <div v-if="!bookmark.icon || !bookmark.icon.trim()" class="letter-icon">
                   {{ bookmark.name.charAt(0) }}
                 </div>
               </div>
@@ -183,7 +183,6 @@ const { categories } = useBookmarks()
 
 const renameDialogRef = ref(null)
 const confirmDialogRef = ref(null)
-const iconErrors = ref({})
 
 const totalBookmarksWithTags = computed(() => {
   return tags.value.reduce((sum, tag) => sum + tag.count, 0)
@@ -196,18 +195,6 @@ const truncateUrl = (url) => {
   } catch {
     return url.slice(0, 40) + (url.length > 40 ? '...' : '')
   }
-}
-
-const getBookmarkHostname = (url) => {
-  try {
-    return new URL(url).hostname
-  } catch {
-    return null
-  }
-}
-
-const handleIconError = (id) => {
-  iconErrors.value[id] = true
 }
 
 function getCategoryPathForBookmark(categoryId) {
