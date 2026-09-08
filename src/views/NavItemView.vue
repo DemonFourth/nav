@@ -356,7 +356,7 @@ const handleLogout = () => {
 }
 
 .search-section {
-  padding: 8.5rem 1rem 0.5rem;
+  padding: calc(var(--nav-bar-height, 56px) + 1rem) 1rem 0.5rem;
   position: relative;
   z-index: 2;
   background: transparent;

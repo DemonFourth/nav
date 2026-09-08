@@ -1,5 +1,5 @@
 <template>
-  <nav class="nav-bar">
+  <nav ref="navBarRef" class="nav-bar">
     <div class="nav-left-space"></div>
     <div class="nav-bar-container">
       <div class="nav-menu-wrapper">
@@ -102,7 +102,7 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 import { useAuth } from '../composables/useAuth'
 import { useToast } from '../composables/useToast'
 import LoginModal from './LoginModal.vue'
@@ -137,6 +137,13 @@ const hideTimeout = ref(null)
 const autoCloseTimeout = ref(null)
 const showUserMenu = ref(false)
 const loginModalRef = ref(null)
+const navBarRef = ref(null)
+
+const updateHeight = () => {
+  if (navBarRef.value) {
+    document.documentElement.style.setProperty('--nav-bar-height', `${navBarRef.value.offsetHeight}px`)
+  }
+}
 
 const cancelAutoClose = () => {
   if (autoCloseTimeout.value) {
@@ -232,6 +239,15 @@ const vClickOutside = {
     document.removeEventListener('click', el._clickOutside)
   }
 }
+
+onMounted(() => {
+  updateHeight()
+  window.addEventListener('resize', updateHeight)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('resize', updateHeight)
+})
 
 defineExpose({
   closeUserMenu
