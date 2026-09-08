@@ -118,8 +118,8 @@
             >
               <div class="bookmark-icon">
                 <img
-                  v-if="bookmark.url"
-                  :src="`https://www.google.com/s2/favicons?domain=${new URL(bookmark.url).hostname}&sz=32`"
+                  v-if="bookmark.url && getBookmarkHostname(bookmark.url)"
+                  :src="`https://www.google.com/s2/favicons?domain=${getBookmarkHostname(bookmark.url)}&sz=32`"
                   alt=""
                   @error="(e) => e.target.style.display = 'none'"
                 />
@@ -191,6 +191,14 @@ const truncateUrl = (url) => {
     return u.hostname + (u.pathname.length > 20 ? u.pathname.slice(0, 20) + '...' : u.pathname)
   } catch {
     return url.slice(0, 40) + (url.length > 40 ? '...' : '')
+  }
+}
+
+const getBookmarkHostname = (url) => {
+  try {
+    return new URL(url).hostname
+  } catch {
+    return null
   }
 }
 
