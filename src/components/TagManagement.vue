@@ -424,7 +424,7 @@ onMounted(() => {
   padding: 0.75rem 1rem;
   align-items: center;
   cursor: pointer;
-  transition: var(--transition);
+  transition: background 0.15s;
 }
 
 .tag-row:hover {
@@ -483,7 +483,7 @@ onMounted(() => {
   background: transparent;
   color: var(--text-secondary);
   cursor: pointer;
-  transition: var(--transition);
+  transition: all 0.15s;
 }
 
 .action-btn:hover {
@@ -512,9 +512,8 @@ onMounted(() => {
 .bookmark-item {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
   padding: 10px 14px;
-  cursor: pointer;
   transition: background 0.15s;
   border-bottom: 1px solid var(--border);
 }
@@ -524,30 +523,36 @@ onMounted(() => {
 }
 
 .bookmark-item:hover {
-  background: color-mix(in srgb, var(--accent) 6%, transparent);
+  background: var(--card-hover-bg);
 }
 
 .bookmark-icon {
-  width: 20px;
-  height: 20px;
-  border-radius: 4px;
+  width: 24px;
+  height: 24px;
   flex-shrink: 0;
-  overflow: hidden;
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
 .bookmark-icon img {
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
+  width: 16px;
+  height: 16px;
+  border-radius: 2px;
 }
 
-.letter-icon {
-  font-size: 0.75rem;
+.bookmark-icon .letter-icon {
+  width: 20px;
+  height: 20px;
+  border-radius: 4px;
+  background: var(--bg-tertiary);
+  color: var(--text-tertiary);
+  font-size: 0.7rem;
   font-weight: 600;
-  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-transform: uppercase;
 }
 
 .bookmark-info {
@@ -556,8 +561,9 @@ onMounted(() => {
 }
 
 .bookmark-name {
-  font-size: 0.85rem;
-  color: var(--text);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--text-primary);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -598,8 +604,8 @@ onMounted(() => {
 
 .bookmark-url {
   flex-shrink: 0;
-  font-size: 12px;
-  color: var(--text-tertiary);
+  font-size: 0.7rem;
+  color: var(--text-secondary);
   text-decoration: none;
   max-width: 200px;
   white-space: nowrap;
