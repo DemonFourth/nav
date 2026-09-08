@@ -7,10 +7,10 @@ export async function onRequestPut(context) {
   try {
     const body = await request.json();
     name = body.name;
-    const { parent_id, position, is_private } = body;
+    const { parent_id, position, is_private, description } = body;
     
     const existing = await env.DB.prepare(
-      'SELECT id, parent_id, depth, position, is_private FROM categories WHERE id = ?'
+      'SELECT id, parent_id, depth, position, is_private, description FROM categories WHERE id = ?'
     ).bind(id).first();
     
     if (!existing) {
@@ -94,6 +94,12 @@ export async function onRequestPut(context) {
       newIsPrivate = is_private ? 1 : 0;
     }
     
+    // 处理 description
+    let newDescription = existing.description;
+    if (Object.prototype.hasOwnProperty.call(body, 'description')) {
+      newDescription = description || '';
+    }
+    
     // 检查同一父分类下是否已存在同名分类（排除自己）
     const checkWhereClause = newParentId ? 'WHERE name = ? AND parent_id = ? AND id != ?' : 'WHERE name = ? AND parent_id IS NULL AND id != ?';
     const checkQuery = `SELECT id FROM categories ${checkWhereClause}`;
@@ -112,8 +118,8 @@ export async function onRequestPut(context) {
     }
     
     await env.DB.prepare(
-      'UPDATE categories SET name = ?, parent_id = ?, depth = ?, position = ?, is_private = ? WHERE id = ?'
-    ).bind(name, newParentId || null, newDepth, newPosition, newIsPrivate, id).run();
+      'UPDATE categories SET name = ?, parent_id = ?, depth = ?, position = ?, is_private = ?, description = ? WHERE id = ?'
+    ).bind(name, newParentId || null, newDepth, newPosition, newIsPrivate, newDescription, id).run();
     
     // 如果 depth 发生变化，需要递归更新所有子分类的 depth
     if (newDepth !== existing.depth) {
