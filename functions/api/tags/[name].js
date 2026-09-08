@@ -1,3 +1,7 @@
+function escapeLike(s) {
+  return s.replace(/%/g, '\\%').replace(/_/g, '\\_')
+}
+
 // PUT rename tag
 export async function onRequestPut(context) {
   const { env, request, params } = context;
@@ -36,7 +40,7 @@ export async function onRequestPut(context) {
     // Check if old tag exists
     const checkOldTag = await env.DB.prepare(
       `SELECT COUNT(*) as count FROM bookmarks WHERE tags LIKE ?`
-    ).bind(`%${oldName}%`).first();
+    ).bind(`%${escapeLike(oldName)}%`).first();
     
     if (checkOldTag.count === 0) {
       return new Response(JSON.stringify({ error: '标签不存在' }), {
@@ -48,7 +52,7 @@ export async function onRequestPut(context) {
     // Check if new name already exists
     const checkNewTag = await env.DB.prepare(
       `SELECT COUNT(*) as count FROM bookmarks WHERE tags LIKE ?`
-    ).bind(`%${trimmedNewName}%`).first();
+    ).bind(`%${escapeLike(trimmedNewName)}%`).first();
     
     const merged = checkNewTag.count > 0;
     
@@ -64,11 +68,11 @@ export async function onRequestPut(context) {
     ).bind(
       `${oldName},`, `${trimmedNewName},`,
       `,${oldName}`, `,${trimmedNewName}`,
-      `%${oldName}%`
+      `%${escapeLike(oldName)}%`
     ).run();
     
     // Also handle case where old tag is the only tag
-    await env.DB.prepare(
+    const onlyTagResult = await env.DB.prepare(
       `UPDATE bookmarks 
        SET tags = ?,
        updated_at = CURRENT_TIMESTAMP
@@ -78,7 +82,7 @@ export async function onRequestPut(context) {
     return new Response(JSON.stringify({ 
       success: true, 
       merged,
-      affectedCount: affectedResult.meta?.changes || 0
+      affectedCount: (affectedResult.meta?.changes || 0) + (onlyTagResult.meta?.changes || 0)
     }), {
       status: 200,
       headers: { 'Content-Type': 'application/json' }
@@ -110,7 +114,7 @@ export async function onRequestDelete(context) {
     // Check if tag exists
     const checkTag = await env.DB.prepare(
       `SELECT COUNT(*) as count FROM bookmarks WHERE tags LIKE ?`
-    ).bind(`%${tagName}%`).first();
+    ).bind(`%${escapeLike(tagName)}%`).first();
     
     if (checkTag.count === 0) {
       return new Response(JSON.stringify({ error: '标签不存在' }), {
@@ -120,37 +124,23 @@ export async function onRequestDelete(context) {
     }
     
     // Remove tag from bookmarks
-    // Handle: "tag, other" -> "other"
-    const result1 = await env.DB.prepare(
+    // Single atomic UPDATE handles all 3 cases (first, middle, last) without leaving
+    // orphaned commas, leading spaces, or trailing spaces.
+    const result = await env.DB.prepare(
       `UPDATE bookmarks 
-       SET tags = TRIM(REPLACE(tags, ?, '')),
+       SET tags = TRIM(REPLACE(REPLACE(REPLACE(tags, ', ' || ?, ''), ? || ', ', ''), ?, '')),
        updated_at = CURRENT_TIMESTAMP
        WHERE tags LIKE ?`
-    ).bind(`${tagName},`, `%${tagName},%`).run();
-    
-    // Handle: "other, tag" -> "other"
-    const result2 = await env.DB.prepare(
-      `UPDATE bookmarks 
-       SET tags = TRIM(REPLACE(tags, ?, '')),
-       updated_at = CURRENT_TIMESTAMP
-       WHERE tags LIKE ?`
-    ).bind(`,${tagName}`, `%,${tagName}%`).run();
-    
-    // Handle: "tag" -> ""
-    const result3 = await env.DB.prepare(
-      `UPDATE bookmarks 
-       SET tags = '',
-       updated_at = CURRENT_TIMESTAMP
-       WHERE tags = ?`
-    ).bind(tagName).run();
-    
-    const totalAffected = (result1.meta?.changes || 0) + 
-                          (result2.meta?.changes || 0) + 
-                          (result3.meta?.changes || 0);
+    ).bind(
+      tagName,
+      tagName,
+      tagName,
+      `%${escapeLike(tagName)}%`
+    ).run();
     
     return new Response(JSON.stringify({ 
       success: true, 
-      affectedCount: totalAffected
+      affectedCount: result.meta?.changes || 0
     }), {
       status: 200,
       headers: { 'Content-Type': 'application/json' }
