@@ -61,7 +61,7 @@
               />
             </svg>
           </span>
-          <span class="category-label" :title="category.description || ''">{{ category.name }}</span>
+          <span class="category-label">{{ category.name }}</span>
         </span>
         <span class="category-count">
           {{ bookmarkCountByCategory[category.id] ?? 0 }}
