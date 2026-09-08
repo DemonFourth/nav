@@ -7,7 +7,7 @@
       @mouseenter="handleMouseEnter"
       @mouseleave="handleMouseLeave"
     >
-      <span class="submenu-text">{{ item.name }}</span>
+      <span class="submenu-text" :title="item.description || ''">{{ item.name }}</span>
       <svg 
         v-if="item.children && item.children.length > 0"
         class="submenu-arrow"
