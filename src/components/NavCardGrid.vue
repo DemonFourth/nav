@@ -22,7 +22,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, nextTick } from 'vue'
 import NavCard from './NavCard.vue'
 import { useSettings } from '../composables/useSettings'
 import { useTheme } from '../composables/useTheme'
@@ -54,7 +54,10 @@ function triggerAnimation() {
     animationClass.value = ''
     return
   }
-  animationClass.value = 'animate-slideUp'
+  animationClass.value = ''
+  nextTick(() => {
+    animationClass.value = 'animate-slideUp'
+  })
 }
 
 function getCardStyle(index) {
