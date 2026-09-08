@@ -7,7 +7,7 @@
 
     <div class="tag-toolbar">
       <div class="search-box">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="18" height="18">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="16" height="16">
           <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
         </svg>
         <input 
@@ -25,7 +25,7 @@
           @click="toggleSortBy('name')"
         >
           名称
-          <svg v-if="sortBy === 'name'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="14" height="14">
+          <svg v-if="sortBy === 'name'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12">
             <path v-if="sortOrder === 'asc'" d="M18 15l-6-6-6 6"/>
             <path v-else d="M6 9l6 6 6-6"/>
           </svg>
@@ -37,7 +37,7 @@
           @click="toggleSortBy('count')"
         >
           数量
-          <svg v-if="sortBy === 'count'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="14" height="14">
+          <svg v-if="sortBy === 'count'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12">
             <path v-if="sortOrder === 'asc'" d="M18 15l-6-6-6 6"/>
             <path v-else d="M6 9l6 6 6-6"/>
           </svg>
@@ -59,12 +59,6 @@
     </div>
 
     <div v-else class="tag-list">
-      <div class="tag-table-header">
-        <span class="col-name">标签名</span>
-        <span class="col-count">书签数量</span>
-        <span class="col-actions">操作</span>
-      </div>
-      
       <div 
         v-for="tag in filteredTags" 
         :key="tag.name" 
@@ -288,8 +282,9 @@ onMounted(() => {
 
 .tag-toolbar {
   display: flex;
-  gap: 1rem;
-  margin-bottom: 1rem;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+  align-items: center;
 }
 
 .search-box {
@@ -308,12 +303,12 @@ onMounted(() => {
 
 .search-input {
   width: 100%;
-  padding: 0.625rem 0.75rem 0.625rem 2.25rem;
+  padding: 0.5rem 0.75rem 0.5rem 2rem;
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   background: var(--bg-secondary);
   color: var(--text);
-  font-size: 0.875rem;
+  font-size: 0.8125rem;
   transition: var(--transition);
   box-sizing: border-box;
 }
@@ -321,36 +316,37 @@ onMounted(() => {
 .search-input:focus {
   outline: none;
   border-color: var(--primary);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 15%, transparent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary) 12%, transparent);
 }
 
 .sort-controls {
   display: flex;
   gap: 0.25rem;
+  flex-shrink: 0;
 }
 
 .sort-btn {
   display: flex;
   align-items: center;
-  gap: 0.25rem;
-  padding: 0.5rem 0.75rem;
-  border: 1px solid var(--border);
+  gap: 2px;
+  padding: 0.375rem 0.5rem;
+  border: none;
   border-radius: var(--radius-sm);
-  background: var(--bg-secondary);
-  color: var(--text-secondary);
-  font-size: 0.875rem;
+  background: transparent;
+  color: var(--text-tertiary);
+  font-size: 0.75rem;
   cursor: pointer;
-  transition: var(--transition);
+  transition: all 0.15s;
 }
 
 .sort-btn:hover {
+  color: var(--text-secondary);
   background: var(--bg-hover);
 }
 
 .sort-btn.active {
-  background: var(--primary);
-  color: white;
-  border-color: var(--primary);
+  color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 10%, transparent);
 }
 
 .loading-state {
@@ -399,17 +395,6 @@ onMounted(() => {
   overflow: hidden;
 }
 
-.tag-table-header {
-  display: grid;
-  grid-template-columns: 1fr 100px 100px;
-  padding: 0.75rem 1rem;
-  background: var(--bg-secondary);
-  border-bottom: 1px solid var(--border);
-  font-size: 0.875rem;
-  font-weight: 600;
-  color: var(--text-secondary);
-}
-
 .tag-row-wrapper {
   border-bottom: 1px solid var(--border);
 }
@@ -419,10 +404,10 @@ onMounted(() => {
 }
 
 .tag-row {
-  display: grid;
-  grid-template-columns: 1fr 100px 100px;
-  padding: 0.75rem 1rem;
+  display: flex;
   align-items: center;
+  padding: 0.625rem 0.875rem;
+  gap: 0.75rem;
   cursor: pointer;
   transition: background 0.15s;
 }
@@ -436,11 +421,13 @@ onMounted(() => {
 }
 
 .col-name {
+  flex: 1;
   display: flex;
   align-items: center;
   gap: 0.5rem;
   font-weight: 500;
   color: var(--text);
+  font-size: 0.875rem;
 }
 
 .expand-icon {
@@ -453,15 +440,17 @@ onMounted(() => {
 }
 
 .col-count {
-  text-align: center;
+  flex-shrink: 0;
+  text-align: right;
+  min-width: 60px;
 }
 
 .count-badge {
   display: inline-block;
-  padding: 0.25rem 0.5rem;
+  padding: 0.125rem 0.5rem;
   background: var(--bg-secondary);
   border-radius: var(--radius-sm);
-  font-size: 0.875rem;
+  font-size: 0.8125rem;
   font-weight: 500;
   color: var(--text-secondary);
 }
@@ -469,25 +458,27 @@ onMounted(() => {
 .col-actions {
   display: flex;
   justify-content: flex-end;
-  gap: 0.5rem;
+  gap: 0.25rem;
+  flex-shrink: 0;
 }
 
 .action-btn {
-  width: 32px;
-  height: 32px;
+  width: 28px;
+  height: 28px;
   display: flex;
   align-items: center;
   justify-content: center;
   border: none;
   border-radius: var(--radius-sm);
   background: transparent;
-  color: var(--text-secondary);
+  color: var(--text-tertiary);
   cursor: pointer;
   transition: all 0.15s;
 }
 
 .action-btn:hover {
   background: var(--bg-hover);
+  color: var(--text-secondary);
 }
 
 .action-btn.edit:hover {
@@ -502,6 +493,7 @@ onMounted(() => {
 .expanded-content {
   padding: 0;
   background: var(--bg-secondary);
+  border-top: 1px solid var(--border);
 }
 
 .bookmark-list {
@@ -512,8 +504,8 @@ onMounted(() => {
 .bookmark-item {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 10px 14px;
+  gap: 10px;
+  padding: 8px 14px 8px 2.5rem;
   transition: background 0.15s;
   border-bottom: 1px solid var(--border);
 }
@@ -527,8 +519,8 @@ onMounted(() => {
 }
 
 .bookmark-icon {
-  width: 24px;
-  height: 24px;
+  width: 20px;
+  height: 20px;
   flex-shrink: 0;
   display: flex;
   align-items: center;
@@ -542,12 +534,12 @@ onMounted(() => {
 }
 
 .bookmark-icon .letter-icon {
-  width: 20px;
-  height: 20px;
+  width: 18px;
+  height: 18px;
   border-radius: 4px;
   background: var(--bg-tertiary);
   color: var(--text-tertiary);
-  font-size: 0.7rem;
+  font-size: 0.65rem;
   font-weight: 600;
   display: flex;
   align-items: center;
@@ -579,9 +571,9 @@ onMounted(() => {
 
 .bookmark-meta {
   display: inline-block;
-  font-size: 0.7rem;
+  font-size: 0.65rem;
   color: var(--text-secondary);
-  padding: 1px 8px;
+  padding: 1px 6px;
   border: 1px solid var(--border);
   border-radius: 9999px;
   background: color-mix(in srgb, var(--bg-secondary) 60%, transparent);
@@ -593,21 +585,21 @@ onMounted(() => {
 
 .bookmark-tag {
   display: inline-block;
-  font-size: 0.65rem;
+  font-size: 0.6rem;
   color: var(--primary);
-  padding: 1px 6px;
-  border: 1px solid color-mix(in srgb, var(--primary) 30%, transparent);
-  border-radius: 4px;
-  background: color-mix(in srgb, var(--primary) 8%, transparent);
+  padding: 1px 5px;
+  border: 1px solid color-mix(in srgb, var(--primary) 25%, transparent);
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--primary) 6%, transparent);
   white-space: nowrap;
 }
 
 .bookmark-url {
   flex-shrink: 0;
-  font-size: 0.7rem;
-  color: var(--text-secondary);
+  font-size: 0.65rem;
+  color: var(--text-tertiary);
   text-decoration: none;
-  max-width: 200px;
+  max-width: 180px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -618,18 +610,18 @@ onMounted(() => {
 }
 
 .no-bookmarks {
-  padding: 1rem;
+  padding: 0.75rem;
   text-align: center;
   color: var(--text-tertiary);
-  font-size: 0.875rem;
+  font-size: 0.8125rem;
 }
 
 .tag-summary {
-  margin-top: 1rem;
-  padding: 0.75rem 1rem;
+  margin-top: 0.75rem;
+  padding: 0.5rem;
   background: var(--bg-secondary);
   border-radius: var(--radius-sm);
-  font-size: 0.875rem;
+  font-size: 0.8125rem;
   color: var(--text-secondary);
   text-align: center;
 }
@@ -639,18 +631,26 @@ onMounted(() => {
     flex-direction: column;
   }
   
-  .tag-table-header,
-  .tag-row {
-    grid-template-columns: 1fr 70px 80px;
+  .sort-controls {
+    width: 100%;
+    justify-content: center;
   }
   
   .col-actions {
-    gap: 0.25rem;
+    gap: 0.125rem;
   }
   
   .action-btn {
-    width: 28px;
-    height: 28px;
+    width: 24px;
+    height: 24px;
+  }
+  
+  .bookmark-item {
+    padding-left: 1.5rem;
+  }
+  
+  .bookmark-url {
+    display: none;
   }
 }
 </style>
