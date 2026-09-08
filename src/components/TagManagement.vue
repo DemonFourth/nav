@@ -406,13 +406,16 @@ onMounted(() => {
   align-items: center;
   gap: 0.75rem;
   padding: 0.5rem 0.875rem;
-  background: var(--bg-secondary);
+  background: var(--bg);
   border-bottom: 1px solid var(--border);
   font-size: 0.7rem;
   font-weight: 600;
   color: var(--text-tertiary);
   text-transform: uppercase;
   letter-spacing: 0.02em;
+  position: sticky;
+  top: 0;
+  z-index: 2;
 }
 
 .tag-table-header .col-count {
