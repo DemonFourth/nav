@@ -1,6 +1,6 @@
 <template>
   <div class="nav-card-grid">
-    <div v-if="bookmarks.length > 0" class="cards-container" :class="animationClass" :style="{ '--columns': columns }">
+    <div v-if="bookmarks.length > 0" class="cards-container" :class="animationClass">
       <NavCard
         v-for="(bookmark, index) in bookmarks"
         :key="bookmark.id"
@@ -35,10 +35,6 @@ const props = defineProps({
   isAuthenticated: {
     type: Boolean,
     default: false
-  },
-  columns: {
-    type: Number,
-    default: 3
   }
 })
 
@@ -68,7 +64,7 @@ function getCardStyle(index) {
   const style = {
     backdropFilter: `blur(${navCardBlur.value}px)`,
     WebkitBackdropFilter: `blur(${navCardBlur.value}px)`,
-    background: `rgba(255, 255, 255, ${effectiveAlpha})`
+    background: `rgba(${isDark.value ? '0, 0, 0' : '255, 255, 255'}, ${effectiveAlpha})`
   }
   if (animationClass.value) {
     style.animationDelay = `${Math.min(0.03 + index * 0.035, 0.8)}s`
@@ -94,7 +90,7 @@ const handleShowDetail = (payload) => {
 
 .cards-container {
   display: grid;
-  grid-template-columns: repeat(var(--columns, 3), 1fr);
+  grid-template-columns: repeat(3, 1fr);
   gap: 16px;
   max-width: 80%;
   margin: 0 auto;

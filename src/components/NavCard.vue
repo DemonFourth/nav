@@ -2,7 +2,7 @@
   <div 
     class="nav-card-horizontal"
     @click="handleCardClick"
-    :title="hoverTitle"
+    :title="shouldShowTitle ? hoverTitle : undefined"
   >
     <!-- 图标 -->
     <div class="nav-card-icon">
@@ -20,8 +20,8 @@
     
     <!-- 内容区域 -->
     <div class="nav-card-content">
-      <h3 class="nav-card-title">{{ bookmark.name }}</h3>
-      <p v-if="bookmark.description" class="nav-card-description">
+      <h3 ref="titleRef" class="nav-card-title">{{ bookmark.name }}</h3>
+      <p v-if="bookmark.description" ref="descRef" class="nav-card-description">
         {{ bookmark.description }}
       </p>
       <div v-if="bookmark.tags && bookmark.tags.trim()" class="nav-card-tags">
@@ -61,7 +61,7 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted, onUpdated, nextTick } from 'vue'
 import { useSettings } from '../composables/useSettings'
 
 const props = defineProps({
@@ -83,6 +83,25 @@ const iconError = ref(false)
 const iconSourceIndex = ref(0)
 const expanded = ref(false)
 const MAX_VISIBLE_TAGS = 6
+
+const titleRef = ref(null)
+const descRef = ref(null)
+const isTitleTruncated = ref(false)
+const isDescTruncated = ref(false)
+
+const shouldShowTitle = computed(() => isTitleTruncated.value || isDescTruncated.value)
+
+function checkTruncation() {
+  nextTick(() => {
+    const titleEl = titleRef.value
+    const descEl = descRef.value
+    isTitleTruncated.value = titleEl ? titleEl.scrollWidth > titleEl.clientWidth : false
+    isDescTruncated.value = descEl ? descEl.scrollHeight > descEl.clientHeight : false
+  })
+}
+
+onMounted(checkTruncation)
+onUpdated(checkTruncation)
 
 // 图标相关
 const getIconSources = () => {

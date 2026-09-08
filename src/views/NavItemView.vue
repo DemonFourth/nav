@@ -44,6 +44,7 @@
         @tag-click="handleTagClick"
         @show-detail="handleShowDetail"
       />
+      <!-- columns prop removed: responsive breakpoints in NavCardGrid control column count -->
     </div>
 
     <NavBookmarkEditModal
