@@ -145,6 +145,8 @@ const updateHeight = () => {
   }
 }
 
+let resizeObserver = null
+
 const cancelAutoClose = () => {
   if (autoCloseTimeout.value) {
     clearTimeout(autoCloseTimeout.value)
@@ -243,10 +245,15 @@ const vClickOutside = {
 onMounted(() => {
   updateHeight()
   window.addEventListener('resize', updateHeight)
+  if (navBarRef.value) {
+    resizeObserver = new ResizeObserver(updateHeight)
+    resizeObserver.observe(navBarRef.value)
+  }
 })
 
 onUnmounted(() => {
   window.removeEventListener('resize', updateHeight)
+  resizeObserver?.disconnect()
 })
 
 defineExpose({
