@@ -118,11 +118,14 @@
             >
               <div class="bookmark-icon">
                 <img
-                  v-if="bookmark.url && getBookmarkHostname(bookmark.url)"
+                  v-if="bookmark.url && getBookmarkHostname(bookmark.url) && !iconErrors[bookmark.id]"
                   :src="`https://www.google.com/s2/favicons?domain=${getBookmarkHostname(bookmark.url)}&sz=32`"
                   alt=""
-                  @error="(e) => e.target.style.display = 'none'"
+                  @error="() => handleIconError(bookmark.id)"
                 />
+                <div v-if="!bookmark.url || !getBookmarkHostname(bookmark.url) || iconErrors[bookmark.id]" class="letter-icon">
+                  {{ bookmark.name.charAt(0) }}
+                </div>
               </div>
               <div class="bookmark-info">
                 <div class="bookmark-name">{{ bookmark.name }}</div>
@@ -180,6 +183,7 @@ const { categories } = useBookmarks()
 
 const renameDialogRef = ref(null)
 const confirmDialogRef = ref(null)
+const iconErrors = ref({})
 
 const totalBookmarksWithTags = computed(() => {
   return tags.value.reduce((sum, tag) => sum + tag.count, 0)
@@ -200,6 +204,10 @@ const getBookmarkHostname = (url) => {
   } catch {
     return null
   }
+}
+
+const handleIconError = (id) => {
+  iconErrors.value[id] = true
 }
 
 function getCategoryPathForBookmark(categoryId) {
@@ -244,7 +252,7 @@ onMounted(() => {
 
 <style scoped>
 .tag-management {
-  max-width: 800px;
+  width: 100%;
 }
 
 .panel-header {
@@ -478,21 +486,22 @@ onMounted(() => {
 }
 
 .expanded-content {
-  padding: 0 1rem 1rem 2.5rem;
+  padding: 0;
   background: var(--bg-secondary);
 }
 
 .bookmark-list {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
 }
 
 .bookmark-item {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
   padding: 10px 14px;
+  cursor: pointer;
+  transition: background 0.15s;
   border-bottom: 1px solid var(--border);
 }
 
@@ -500,19 +509,31 @@ onMounted(() => {
   border-bottom: none;
 }
 
+.bookmark-item:hover {
+  background: color-mix(in srgb, var(--accent) 6%, transparent);
+}
+
 .bookmark-icon {
-  flex-shrink: 0;
   width: 20px;
   height: 20px;
+  border-radius: 4px;
+  flex-shrink: 0;
+  overflow: hidden;
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
 .bookmark-icon img {
-  width: 16px;
-  height: 16px;
-  border-radius: 2px;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.letter-icon {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-secondary);
 }
 
 .bookmark-info {
@@ -521,8 +542,7 @@ onMounted(() => {
 }
 
 .bookmark-name {
-  font-size: 13px;
-  font-weight: 500;
+  font-size: 0.85rem;
   color: var(--text);
   white-space: nowrap;
   overflow: hidden;
@@ -530,8 +550,17 @@ onMounted(() => {
 }
 
 .bookmark-meta {
-  font-size: 12px;
-  color: var(--text-tertiary);
+  display: inline-block;
+  font-size: 0.7rem;
+  color: var(--text-secondary);
+  padding: 1px 8px;
+  border: 1px solid var(--border);
+  border-radius: 9999px;
+  background: color-mix(in srgb, var(--bg-secondary) 60%, transparent);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
   margin-top: 2px;
 }
 
