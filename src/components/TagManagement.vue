@@ -418,6 +418,7 @@ onMounted(() => {
   width: 72px;
   text-align: center;
   flex-shrink: 0;
+  border-left: 1px solid var(--border);
   border-right: 1px solid var(--border);
 }
 
@@ -477,6 +478,7 @@ onMounted(() => {
   display: flex;
   justify-content: center;
   flex-shrink: 0;
+  border-left: 1px solid var(--border);
   border-right: 1px solid var(--border);
 }
 
