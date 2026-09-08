@@ -15,6 +15,7 @@
                 class="menu-trigger"
                 :class="{ active: activeMenu?.id === menu.id }"
                 @click="handleSelectMenu(menu)"
+                @mouseenter="showSubMenu(menu.id)"
               >
                 <span class="menu-text" :title="menu.description || ''">{{ menu.name }}</span>
                 <svg 
@@ -176,7 +177,7 @@ const hideSubMenu = (menuId) => {
     if (hoveredMenuId.value === menuId) {
       hoveredMenuId.value = null
     }
-  }, 150)
+  }, 200)
 }
 
 const handleSelectMenu = (menu) => {
@@ -328,9 +329,9 @@ defineExpose({
 
 .submenu-dropdown {
   position: absolute;
-  top: calc(100% + 8px);
+  top: 100%;
   left: 50%;
-  transform: translateX(-50%) translateY(-4px);
+  transform: translateX(-50%) translateY(-2px);
   min-width: auto;
   background: var(--nav-glass);
   backdrop-filter: blur(20px);
@@ -351,7 +352,7 @@ defineExpose({
   bottom: 100%;
   left: 0;
   right: 0;
-  height: 10px;
+  height: 16px;
   z-index: 200;
 }
 
