@@ -59,6 +59,12 @@
     </div>
 
     <div v-else class="tag-list">
+      <div class="tag-table-header">
+        <span class="col-name">标签名</span>
+        <span class="col-count">书签数量</span>
+        <span class="col-actions">操作</span>
+      </div>
+      
       <div 
         v-for="tag in filteredTags" 
         :key="tag.name" 
@@ -395,6 +401,17 @@ onMounted(() => {
   overflow: hidden;
 }
 
+.tag-table-header {
+  display: flex;
+  align-items: center;
+  padding: 0.5rem 0.875rem;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border);
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
 .tag-row-wrapper {
   border-bottom: 1px solid var(--border);
 }
@@ -406,7 +423,7 @@ onMounted(() => {
 .tag-row {
   display: flex;
   align-items: center;
-  padding: 0.625rem 0.875rem;
+  padding: 0.5rem 0.875rem;
   gap: 0.75rem;
   cursor: pointer;
   transition: background 0.15s;
@@ -427,7 +444,7 @@ onMounted(() => {
   gap: 0.5rem;
   font-weight: 500;
   color: var(--text);
-  font-size: 0.875rem;
+  font-size: 0.8125rem;
 }
 
 .expand-icon {
@@ -450,7 +467,7 @@ onMounted(() => {
   padding: 0.125rem 0.5rem;
   background: var(--bg-secondary);
   border-radius: var(--radius-sm);
-  font-size: 0.8125rem;
+  font-size: 0.75rem;
   font-weight: 500;
   color: var(--text-secondary);
 }
@@ -463,8 +480,8 @@ onMounted(() => {
 }
 
 .action-btn {
-  width: 28px;
-  height: 28px;
+  width: 24px;
+  height: 24px;
   display: flex;
   align-items: center;
   justify-content: center;
