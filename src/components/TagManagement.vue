@@ -422,7 +422,7 @@ onMounted(() => {
 
 .tag-table-header .col-actions {
   width: 64px;
-  text-align: right;
+  text-align: center;
   flex-shrink: 0;
 }
 
