@@ -335,7 +335,7 @@ export function useBookmarks() {
     }
   }
 
-  const updateCategory = async (id, name, parentId = undefined, isPrivate = undefined) => {
+  const updateCategory = async (id, name, parentId = undefined, isPrivate = undefined, description = undefined) => {
     try {
       const body = { name }
       if (parentId !== undefined) {
@@ -343,6 +343,9 @@ export function useBookmarks() {
       }
       if (isPrivate !== undefined) {
         body.is_private = isPrivate
+      }
+      if (description !== undefined) {
+        body.description = description
       }
 
       const response = await apiRequest(`/api/categories/${id}`, {
