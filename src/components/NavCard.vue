@@ -284,7 +284,11 @@ const handleShowDetail = () => {
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
+}
+
+.nav-card-content > *:last-child {
+  margin-top: auto;
 }
 
 .nav-card-title {
