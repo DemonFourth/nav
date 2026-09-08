@@ -22,7 +22,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, watch } from 'vue'
 import NavCard from './NavCard.vue'
 import { useSettings } from '../composables/useSettings'
 import { useTheme } from '../composables/useTheme'
@@ -45,17 +45,14 @@ const { isDark } = useTheme()
 
 const animationClass = ref('')
 
-onMounted(() => {
-  triggerAnimation()
-})
-
-function triggerAnimation() {
-  if (!navCardAnimation.value || props.bookmarks.length === 0) {
+watch(() => props.bookmarks.length, (newLen, oldLen) => {
+  if (newLen > 0 && newLen !== oldLen) {
     animationClass.value = ''
-    return
+    requestAnimationFrame(() => {
+      animationClass.value = 'animate-slideUp'
+    })
   }
-  animationClass.value = 'animate-slideUp'
-}
+})
 
 function getCardStyle(index) {
   const baseAlpha = isDark.value ? 0.15 : 0.85
