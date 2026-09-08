@@ -454,14 +454,18 @@ onMounted(() => {
 }
 
 .col-name {
-  flex: 1;
+  flex: 0 0 auto;
   min-width: 0;
+  max-width: 50%;
   display: flex;
   align-items: center;
   gap: 0.5rem;
   font-weight: 500;
   color: var(--text);
   font-size: 0.8125rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .expand-icon {
