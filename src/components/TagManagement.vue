@@ -128,6 +128,13 @@
               <div class="bookmark-info">
                 <div class="bookmark-name">{{ bookmark.name }}</div>
                 <div class="bookmark-meta">{{ getCategoryPathForBookmark(bookmark.category_id) }}</div>
+                <div v-if="bookmark.tags" class="bookmark-tags">
+                  <span 
+                    v-for="tag in parseTags(bookmark.tags)" 
+                    :key="tag" 
+                    class="bookmark-tag"
+                  >{{ tag }}</span>
+                </div>
               </div>
               <a :href="bookmark.url" target="_blank" rel="noopener" class="bookmark-url">
                 {{ truncateUrl(bookmark.url) }}
@@ -215,6 +222,11 @@ function getCategoryPathForBookmark(categoryId) {
   const { map } = buildCategoryTree(categories.value)
   const path = getCategoryPath(categoryId, map)
   return path.map(c => c.name).join(' / ')
+}
+
+const parseTags = (tags) => {
+  if (!tags) return []
+  return tags.split(',').map(t => t.trim()).filter(t => t)
 }
 
 const toggleSortBy = (field) => {
@@ -562,6 +574,24 @@ onMounted(() => {
   text-overflow: ellipsis;
   max-width: 100%;
   margin-top: 2px;
+}
+
+.bookmark-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 4px;
+}
+
+.bookmark-tag {
+  display: inline-block;
+  font-size: 0.65rem;
+  color: var(--primary);
+  padding: 1px 6px;
+  border: 1px solid color-mix(in srgb, var(--primary) 30%, transparent);
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--primary) 8%, transparent);
+  white-space: nowrap;
 }
 
 .bookmark-url {
