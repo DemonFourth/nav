@@ -171,6 +171,7 @@ const handleShowDetail = () => {
   display: flex;
   align-items: flex-start;
   gap: 12px;
+  padding-right: 28px;
 }
 
 .nav-card-info {
@@ -335,7 +336,7 @@ const handleShowDetail = () => {
 
 .nav-card-detail-btn {
   position: absolute;
-  bottom: 12px;
+  top: 12px;
   right: 12px;
   width: 24px;
   height: 24px;

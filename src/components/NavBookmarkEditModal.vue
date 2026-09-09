@@ -539,10 +539,12 @@ const effectiveIconUrl = computed(() => {
 const handleClearIcon = () => {
   if (form.icon && form.icon.trim()) {
     form.icon = ''
+    toastSuccess('已清除自定义图标，将自动获取')
     return
   }
   if (internalBookmark.value?.id) {
     resetBookmarkIconMemory(internalBookmark.value.id)
+    toastSuccess('已重置图标记忆，显示时重新获取')
   }
 }
 
