@@ -1024,6 +1024,25 @@ import { getIconUrl, handleIconError } from '@/composables/useIcon'
 - `proxyUrl`（代理）目前**只用于"测试图标源"**，实际图标加载不走代理
 - `resetIconMemory()` 可清空源记忆与失效标记（当前未接 UI）
 
+### favicon.im 占位图自动回退（方案 A）
+
+favicon.im 对**无公开 favicon 的域名**默认返回其专属占位图（HTTP 200），浏览器 `onload` 成功 → 回退链永不触发，卡片会一直显示占位图。解决方案：
+
+- favicon.im 默认 URL 模板改为 `https://favicon.im/{domain}?throw-error-on-404=true`
+- 无真实图标时 favicon.im 返回 **HTTP 404** → 触发 `handleIconError` 现有回退链 → 自动切到下一源
+- 该模板同时是 `defaultIconSources` 与 `mergeIconSources` 自动升级的基准：老用户 localStorage 里存的旧版 `https://favicon.im/{domain}` 会在模块加载时被升级
+- **勿将 URL 模板改回不带参数版本**，除非有意恢复"占位图不回退"行为
+
+### 测试图标源结果预览
+
+两处测试界面（`NavSettingsModal.vue` 表格、`AppearanceSettings.vue` 卡片）除文字状态外，还展示**真实获取到的图标**：
+
+- 表格：新增"图标"列（源列右侧）；卡片：源名称右侧图标区
+- 用 `getPreferredIcon(result)` 选择展示源：**直连成功优先**，直连失败才用代理图标；都失败显示 `–`/无
+- 图标下方/旁带来源角标（`直连`/`代理`）
+- 图标按测试时实际尺寸渲染（`width/height` 单独存储，不占 `size` 字符串），`max-width/max-height: 48px` 防撑爆布局；加载失败时用内联 `@error` 隐藏
+- 直连/代理测试仍为串行、各自记录耗时，展示层只是额外选一个快照
+
 ### 清除图标缓存（refreshBookmarkIcon）
 
 - 点击编辑弹窗「清除图标缓存」调用 `refreshBookmarkIcon(id)`：清空该书签的源记忆/失效标记，并写入**刷新戳**（localStorage `bookmarkIconRefreshStamp`）
