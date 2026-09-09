@@ -1,5 +1,48 @@
 # AGENTS.md - 书签管理器开发指南
 
+## 开发流程（superpowers）
+
+> **最高优先级**：所有开发活动必须遵守 superpowers 开发流程。用户明确指令 > 本文件 > 默认行为。
+
+### 核心门控：未经同意禁止修改
+
+- **修改项目文件前必须先获得用户明确同意**
+- **讨论阶段**（用户提出想法、咨询、讨论方案时）：
+  - 只允许**只读**项目文件（Read/Glob/Grep/codegraph/git log）
+  - 禁止 edit/write 项目内任何文件
+  - 允许向系统临时目录（Windows 通过 `%TEMP%` / `%TMP%` 环境变量查询实际路径）写入草稿/计划等辅助文件
+- 仅当用户明确说"开始做/动手改/按此执行"或批准了计划后，才进入**实施模式**
+
+### 强制 skill 调用链
+
+回应前必须先判断是否有适用 skill，符合时必须调用：
+
+| 场景 | 必须先调用 | 之后 |
+|------|-----------|------|
+| 任何会话开始 | `using-superpowers` | 判断后续 skill |
+| 创建功能/组件/改行为 | `brainstorming` | 探索意图 → `writing-plans` → 计划获批后才实施 |
+| 修 bug/异常 | `systematic-debugging` | 定位根因 → 修复 |
+| 多文件/大型改动 | `writing-plans` / `executing-plans` | 按计划实施 |
+| 声称完成前 | `verification-before-completion` | 先跑 build/test 再下结论 |
+| 合并/PR 前 | `code-review-and-quality` | 多维度审查 |
+
+### 完整流程（功能开发）
+
+```
+1. 讨论（brainstorming）：明确意图/需求/边界 —— 只读项目 + 可写临时目录
+2. 计划（writing-plans）：拆解任务 —— 输出到临时目录，或经同意后写入 docs/
+3. 【门控】计划经用户批准
+4. 实施（executing-plans）：按计划小步修改
+5. 验证（verification-before-completion）：运行 npm run build / 测试
+6. 审查（code-review-and-quality）：合并前检查
+```
+
+### 配套规则
+
+- 未经同意，不主动重构、格式整理、无关优化
+- 讨论中发现可行方案时先**提出方案**，不直接动手
+- 用户说"先讨论/看看怎么做"时，只讨论不改码
+
 ## 构建和开发命令
 
 ```bash
