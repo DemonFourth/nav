@@ -1662,3 +1662,28 @@ html.dark ::selection {
   background: rgba(99, 102, 241, 0.05);
 }
 
+/* ===== 自定义 Tooltip (v-tooltip 指令) ===== */
+.app-tooltip {
+  position: fixed;
+  z-index: 100000;
+  max-width: 300px;
+  padding: 6px 10px;
+  border-radius: var(--radius, 8px);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-size: 12px;
+  line-height: 1.5;
+  white-space: pre-line;
+  pointer-events: none;
+  opacity: 0;
+  transform: translateY(2px);
+  transition: opacity 0.12s ease, transform 0.12s ease;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+}
+
+.app-tooltip.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
