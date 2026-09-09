@@ -6,14 +6,17 @@ import { useSettings } from './useSettings'
 // - 某界面失败切换源后，其他界面直接使用记忆的源，不再各自从头遍历
 // - 记忆持久化到 localStorage（key = bookmark.id，value = 源 id 或 null=已耗尽）
 // - 自定义 icon 失效自动回退：记录"失败的自定义 icon URL"，失效时回退源链（方案 A）
+// - 刷新戳：点击"重新获取"时更新，给源 URL 追加 ?t=<戳> 绕过浏览器缓存，真正重新请求
 
 const STORAGE_KEY = 'bookmarkIconSourceMemory'
 const BROKEN_KEY = 'bookmarkCustomIconBroken'
+const REFRESH_KEY = 'bookmarkIconRefreshStamp'
 
 const { iconSources, parseIconSourceUrl } = useSettings()
 
 const iconMemory = reactive(loadMemory())
 const customIconBroken = reactive(loadBrokenMemory())
+const iconRefresh = reactive(loadRefreshMemory())
 
 function loadMemory() {
   const map = new Map()
@@ -43,6 +46,35 @@ function loadBrokenMemory() {
     // ignore corrupted storage
   }
   return map
+}
+
+function loadRefreshMemory() {
+  const map = new Map()
+  try {
+    const raw = JSON.parse(localStorage.getItem(REFRESH_KEY) || '{}')
+    for (const [key, value] of Object.entries(raw)) {
+      if (typeof value === 'number' && value) {
+        map.set(key, value)
+      }
+    }
+  } catch {
+    // ignore corrupted storage
+  }
+  return map
+}
+
+function persistRefresh() {
+  try {
+    const obj = {}
+    for (const [key, value] of iconRefresh) {
+      if (typeof value === 'number') {
+        obj[key] = value
+      }
+    }
+    localStorage.setItem(REFRESH_KEY, JSON.stringify(obj))
+  } catch {
+    // storage unavailable
+  }
 }
 
 function persist() {
@@ -96,6 +128,12 @@ function getState(key) {
   return iconMemory.get(key)
 }
 
+function withRefresh(url, key) {
+  const stamp = key ? iconRefresh.get(key) : undefined
+  if (!stamp) return url
+  return url.includes('?') ? url + '&t=' + stamp : url + '?t=' + stamp
+}
+
 export function getIconUrl(bookmark) {
   if (!bookmark) return ''
 
@@ -121,7 +159,7 @@ export function getIconUrl(bookmark) {
     const found = list.findIndex(s => s.id === remembered)
     idx = found >= 0 ? found : 0
   }
-  return list[idx].url
+  return withRefresh(list[idx].url, key)
 }
 
 export function handleIconError(bookmark) {
@@ -154,9 +192,11 @@ export function handleIconError(bookmark) {
 export function resetIconMemory() {
   iconMemory.clear()
   customIconBroken.clear()
+  iconRefresh.clear()
   try {
     localStorage.removeItem(STORAGE_KEY)
     localStorage.removeItem(BROKEN_KEY)
+    localStorage.removeItem(REFRESH_KEY)
   } catch {
     // ignore
   }
@@ -167,6 +207,19 @@ export function resetBookmarkIconMemory(id) {
   const key = String(id)
   iconMemory.delete(key)
   customIconBroken.delete(key)
+  iconRefresh.delete(key)
   persist()
   persistBroken()
+  persistRefresh()
+}
+
+export function refreshBookmarkIcon(id) {
+  if (id == null) return
+  const key = String(id)
+  iconMemory.delete(key)
+  customIconBroken.delete(key)
+  iconRefresh.set(key, Date.now())
+  persist()
+  persistBroken()
+  persistRefresh()
 }

@@ -233,7 +233,7 @@
 import { ref, reactive, computed, nextTick, watch, onMounted } from 'vue'
 import { useAI } from '@/composables/useAI'
 import { useToast } from '@/composables/useToast'
-import { getIconUrl, handleIconError, resetBookmarkIconMemory } from '@/composables/useIcon'
+import { getIconUrl, handleIconError, refreshBookmarkIcon } from '@/composables/useIcon'
 
 const props = defineProps({
   show: { type: Boolean, default: false },
@@ -539,12 +539,12 @@ const effectiveIconUrl = computed(() => {
 const handleClearIcon = () => {
   if (form.icon && form.icon.trim()) {
     form.icon = ''
-    toastSuccess('已清除自定义图标，将自动获取')
+    toastSuccess('已清除自定义图标，保存后自动获取')
     return
   }
   if (internalBookmark.value?.id) {
-    resetBookmarkIconMemory(internalBookmark.value.id)
-    toastSuccess('已重置图标记忆，显示时重新获取')
+    refreshBookmarkIcon(internalBookmark.value.id)
+    toastSuccess('已重新获取图标')
   }
 }
 
