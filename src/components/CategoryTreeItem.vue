@@ -77,7 +77,7 @@
       <button
         type="button"
         class="icon-btn-small"
-        title="上移"
+        v-tooltip="'上移'"
         @click.stop="$emit('reorder-category', { id: category.id, direction: 'up' })"
       >
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
@@ -87,7 +87,7 @@
       <button
         type="button"
         class="icon-btn-small"
-        title="下移"
+        v-tooltip="'下移'"
         @click.stop="$emit('reorder-category', { id: category.id, direction: 'down' })"
       >
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
@@ -98,7 +98,7 @@
         v-if="category.depth < 4"
         type="button"
         class="icon-btn-small add-sub-btn"
-        title="添加子分类"
+        v-tooltip="'添加子分类'"
         @click.stop="$emit('add-subcategory', category)"
       >
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
@@ -110,7 +110,7 @@
       <button
         type="button"
         class="icon-btn-small add-bookmark-btn"
-        title="添加书签"
+        v-tooltip="'添加书签'"
         @click.stop="$emit('add-bookmark', category.id)"
       >
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
@@ -122,7 +122,7 @@
       <button
         type="button"
         class="icon-btn-small"
-        title="编辑分类"
+        v-tooltip="'编辑分类'"
         @click.stop="$emit('edit-category', category)"
       >
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
@@ -133,7 +133,7 @@
       <button
         type="button"
         class="icon-btn-small delete-btn"
-        title="删除分类"
+        v-tooltip="'删除分类'"
         @click.stop="$emit('delete-category', category)"
       >
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
