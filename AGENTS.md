@@ -969,3 +969,85 @@ Categories: {id}: {path}
 | AI 按钮灰色不可点击 | AI 未启用 | 调用 `checkAIAvailability()` 检查状态；配置 API key |
 | settings 输入框灰色锁定 | 对应字段已通过环境变量配置 | 修改 wrangler.toml / Cloudflare Pages 控制台 |
 | AI 返回速度慢 | 网络延迟或模型响应慢 | 检查 `baseUrl` 是否为国内可直连地址；考虑使用 `gpt-4o-mini` 而非 `gpt-4o` |
+
+## 自建图标代理（/api/icon-proxy）
+
+`functions/api/icon-proxy.js` 提供自建 favicon 抓取端点，用 Cloudflare 原生 `HTMLRewriter` 解析目标站点真实图标，不依赖第三方图标服务。
+
+### 端点行为
+
+```
+GET /api/icon-proxy?url=<目标网站完整URL，URL编码>
+```
+
+| 输入 | 行为 |
+|------|------|
+| 有效站点 | 抓取首页 HTML，解析 `apple-touch-icon` → `link[rel~=icon]` → 回退 `/favicon.ico`，返回图片（image/*） |
+| 无图标 / 抓取失败 | 返回 404，前端自动回退到下一个图标源 |
+| 缺 `url` 参数 | 返回 400 |
+| 非 http/https scheme | 返回 400（防 SSRF） |
+
+### 关键实现点
+
+- **HTMLRewriter 流式解析**：用 `transformed.body.getReader()` 流式读取，找到 icon 链接或读到 64KB 上限即 `reader.cancel()` 终止，避免下载完整 HTML 页面
+- **两跳请求**：第一跳抓首页 HTML 解析 link，第二跳抓图标图片，串行执行
+- **缓存**：用 `caches.default` 缓存响应（`Cache-Control: public, max-age=86400, s-maxage=86400`），同一 URL 第二次起命中缓存不再出站
+- **出站超时**：第一跳有 5 秒 `AbortController` 超时
+- **SSRF 防护**：仅允许 http/https scheme
+
+### 前端接入
+
+- 作为第 6 个图标源（`useSettings.js` 的 `defaultIconSources`），默认 `enabled: false`，用户手动开启
+- URL 模板：`/api/icon-proxy?url={url}`，`{url}` 占位符在 `parseIconSourceUrl` 中被替换为 `encodeURIComponent(url.href)`
+- 老用户 localStorage 已有 `iconSources` 时，`mergeIconSources()` 会补充缺失的默认源
+- **注意**：两处图标源测试函数（`NavSettingsModal.vue` 的 `handleTestAll`、`AppearanceSettings.vue` 的 `testIconSource`）都必须单独替换 `{url}` 占位符，不要只替换 `{domain}`/`{origin}`
+
+### 已知限制
+
+- 该端点出站请求走 Cloudflare 服务器网络：**境外站（github、google 等）CF 可直连，国内站（百度等）CF 访问不稳定**，与本地 dev 环境的网络情况相反
+- 本地 dev 环境下 `functions/` 由 wrangler pages dev 运行，出站走本机网络（google 被墙则抓取失败）
+- 图标命中率不如三方服务的场景，由现有回退链（favicon.im、icon.horse 等）兜底
+
+## v-tooltip 自定义指令
+
+`src/directives/tooltip.js` 提供全局 `v-tooltip` 指令，替换原生 `title` 属性的延迟、不可样式化、移动端无效缺陷。
+
+### 用法
+
+```vue
+<!-- 静态文本 -->
+<button v-tooltip="'添加书签'">+</button>
+
+<!-- 响应式变量（\n 换行） -->
+<button v-tooltip="hoverTitle">info</button>
+
+<!-- 条件显隐（空值 no-op） -->
+<div v-tooltip="shouldShowTitle ? hoverTitle : ''">卡片</div>
+```
+
+| 场景 | 行为 |
+|------|------|
+| 空字符串 / undefined | 不显示 tooltip |
+| 多行文本 | `white-space: pre-line` 支持 `\n` 换行 |
+| 窗口边缘 | 自动翻转避免溢出视口 |
+| 页面滚动 | 自动隐藏 |
+
+### 实现要点
+
+- **单例元素**：首次显示时创建 `.app-tooltip` 并 append 到 `document.body`，避免 stacking context 裁剪
+- **事件委托**：mounted 时挂 mouseenter/mouseleave，滚动时统一隐藏
+- **样式**：`.app-tooltip` 在 `src/assets/main.css` 末尾，用 CSS 变量跟随主题，`z-index: 100000`（高于 ConfirmDialog 的 99999）
+- **注册**：`src/main.js` 通过 `app.directive('tooltip', tooltipDirective)` 全局注册
+
+### 已迁移组件
+
+| 组件 | 替换数量 |
+|------|---------|
+| `EditModeToolbar.vue` | 14 处静态 title |
+| `CategoryTreeItem.vue` | 6 处操作按钮 |
+| `SearchBar.vue` | 3 处（清除/过滤/关闭结果） |
+| `NavSearch.vue` | 2 处（搜索按钮 + 动态搜索范围） |
+| `NavBar.vue` | 1 处（切换风格按钮） |
+| `NavCard.vue` | 2 处（条件 hover 信息 + 查看详情） |
+
+**注意**：`SearchBar.vue` 的 `:title="engine.name"`（搜索引擎名）和 `NavBar.vue` 的 `:title="menu.description"`（菜单描述）仍保留原生 title，未迁移。
