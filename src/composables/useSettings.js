@@ -43,7 +43,7 @@ const navCardAnimation = ref(localStorage.getItem('navCardAnimation') !== 'false
 const navCardBlur = ref(Number(localStorage.getItem('navCardBlur') || '0'))
 const navCardOpacity = ref(Number(localStorage.getItem('navCardOpacity') || '0'))
 const navCardTextShadow = ref(localStorage.getItem('navCardTextShadow') !== 'false')
-const navWallpaper = ref(localStorage.getItem('navWallpaper') || 'https://main.ssss.nyc.mn/background.webp')
+const navWallpaper = ref(localStorage.getItem('navWallpaper') ?? 'https://main.ssss.nyc.mn/background.webp')
 const navWallpaperHistory = ref(JSON.parse(localStorage.getItem('navWallpaperHistory') || '[]'))
 const wallpaperApiHistory = ref(JSON.parse(localStorage.getItem('wallpaperApiHistory') || '[]'))
 const avatarUrl = ref(localStorage.getItem('avatarUrl') || '')
