@@ -38,7 +38,24 @@ async function fetchFavicon(targetUrl) {
         },
       })
 
-    await rewriter.transform(response).text()
+    const transformed = rewriter.transform(response)
+    const reader = transformed.body.getReader()
+    // 流式读取并提前终止：找到 icon 链接后不再下载剩余 HTML
+    const MAX_HTML_BYTES = 64 * 1024
+    let consumed = 0
+    try {
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        if (value) consumed += value.byteLength
+        if (iconUrl || consumed >= MAX_HTML_BYTES) {
+          await reader.cancel()
+          break
+        }
+      }
+    } catch (e) {
+      // 提前取消读取可能抛错，忽略
+    }
 
     let finalUrl
     if (iconUrl) {
