@@ -58,6 +58,9 @@ npm run build
 # 本地预览生产构建
 npm run preview
 
+# 启动本地 D1 后台服务端（需先执行 npm run build 生成 dist，http://localhost:8787）
+npx wrangler pages dev dist --port 8787
+
 # 部署到 Cloudflare Pages
 npm run deploy
 ```
