@@ -17,7 +17,7 @@
         </div>
         
         <div v-if="!isBatchMode" class="toolbar-actions">
-          <button class="toolbar-btn add-bookmark-btn" @click="$emit('addBookmark')" title="添加书签">
+          <button class="toolbar-btn add-bookmark-btn" @click="$emit('addBookmark')" v-tooltip="'添加书签'">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
               <rect x="3" y="3" width="18" height="18" rx="2"/>
               <line x1="12" y1="8" x2="12" y2="16"/>
@@ -26,7 +26,7 @@
             <span>添加书签</span>
           </button>
           
-          <button class="toolbar-btn add-category-btn" @click="$emit('addCategory')" title="添加分类">
+          <button class="toolbar-btn add-category-btn" @click="$emit('addCategory')" v-tooltip="'添加分类'">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
               <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
               <line x1="12" y1="11" x2="12" y2="17"/>
@@ -35,7 +35,7 @@
             <span>添加分类</span>
           </button>
           
-          <button class="toolbar-btn batch-mode-btn" @click="$emit('toggleBatchMode')" title="批量操作">
+          <button class="toolbar-btn batch-mode-btn" @click="$emit('toggleBatchMode')" v-tooltip="'批量操作'">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
               <path d="M9 11l3 3 8-8"/>
               <path d="M20 12v6a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h9"/>
@@ -45,7 +45,7 @@
 
           <div class="toolbar-divider"></div>
 
-          <button class="toolbar-btn finish-btn" @click="$emit('finishEdit')" title="完成编辑">
+          <button class="toolbar-btn finish-btn" @click="$emit('finishEdit')" v-tooltip="'完成编辑'">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
               <path d="M20 6L9 17l-5-5"/>
             </svg>
@@ -56,8 +56,8 @@
         <div v-else class="toolbar-actions batch-actions">
           <button 
             class="toolbar-btn select-all-btn" 
-            @click="$emit('selectAll')" 
-            title="全选"
+            @click="$emit('selectAll')"
+            v-tooltip="'全选'"
             :disabled="!hasBookmarks"
           >
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
@@ -69,8 +69,8 @@
           
           <button 
             class="toolbar-btn deselect-all-btn" 
-            @click="$emit('deselectAll')" 
-            title="取消全选"
+            @click="$emit('deselectAll')"
+            v-tooltip="'取消全选'"
             :disabled="selectedCount === 0"
           >
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
@@ -82,8 +82,8 @@
           
           <button 
             class="toolbar-btn invert-btn" 
-            @click="$emit('invertSelection')" 
-            title="反选"
+            @click="$emit('invertSelection')"
+            v-tooltip="'反选'"
             :disabled="!hasBookmarks"
           >
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
@@ -96,8 +96,8 @@
           
           <button 
             class="toolbar-btn batch-move-btn" 
-            @click="$emit('batchMove')" 
-            title="移动分类"
+            @click="$emit('batchMove')"
+            v-tooltip="'移动分类'"
             :disabled="selectedCount === 0"
           >
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
@@ -108,8 +108,8 @@
           
           <button 
             class="toolbar-btn batch-edit-btn" 
-            @click="$emit('batchEdit')" 
-            title="编辑属性"
+            @click="$emit('batchEdit')"
+            v-tooltip="'编辑属性'"
             :disabled="selectedCount === 0"
           >
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
@@ -121,8 +121,8 @@
           
           <button 
             class="toolbar-btn batch-ai-btn" 
-            @click="$emit('batchAIGenerate')" 
-            title="AI 批量生成描述"
+            @click="$emit('batchAIGenerate')"
+            v-tooltip="'AI 批量生成描述'"
             :disabled="selectedCount === 0 || !aiEnabled"
           >
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
@@ -135,8 +135,8 @@
           
           <button 
             class="toolbar-btn batch-ai-classify-btn" 
-            @click="$emit('batchAIClassify')" 
-            title="AI 批量分类"
+            @click="$emit('batchAIClassify')"
+            v-tooltip="'AI 批量分类'"
             :disabled="selectedCount === 0 || !aiEnabled"
           >
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
@@ -148,8 +148,8 @@
           
           <button 
             class="toolbar-btn batch-delete-btn" 
-            @click="$emit('batchDelete')" 
-            title="批量删除"
+            @click="$emit('batchDelete')"
+            v-tooltip="'批量删除'"
             :disabled="selectedCount === 0"
           >
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
@@ -163,8 +163,8 @@
           
           <button 
             class="toolbar-btn batch-delete-categories-btn" 
-            @click="$emit('batchDeleteCategories')" 
-            title="批量删除分类"
+            @click="$emit('batchDeleteCategories')"
+            v-tooltip="'批量删除分类'"
             :disabled="selectedCategoryCount === 0"
           >
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
@@ -177,7 +177,7 @@
           
           <div class="toolbar-divider"></div>
           
-          <button class="toolbar-btn cancel-btn" @click="$emit('toggleBatchMode')" title="退出批量操作">
+          <button class="toolbar-btn cancel-btn" @click="$emit('toggleBatchMode')" v-tooltip="'退出批量操作'">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
               <line x1="18" y1="6" x2="6" y2="18" />
               <line x1="6" y1="6" x2="18" y2="18" />
