@@ -392,6 +392,7 @@
                       <thead>
                         <tr>
                           <th>源</th>
+                          <th>图标</th>
                           <th>直连</th>
                           <th v-if="proxyUrl">代理</th>
                           <th>URL</th>
@@ -402,6 +403,21 @@
                           <td class="source-name">
                             {{ result.name }}
                             <span v-if="!result.enabled" class="status-disabled">(未启用)</span>
+                          </td>
+                          <td>
+                            <span v-if="!getPreferredIcon(result)" class="status-disabled">&minus;</span>
+                            <span v-else class="test-icon-cell">
+                              <img
+                                v-if="getPreferredIcon(result).url"
+                                :src="getPreferredIcon(result).url"
+                                :width="getPreferredIcon(result).width || 16"
+                                :height="getPreferredIcon(result).height || 16"
+                                class="test-icon-preview"
+                                @error="e => e.target.style.display = 'none'"
+                                alt=""
+                              />
+                              <span class="test-icon-tag">{{ getPreferredIcon(result).tag }}</span>
+                            </span>
                           </td>
                           <td>
                             <span v-if="!result.enabled" class="status-disabled">&minus;</span>
@@ -2280,6 +2296,17 @@ const handleClearAllIcons = async () => {
   }
 }
 
+// 选择优先展示的图标（直连优先，直连失败时用代理）
+const getPreferredIcon = (result) => {
+  if (result.direct.success && result.direct.testedUrl) {
+    return { url: result.direct.testedUrl, width: result.direct.width, height: result.direct.height, tag: '直连' }
+  }
+  if (result.proxy.success && result.proxy.testedUrl) {
+    return { url: result.proxy.testedUrl, width: result.proxy.width, height: result.proxy.height, tag: '代理' }
+  }
+  return null
+}
+
 const handleTestAll = async () => {
   if (!testDomain.value.trim()) return
   isTesting.value = true
@@ -2288,8 +2315,8 @@ const handleTestAll = async () => {
     name: source.name,
     url: source.url,
     enabled: source.enabled,
-    direct: { loading: true, success: false, error: null, size: null, duration: null, testedUrl: null },
-    proxy: { loading: false, success: false, error: null, size: null, duration: null, testedUrl: null }
+    direct: { loading: true, success: false, error: null, size: null, duration: null, testedUrl: null, width: null, height: null },
+    proxy: { loading: false, success: false, error: null, size: null, duration: null, testedUrl: null, width: null, height: null }
   }))
 
   try {
@@ -2314,6 +2341,8 @@ const handleTestAll = async () => {
           })
           result.direct.success = true
           result.direct.size = `${img.width}x${img.height}`
+          result.direct.width = img.width
+          result.direct.height = img.height
           result.direct.duration = Date.now() - startTime
         } catch (err) {
           result.direct.success = false
@@ -2336,6 +2365,8 @@ const handleTestAll = async () => {
           })
           result.proxy.success = true
           result.proxy.size = `${img2.width}x${img2.height}`
+          result.proxy.width = img2.width
+          result.proxy.height = img2.height
           result.proxy.duration = Date.now() - startTime2
         } catch (err) {
           result.proxy.success = false
@@ -3189,6 +3220,24 @@ textarea.setting-input {
   max-width: 200px;
   overflow: hidden;
   text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ===== Test Icon Preview ===== */
+.test-icon-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.test-icon-preview {
+  max-width: 48px;
+  max-height: 48px;
+  object-fit: contain;
+  vertical-align: middle;
+}
+.test-icon-tag {
+  font-size: 0.6rem;
+  color: var(--text-muted);
   white-space: nowrap;
 }
 

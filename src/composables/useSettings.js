@@ -51,7 +51,7 @@ const displayMode = ref(localStorage.getItem('displayMode') || 'default')
 
 // 图标源配置
 const defaultIconSources = [
-  { id: '1', name: 'Favicon.im', url: 'https://favicon.im/{domain}', enabled: true, useLarger: false },
+  { id: '1', name: 'Favicon.im', url: 'https://favicon.im/{domain}?throw-error-on-404=true', enabled: true, useLarger: false },
   { id: '2', name: 'Icon Horse', url: 'https://icon.horse/icon/{domain}', enabled: true, useLarger: false },
   { id: '3', name: 'Favicon Extractor', url: 'https://www.faviconextractor.com/favicon/{domain}', enabled: true, useLarger: false },
   { id: '4', name: 'DuckDuckGo', url: 'https://icons.duckduckgo.com/ip3/{domain}.ico', enabled: false, useLarger: false },
@@ -68,6 +68,14 @@ function mergeIconSources(stored) {
   for (const def of defaultIconSources) {
     if (!merged.some(s => s.id === def.id || s.url === def.url)) {
       merged.push({ ...def })
+    }
+  }
+  // 升级旧版 favicon.im 模板：追加 throw-error-on-404，让占位图触发 404 自动回退
+  const oldFaviconImUrl = 'https://favicon.im/{domain}'
+  const newFaviconImUrl = 'https://favicon.im/{domain}?throw-error-on-404=true'
+  for (const s of merged) {
+    if (s.url === oldFaviconImUrl) {
+      s.url = newFaviconImUrl
     }
   }
   return merged

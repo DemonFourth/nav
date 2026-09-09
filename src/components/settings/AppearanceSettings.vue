@@ -397,6 +397,18 @@
           <div class="test-source-name">
             <span>{{ result.name }}</span>
             <span v-if="!result.enabled" class="status-disabled">(未启用)</span>
+            <span v-if="getPreferredIcon(result)" class="test-source-icon">
+              <img
+                v-if="getPreferredIcon(result).url"
+                :src="getPreferredIcon(result).url"
+                :width="getPreferredIcon(result).width || 16"
+                :height="getPreferredIcon(result).height || 16"
+                class="test-icon-preview"
+                @error="e => e.target.style.display = 'none'"
+                alt=""
+              />
+              <span class="test-icon-tag">{{ getPreferredIcon(result).tag }}</span>
+            </span>
           </div>
           
           <!-- 直接测试结果 -->
@@ -653,6 +665,8 @@ const testIconSource = async (result, domain) => {
 
     result.direct.success = true
     result.direct.size = `${img.width}x${img.height}`
+    result.direct.width = img.width
+    result.direct.height = img.height
     result.direct.duration = Date.now() - startTime
   } catch (err) {
     result.direct.success = false
@@ -678,6 +692,8 @@ const testIconSource = async (result, domain) => {
 
       result.proxy.success = true
       result.proxy.size = `${img.width}x${img.height}`
+      result.proxy.width = img.width
+      result.proxy.height = img.height
       result.proxy.duration = Date.now() - startTime
     } catch (err) {
       result.proxy.success = false
@@ -685,6 +701,17 @@ const testIconSource = async (result, domain) => {
     }
     result.proxy.loading = false
   }
+}
+
+// 选择优先展示的图标（直连优先，直连失败时用代理）
+const getPreferredIcon = (result) => {
+  if (result.direct.success && result.direct.testedUrl) {
+    return { url: result.direct.testedUrl, width: result.direct.width, height: result.direct.height, tag: '直连' }
+  }
+  if (result.proxy.success && result.proxy.testedUrl) {
+    return { url: result.proxy.testedUrl, width: result.proxy.width, height: result.proxy.height, tag: '代理' }
+  }
+  return null
 }
 
 // 测试所有图标源（并行）
@@ -707,7 +734,9 @@ const handleTestAll = async () => {
       error: '',
       size: '',
       duration: 0,
-      testedUrl: ''
+      testedUrl: '',
+      width: null,
+      height: null
     },
     proxy: {
       loading: false,
@@ -715,7 +744,9 @@ const handleTestAll = async () => {
       error: '',
       size: '',
       duration: 0,
-      testedUrl: ''
+      testedUrl: '',
+      width: null,
+      height: null
     }
   }))
 
@@ -1517,6 +1548,26 @@ html.dark .api-dialog {
   font-size: 0.875rem;
   color: var(--text);
   border-bottom: 1px solid var(--border);
+}
+
+.test-source-icon {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-left: auto;
+}
+
+.test-icon-preview {
+  max-width: 48px;
+  max-height: 48px;
+  object-fit: contain;
+  vertical-align: middle;
+}
+
+.test-icon-tag {
+  font-size: 0.7rem;
+  color: var(--text-secondary);
+  white-space: nowrap;
 }
 
 .test-result-row {
