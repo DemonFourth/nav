@@ -52,6 +52,9 @@ npm install
 # 启动开发服务器（http://localhost:3000）
 npm run dev
 
+# 启动开发服务器并更换端口
+npm run dev -- --port 3001
+
 # 构建生产版本
 npm run build
 
