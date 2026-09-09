@@ -83,6 +83,7 @@ export async function onRequest(context) {
       (url.pathname === '/api/bookmarks' || 
        url.pathname === '/api/categories' ||
        url.pathname === '/api/fetch-metadata' ||
+       url.pathname === '/api/icon-proxy' ||
        url.pathname === '/api/settings' ||
        url.pathname === '/api/ai/status')) {
     return await next();
