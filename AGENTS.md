@@ -1024,11 +1024,12 @@ import { getIconUrl, handleIconError } from '@/composables/useIcon'
 - `proxyUrl`（代理）目前**只用于"测试图标源"**，实际图标加载不走代理
 - `resetIconMemory()` 可清空源记忆与失效标记（当前未接 UI）
 
-### 重新获取（refreshBookmarkIcon）
+### 清除图标缓存（refreshBookmarkIcon）
 
-- 点击编辑弹窗「重新获取图标」调用 `refreshBookmarkIcon(id)`：清空该书签的源记忆/失效标记，并写入**刷新戳**（localStorage `bookmarkIconRefreshStamp`）
+- 点击编辑弹窗「清除图标缓存」调用 `refreshBookmarkIcon(id)`：清空该书签的源记忆/失效标记，并写入**刷新戳**（localStorage `bookmarkIconRefreshStamp`）
 - `getIconUrl` 为带刷新戳的书签源 URL 追加 `?t=<戳>`，URL 变化绕过浏览器 HTTP 缓存 → 发起**真实重新请求**
-- 戳持久化：刷新后卡片的源 URL 保持带戳，首次新鲜加载后被浏览器缓存，不再反复请求；再次点击重新获取才更新戳
+- 机制是"清缓存"而非"主动抓取保存"：编辑弹窗头部图标因 URL 变化立即重新请求；卡片页下次显示时也用带戳 URL 获取最新
+- 戳持久化：刷新后卡片的源 URL 保持带戳，首次新鲜加载后被浏览器缓存，不再反复请求；再次点击清除缓存才更新戳
 - `resetBookmarkIconMemory(id)` 只清空记忆不加戳（可用于纯重置场景）
 
 ## 图标懒加载（LazyIcon + useIncrementalRender）

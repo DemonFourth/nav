@@ -58,7 +58,7 @@
                   <button
                     type="button"
                     class="icon-clear-btn"
-                    :title="form.icon ? '清除自定义图标' : '重新获取图标'"
+                    :title="form.icon ? '清除自定义图标' : '清除图标缓存并请求新图标'"
                     @click="handleClearIcon"
                   >
                     <svg v-if="!form.icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
@@ -544,7 +544,7 @@ const handleClearIcon = () => {
   }
   if (internalBookmark.value?.id) {
     refreshBookmarkIcon(internalBookmark.value.id)
-    toastSuccess('已重新获取图标')
+    toastSuccess('已清除图标缓存，已重新请求')
   }
 }
 
