@@ -2181,7 +2181,7 @@ const handleTestAll = async () => {
     await Promise.all(testResults.value.map(async (result) => {
       const source = iconSources.value.find(s => s.id === result.id)
       const useLarger = source?.useLarger || false
-      let iconUrl = result.url.replace('{domain}', testDomain.value).replace('{origin}', `https://${testDomain.value}`)
+      let iconUrl = result.url.replace('{domain}', testDomain.value).replace('{origin}', `https://${testDomain.value}`).replace('{url}', encodeURIComponent(`https://${testDomain.value}`))
       if (useLarger) iconUrl += iconUrl.includes('?') ? '&larger=true' : '?larger=true'
       result.direct.testedUrl = iconUrl
       if (!result.enabled) {

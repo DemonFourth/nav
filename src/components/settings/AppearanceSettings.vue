@@ -633,6 +633,7 @@ const testIconSource = async (result, domain) => {
   let iconUrl = result.url
     .replace('{domain}', domain)
     .replace('{origin}', `https://${domain}`)
+    .replace('{url}', encodeURIComponent(`https://${domain}`))
 
   if (useLarger) {
     iconUrl += iconUrl.includes('?') ? '&larger=true' : '?larger=true'
