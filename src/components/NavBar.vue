@@ -51,7 +51,7 @@
       </div>
 
     <div class="nav-right-area">
-      <button class="nav-icon-btn" @click="$emit('toggleStyle')" title="切换风格">
+      <button class="nav-icon-btn" @click="$emit('toggleStyle')" v-tooltip="'切换风格'">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
           <rect x="3" y="3" width="7" height="7"/>
           <rect x="14" y="3" width="7" height="7"/>

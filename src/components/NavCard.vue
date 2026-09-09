@@ -2,7 +2,7 @@
   <div 
     class="nav-card-horizontal"
     @click="handleCardClick"
-    :title="shouldShowTitle ? hoverTitle : undefined"
+    v-tooltip="shouldShowTitle ? hoverTitle : ''"
   >
     <!-- 第一行：图标 + 名称 + 描述 -->
     <div class="nav-card-top">
@@ -53,7 +53,7 @@
       v-if="isAuthenticated" 
       class="nav-card-detail-btn" 
       @click.stop="handleShowDetail"
-      title="查看详情"
+      v-tooltip="'查看详情'"
     >
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
         <circle cx="12" cy="12" r="10"/>
