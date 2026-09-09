@@ -198,7 +198,7 @@ const handleShowDetail = () => {
   cursor: pointer;
   transition: all 0.3s ease;
   min-height: 100px;
-  max-width: 100%;
+  max-width: 300px;
   overflow: hidden;
 }
 

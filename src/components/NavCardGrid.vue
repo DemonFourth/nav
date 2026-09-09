@@ -87,10 +87,9 @@ const handleShowDetail = (payload) => {
 
 .cards-container {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(auto-fill, minmax(160px, 300px));
   gap: 16px;
-  max-width: 80%;
-  margin: 0 auto;
+  justify-content: center;
   width: 100%;
 }
 
@@ -99,7 +98,7 @@ const handleShowDetail = (payload) => {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  max-width: 80%;
+  max-width: 100%;
   margin: 0 auto;
   padding: 4rem 1rem;
   color: var(--nav-text-secondary);
@@ -129,16 +128,9 @@ const handleShowDetail = (payload) => {
   to { opacity: 1; transform: translateY(0); }
 }
 
-@media (max-width: 1024px) {
-  .cards-container {
-    grid-template-columns: repeat(2, 1fr);
-  }
-}
-
 @media (max-width: 640px) {
   .cards-container {
-    grid-template-columns: 1fr;
-    max-width: 90%;
+  max-width: 100%;
   }
 }
 
