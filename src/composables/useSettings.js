@@ -56,9 +56,23 @@ const defaultIconSources = [
   { id: '3', name: 'Favicon Extractor', url: 'https://www.faviconextractor.com/favicon/{domain}', enabled: true, useLarger: false },
   { id: '4', name: 'DuckDuckGo', url: 'https://icons.duckduckgo.com/ip3/{domain}.ico', enabled: false, useLarger: false },
   { id: '5', name: '网站自身 favicon', url: '{origin}/favicon.ico', enabled: true, useLarger: false },
+  { id: '6', name: '自建代理', url: '/api/icon-proxy?url={url}', enabled: false, useLarger: false },
 ]
 
-const iconSources = ref(JSON.parse(localStorage.getItem('iconSources') || 'null') || [...defaultIconSources])
+const iconSources = ref(mergeIconSources(JSON.parse(localStorage.getItem('iconSources') || 'null')))
+
+// 合并默认源：老用户 localStorage 已存在时，补充缺失的默认源（如自建代理）
+function mergeIconSources(stored) {
+  if (!Array.isArray(stored) || stored.length === 0) return [...defaultIconSources]
+  const merged = [...stored]
+  for (const def of defaultIconSources) {
+    if (!merged.some(s => s.id === def.id || s.url === def.url)) {
+      merged.push({ ...def })
+    }
+  }
+  return merged
+}
+
 const proxyUrl = ref(localStorage.getItem('proxyUrl') || '')
 
 // 加载标志位，避免循环触发
@@ -340,6 +354,7 @@ export function useSettings() {
       let result = sourceUrl
         .replace('{domain}', domain)
         .replace('{origin}', origin)
+        .replace('{url}', encodeURIComponent(url.href))
       if (useLarger) {
         result += result.includes('?') ? '&larger=true' : '?larger=true'
       }
