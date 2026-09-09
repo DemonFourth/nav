@@ -12,13 +12,13 @@
         @input="handleSearch"
         @focus="showResults = true"
       >
-      <button v-if="query || selectedCategoryId || selectedTags.length > 0" class="clear-btn" @click="clearSearch" title="清除搜索">
+      <button v-if="query || selectedCategoryId || selectedTags.length > 0" class="clear-btn" @click="clearSearch" v-tooltip="'清除搜索'">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
           <line x1="18" y1="6" x2="6" y2="18"/>
           <line x1="6" y1="6" x2="18" y2="18"/>
         </svg>
       </button>
-      <button class="filter-btn" :class="{ active: showFilter }" @click="showFilter = !showFilter" title="过滤选项">
+      <button class="filter-btn" :class="{ active: showFilter }" @click="showFilter = !showFilter" v-tooltip="'过滤选项'">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
           <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>
         </svg>
@@ -66,7 +66,7 @@
       <div v-if="showResults && query && searchResults.length > 0" class="search-results" ref="resultsPanel">
         <div class="search-results-header">
           <span class="result-count">找到 <strong>{{ searchResults.length }}</strong> 个书签</span>
-          <button class="close-results-btn" @click="showResults = false" title="关闭结果">
+          <button class="close-results-btn" @click="showResults = false" v-tooltip="'关闭结果'">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
               <line x1="18" y1="6" x2="6" y2="18"/>
               <line x1="6" y1="6" x2="18" y2="18"/>
