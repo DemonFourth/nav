@@ -7,14 +7,15 @@
     <!-- 第一行：图标 + 名称 + 描述 -->
     <div class="nav-card-top">
       <div class="nav-card-icon">
-        <img 
-          v-if="!iconError"
-          :src="iconUrl"
-          :alt="bookmark.name"
-          loading="lazy"
-          @error="handleIconError"
-        />
-        <div v-if="iconError" class="letter-icon">
+        <LazyIcon v-if="getIconUrl(bookmark)" :size="40">
+          <img
+            :src="getIconUrl(bookmark)"
+            :alt="bookmark.name"
+            loading="lazy"
+            @error="handleIconError(bookmark)"
+          />
+        </LazyIcon>
+        <div v-else class="letter-icon">
           {{ bookmark.name.charAt(0) }}
         </div>
       </div>
@@ -66,7 +67,8 @@
 
 <script setup>
 import { ref, computed, onMounted, onUpdated, nextTick } from 'vue'
-import { useSettings } from '../composables/useSettings'
+import { getIconUrl, handleIconError } from '../composables/useIcon'
+import LazyIcon from './LazyIcon.vue'
 
 const props = defineProps({
   bookmark: {
@@ -81,10 +83,6 @@ const props = defineProps({
 
 const emit = defineEmits(['tag-click', 'show-detail'])
 
-const { iconSources, parseIconSourceUrl } = useSettings()
-
-const iconError = ref(false)
-const iconSourceIndex = ref(0)
 const expanded = ref(false)
 const MAX_VISIBLE_TAGS = 6
 
@@ -106,39 +104,6 @@ function checkTruncation() {
 
 onMounted(checkTruncation)
 onUpdated(checkTruncation)
-
-// 图标相关
-const getIconSources = () => {
-  if (props.bookmark.icon && props.bookmark.icon.trim()) {
-    return []
-  }
-  try {
-    const enabledSources = iconSources.value.filter(s => s.enabled)
-    return enabledSources.map(source => parseIconSourceUrl(source.url, props.bookmark.url))
-  } catch {
-    return []
-  }
-}
-
-const iconUrl = computed(() => {
-  if (props.bookmark.icon && props.bookmark.icon.trim()) {
-    return props.bookmark.icon
-  }
-  const sources = getIconSources()
-  if (sources.length > 0 && iconSourceIndex.value < sources.length) {
-    return sources[iconSourceIndex.value]
-  }
-  return ''
-})
-
-const handleIconError = () => {
-  const sources = getIconSources()
-  if (iconSourceIndex.value < sources.length - 1) {
-    iconSourceIndex.value++
-  } else {
-    iconError.value = true
-  }
-}
 
 // 标签相关
 const parsedTags = computed(() => {

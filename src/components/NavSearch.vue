@@ -65,7 +65,6 @@
 <script setup>
 import { ref, computed, nextTick, onMounted, onUnmounted } from 'vue'
 import { useBookmarks } from '../composables/useBookmarks'
-import { useSettings } from '../composables/useSettings'
 import { buildCategoryTree, getCategoryPath } from '../utils/categoryTree'
 import { searchBookmarks, SEARCH_FIELD_OPTIONS } from '../utils/search'
 
@@ -83,8 +82,6 @@ const { categories } = useBookmarks()
 const searchQuery = ref('')
 const selectedEngine = ref(null)
 const searchResults = ref([])
-const searchIconErrors = ref({})
-const searchIconSourceIndexes = ref({})
 const searchField = ref('all')
 const searchFieldOpen = ref(false)
 const searchFieldRef = ref(null)
@@ -117,8 +114,6 @@ const handleClickAway = (e) => {
 
 onMounted(() => document.addEventListener('click', handleClickAway))
 onUnmounted(() => document.removeEventListener('click', handleClickAway))
-
-const { iconSources, parseIconSourceUrl } = useSettings()
 
 const categoryMap = computed(() => {
   const { map } = buildCategoryTree(categories.value)
@@ -214,63 +209,8 @@ const searchInSite = (tags = null) => {
     results = searchBookmarks(props.bookmarks, searchQuery.value, { field: searchField.value })
   }
 
-  searchIconErrors.value = {}
-  searchIconSourceIndexes.value = {}
   searchResults.value = results
   emit('search-results', results)
-}
-
-const getDisplayUrl = (url) => {
-  try {
-    const parsed = new URL(url)
-    const path = parsed.pathname + parsed.search
-    if (path === '/' || path.length <= 1) {
-      return parsed.hostname
-    }
-    return parsed.hostname + (path.length > 30 ? path.slice(0, 30) + '...' : path)
-  } catch {
-    return url.length > 40 ? url.slice(0, 40) + '...' : url
-  }
-}
-
-const handleIconError = (event, resultId) => {
-  const sources = getSearchResultIconSources(props.bookmarks.find(b => b.id === resultId))
-  const currentIndex = searchIconSourceIndexes.value[resultId] || 0
-  if (currentIndex < sources.length - 1) {
-    searchIconSourceIndexes.value[resultId] = currentIndex + 1
-  } else {
-    searchIconErrors.value[resultId] = true
-  }
-}
-
-const getSearchResultIconSources = (bookmark) => {
-  if (!bookmark) return []
-  if (bookmark.icon && bookmark.icon.trim()) {
-    return []
-  }
-  try {
-    const enabledSources = iconSources.value.filter(s => s.enabled)
-    return enabledSources.map(source => parseIconSourceUrl(source.url, bookmark.url))
-  } catch {
-    return []
-  }
-}
-
-const getSearchResultIconUrl = (bookmark) => {
-  if (!bookmark) return ''
-  if (bookmark.icon && bookmark.icon.trim()) {
-    return bookmark.icon
-  }
-  const sources = getSearchResultIconSources(bookmark)
-  const index = searchIconSourceIndexes.value[bookmark.id] || 0
-  if (sources.length > 0 && index < sources.length) {
-    return sources[index]
-  }
-  return ''
-}
-
-const openUrl = (url) => {
-  window.open(url, '_blank')
 }
 </script>
 

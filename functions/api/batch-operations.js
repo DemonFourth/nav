@@ -4,6 +4,8 @@ export async function onRequestPost(context) {
   
   try {
     const { operation, bookmarkIds, categoryIds, data } = await request.json();
+
+    let resultData = {};
     
     switch (operation) {
       case 'delete':
@@ -132,15 +134,24 @@ export async function onRequestPost(context) {
           ).bind(isPrivate, ...bookmarkIds).run();
         }
         break;
-        
+
+      case 'clear-icons': {
+        // Clear custom icons of all bookmarks (fall back to auto-fetch sources)
+        const clearResult = await env.DB.prepare(
+          'UPDATE bookmarks SET icon = NULL WHERE icon IS NOT NULL AND icon != ?'
+        ).bind('').run();
+        resultData.cleared = clearResult.meta?.changes || 0;
+        break;
+      }
+
       default:
         return new Response(JSON.stringify({ error: 'Invalid operation' }), {
           status: 400,
           headers: { 'Content-Type': 'application/json' }
         });
     }
-    
-    return new Response(JSON.stringify({ success: true }), {
+
+    return new Response(JSON.stringify({ success: true, ...resultData }), {
       status: 200,
       headers: { 'Content-Type': 'application/json' }
     });

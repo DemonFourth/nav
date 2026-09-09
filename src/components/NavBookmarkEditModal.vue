@@ -7,10 +7,10 @@
             <div class="dialog-header-left">
               <div v-if="internalBookmark" class="header-icon">
                 <img
-                  v-if="!headerIconError && getDetailIconUrl(internalBookmark)"
-                  :src="getDetailIconUrl(internalBookmark)"
+                  v-if="!headerIconError && effectiveIconUrl"
+                  :src="effectiveIconUrl"
                   :alt="internalBookmark?.name"
-                  :key="(internalBookmark?.id || '') + '-' + (detailIconSourceIndexes[internalBookmark?.id || ''] || 0)"
+                  :key="(internalBookmark?.id || '') + '-' + form.icon"
                   @error="handleHeaderIconError"
                 />
                 <div v-else class="letter-icon-sm">{{ internalBookmark?.name?.charAt(0) || '?' }}</div>
@@ -47,6 +47,25 @@
                       <polyline points="15 3 21 3 21 9"/>
                       <line x1="10" y1="14" x2="21" y2="3"/>
                     </svg>
+                  </button>
+                </div>
+              </div>
+
+              <div class="detail-section">
+                <div class="detail-section-title">图标URL</div>
+                <div class="icon-field-row">
+                  <input v-model="form.icon" type="text" class="detail-input" placeholder="可选，自定义图标 URL（留空则自动获取）" />
+                  <button
+                    type="button"
+                    class="icon-clear-btn"
+                    :title="form.icon ? '清除自定义图标' : '重新获取图标'"
+                    @click="handleClearIcon"
+                  >
+                    <svg v-if="!form.icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                      <path d="M23 4v6h-6M1 20v-6h6"/>
+                      <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
+                    </svg>
+                    <span v-else>×</span>
                   </button>
                 </div>
               </div>
@@ -212,9 +231,9 @@
 
 <script setup>
 import { ref, reactive, computed, nextTick, watch, onMounted } from 'vue'
-import { useSettings } from '@/composables/useSettings'
 import { useAI } from '@/composables/useAI'
 import { useToast } from '@/composables/useToast'
+import { getIconUrl, handleIconError, resetBookmarkIconMemory } from '@/composables/useIcon'
 
 const props = defineProps({
   show: { type: Boolean, default: false },
@@ -224,7 +243,6 @@ const props = defineProps({
 
 const emit = defineEmits(['close', 'save', 'delete'])
 
-const { iconSources, parseIconSourceUrl } = useSettings()
 const { aiEnabled, checkAIAvailability, generateDescription, suggestCategory } = useAI()
 const { success: toastSuccess, error: toastError } = useToast()
 
@@ -236,7 +254,8 @@ const form = reactive({
   description: '',
   tags: '',
   notes: '',
-  is_private: false
+  is_private: false,
+  icon: ''
 })
 const tagItems = ref([])
 const newTagInput = ref('')
@@ -246,7 +265,6 @@ const selectOpen = ref(false)
 const selectSearch = ref('')
 const selectSearchInput = ref(null)
 const headerIconError = ref(false)
-const detailIconSourceIndexes = ref({})
 const generatingDesc = ref(false)
 const suggestingCategory = ref(false)
 const aiSuggestion = ref('')
@@ -308,6 +326,7 @@ const open = (bookmark) => {
     form.tags = bookmark.tags || ''
     form.notes = bookmark.notes || ''
     form.is_private = !!bookmark.is_private
+    form.icon = bookmark.icon || ''
     tagItems.value = bookmark.tags ? bookmark.tags.split(',').map(t => t.trim()).filter(Boolean) : []
   } else {
     form.name = ''
@@ -317,6 +336,7 @@ const open = (bookmark) => {
     form.tags = ''
     form.notes = ''
     form.is_private = false
+    form.icon = ''
     tagItems.value = []
   }
   newTagInput.value = ''
@@ -324,7 +344,6 @@ const open = (bookmark) => {
   selectOpen.value = false
   selectSearch.value = ''
   headerIconError.value = false
-  detailIconSourceIndexes.value = {}
   aiSuggestion.value = ''
   generatingDesc.value = false
   suggestingCategory.value = false
@@ -351,7 +370,8 @@ const handleSave = () => {
     description: form.description.trim(),
     tags: tagsStr,
     notes: form.notes.trim(),
-    is_private: form.is_private
+    is_private: form.is_private,
+    icon: form.icon.trim()
   }
   emit('save', internalBookmark.value, formData)
 }
@@ -510,34 +530,29 @@ const handleSuggestCategory = async () => {
   }
 }
 
-const getDetailIconSources = (bookmark) => {
-  if (bookmark.icon && bookmark.icon.trim()) return []
-  try {
-    const enabledSources = iconSources.value.filter(s => s.enabled)
-    return enabledSources.map(source => parseIconSourceUrl(source.url, bookmark.url))
-  } catch {
-    return []
-  }
-}
+const effectiveIconUrl = computed(() => {
+  if (form.icon && form.icon.trim()) return form.icon.trim()
+  if (!internalBookmark.value) return ''
+  return getIconUrl({ ...internalBookmark.value, icon: '' })
+})
 
-const getDetailIconUrl = (bookmark) => {
-  if (bookmark.icon && bookmark.icon.trim()) return bookmark.icon
-  const sources = getDetailIconSources(bookmark)
-  const index = detailIconSourceIndexes.value[bookmark.id || ''] || 0
-  if (sources.length > 0 && index < sources.length) return sources[index]
-  return ''
+const handleClearIcon = () => {
+  if (form.icon && form.icon.trim()) {
+    form.icon = ''
+    return
+  }
+  if (internalBookmark.value?.id) {
+    resetBookmarkIconMemory(internalBookmark.value.id)
+  }
 }
 
 const handleHeaderIconError = () => {
   if (!internalBookmark.value) return
-  const bookmark = internalBookmark.value
-  const sources = getDetailIconSources(bookmark)
-  const currentIndex = detailIconSourceIndexes.value[bookmark.id || ''] || 0
-  if (currentIndex < sources.length - 1) {
-    detailIconSourceIndexes.value[bookmark.id || ''] = currentIndex + 1
-  } else {
+  if (form.icon && form.icon.trim()) {
     headerIconError.value = true
+    return
   }
+  handleIconError({ ...internalBookmark.value, icon: '' })
 }
 
 const getDisplayUrl = (url) => {
@@ -1212,6 +1227,43 @@ defineExpose({ open })
   transform: translateY(-1px);
 }
 .url-open-btn svg {
+  width: 16px;
+  height: 16px;
+}
+
+.icon-field-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.icon-field-row > .detail-input {
+  flex: 1;
+  min-width: 0;
+}
+
+.icon-clear-btn {
+  width: 38px;
+  height: 38px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--nav-card-bg);
+  border: 1px solid var(--nav-border);
+  border-radius: 10px;
+  color: var(--nav-text-secondary);
+  font-size: 1rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  flex-shrink: 0;
+}
+
+.icon-clear-btn:hover {
+  color: var(--nav-danger, #f87171);
+  border-color: #f87171;
+}
+
+.icon-clear-btn svg {
   width: 16px;
   height: 16px;
 }

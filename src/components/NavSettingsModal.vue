@@ -288,8 +288,83 @@
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
                       <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
                     </svg>
-                    代理设置与图标源测试
+                    图标获取设置
                   </div>
+                  <div class="input-label" style="margin-bottom:4px;">图标源（按优先级依次尝试）</div>
+                  <div class="icon-sources-list">
+                    <div
+                      v-for="(source, index) in iconSources"
+                      :key="source.id"
+                      class="icon-source-item"
+                    >
+                      <div class="source-controls">
+                        <button
+                          class="move-btn"
+                          @click="moveIconSource(source.id, 'up')"
+                          :disabled="index === 0"
+                          title="上移"
+                        >↑</button>
+                        <button
+                          class="move-btn"
+                          @click="moveIconSource(source.id, 'down')"
+                          :disabled="index === iconSources.length - 1"
+                          title="下移"
+                        >↓</button>
+                      </div>
+                      <div class="source-info">
+                        <span class="source-name">{{ source.name }}</span>
+                        <span class="source-url">{{ source.url }}</span>
+                      </div>
+                      <label class="toggle-switch" title="启用/停用">
+                        <input
+                          type="checkbox"
+                          :checked="source.enabled"
+                          @change="toggleIconSourceEnabled(source.id)"
+                        />
+                        <span class="toggle-slider"></span>
+                      </label>
+                      <label class="larger-checkbox" title="添加 ?larger=true 参数">
+                        <input
+                          type="checkbox"
+                          :checked="source.useLarger"
+                          @change="toggleIconSourceLarger(source.id)"
+                        />
+                        <span>larger</span>
+                      </label>
+                      <button class="delete-btn" @click="removeIconSource(source.id)" title="删除">×</button>
+                    </div>
+                  </div>
+
+                  <div v-if="showAddSource" class="add-source-form">
+                    <input
+                      v-model="newSourceName"
+                      type="text"
+                      class="setting-input"
+                      placeholder="源名称（如：My Source）"
+                    />
+                    <input
+                      v-model="newSourceUrl"
+                      type="text"
+                      class="setting-input"
+                      placeholder="URL，使用 {domain} 或 {origin} 作为占位符"
+                      @keyup.enter="handleAddSource"
+                    />
+                    <div class="add-source-hint">占位符说明：{domain} = 域名，{origin} = 网站origin</div>
+                    <div class="add-source-buttons">
+                      <button class="text-btn" @click="showAddSource = false">取消</button>
+                      <button class="btn-primary-sm" @click="handleAddSource">添加</button>
+                    </div>
+                  </div>
+                  <button v-if="!showAddSource" class="add-source-btn" @click="showAddSource = true">+ 添加新源</button>
+
+                  <button class="batch-clear-icon-btn" @click="handleClearAllIcons">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
+                      <path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/>
+                    </svg>
+                    清除全部书签图标
+                  </button>
+
+                  <div class="section-divider" style="margin:16px 0;"></div>
                   <div class="input-label" style="margin-bottom:4px;">代理设置</div>
                   <input
                     type="text"
@@ -299,6 +374,7 @@
                     style="margin-bottom:10px;"
                     @change="e => updateProxyUrl(e.target.value)"
                   />
+                  <div class="input-label" style="margin-bottom:4px;">测试图标源</div>
                   <div class="input-with-btn">
                     <input
                       v-model="testDomain"
@@ -602,51 +678,51 @@
                   </div>
                 </div>
               </div>
-              <div class="bookmark-list">
-                <template v-for="group in groupedBookmarks" :key="group.categoryId || '__none__'">
-                  <div class="bookmark-group-header">
+              <div class="bookmark-list" ref="bookmarkListRef">
+                <template v-for="row in renderedBookmarkRows" :key="row.key">
+                  <div v-if="row.type === 'header'" class="bookmark-group-header">
                     <div class="group-header-left">
                       <span class="group-header-bar"></span>
-                      <span class="group-header-name">{{ getCategoryName(group.categoryId) }}</span>
-                      <span class="group-header-count">{{ group.bookmarks.length }}</span>
+                      <span class="group-header-name">{{ row.name }}</span>
+                      <span class="group-header-count">{{ row.count }}</span>
                     </div>
                   </div>
                   <div
-                    v-for="bm in group.bookmarks"
-                    :key="bm.id"
+                    v-else
                     class="bookmark-item"
-                    :class="{ selected: selectedBookmarks.has(bm.id) }"
+                    :class="{ selected: selectedBookmarks.has(row.bm.id) }"
                   >
                     <input
                       type="checkbox"
-                      :checked="selectedBookmarks.has(bm.id)"
-                      @change="toggleBookmarkSelection(bm.id)"
+                      :checked="selectedBookmarks.has(row.bm.id)"
+                      @change="toggleBookmarkSelection(row.bm.id)"
                       class="bookmark-checkbox"
                     />
                     <div class="bookmark-icon">
-                      <img 
-                        v-if="bm.url && !iconErrors[bm.id]" 
-                        :src="getFaviconUrl(bm)" 
-                        alt="" 
-                        :key="bm.id + '-' + (iconSourceIndexes[bm.id] || 0)"
-                        @error="handleIconError(bm.id)"
-                      />
-                      <div v-if="iconErrors[bm.id]" class="letter-icon">{{ bm.name.charAt(0) }}</div>
+                      <LazyIcon v-if="row.bm.url && getIconUrl(row.bm)" :size="24">
+                        <img
+                          :src="getIconUrl(row.bm)"
+                          alt=""
+                          @error="handleIconError(row.bm)"
+                        />
+                      </LazyIcon>
+                      <div v-else class="letter-icon">{{ row.bm.name.charAt(0) }}</div>
                     </div>
                     <div class="bookmark-info">
-                      <div class="bookmark-name">{{ bm.name }}</div>
-                      <div class="bookmark-url">{{ bm.url }}</div>
+                      <div class="bookmark-name">{{ row.bm.name }}</div>
+                      <div class="bookmark-url">{{ row.bm.url }}</div>
                     </div>
-                    <div class="bookmark-category-path">{{ getCategoryPathForBookmark(bm.category_id) }}</div>
+                    <div class="bookmark-category-path">{{ getCategoryPathForBookmark(row.bm.category_id) }}</div>
                     <div class="bookmark-actions">
-                      <button class="bookmark-action-btn" @click="openBookmarkEdit(bm)">编辑</button>
-                      <button class="bookmark-action-btn bookmark-action-delete" @click="deleteBookmarkItem(bm)">删除</button>
+                      <button class="bookmark-action-btn" @click="openBookmarkEdit(row.bm)">编辑</button>
+                      <button class="bookmark-action-btn bookmark-action-delete" @click="deleteBookmarkItem(row.bm)">删除</button>
                     </div>
                   </div>
                 </template>
                 <div v-if="groupedBookmarks.length === 0" class="bookmark-empty">
                   <p>没有找到匹配的书签</p>
                 </div>
+                <div v-if="hasMoreBookmarkRows" ref="bookmarkSentinelRef" class="bookmark-load-more"></div>
               </div>
               <div v-if="selectedBookmarks.size > 0" class="bookmark-footer">
                 <span class="bookmark-selected-count">已选择 {{ selectedBookmarks.size }} 个</span>
@@ -666,11 +742,7 @@
 
             <!-- Tags -->
             <div v-show="activeTab === 'tags'" class="tab-panel">
-              <TagManagement 
-                :get-favicon-url="getFaviconUrl" 
-                :icon-errors="iconErrors"
-                :handle-icon-error="handleIconError"
-              />
+              <TagManagement />
             </div>
 
             <!-- Trend -->
@@ -796,33 +868,34 @@
                 <button class="trend-filter-clear" @click="clearTrendFilter">清除筛选</button>
               </div>
               <div class="trend-timeline">
-                <template v-for="group in filteredTimeline" :key="group.date">
-                  <div class="timeline-date-header">
-                    <span class="timeline-date">{{ group.date }}</span>
-                    <span class="timeline-badge">{{ group.bookmarks.length }} 个</span>
+                <template v-for="row in renderedTrendRows" :key="row.key">
+                  <div v-if="row.type === 'date'" class="timeline-date-header">
+                    <span class="timeline-date">{{ row.date }}</span>
+                    <span class="timeline-badge">{{ row.count }} 个</span>
                   </div>
                   <div
-                    v-for="bm in group.bookmarks"
-                    :key="bm.id"
+                    v-else
                     class="timeline-item"
-                    @click="openBookmarkEdit(bm)"
+                    @click="openBookmarkEdit(row.bm)"
                   >
-                    <span class="timeline-time">{{ toLocalTimeStr(bm.created_at) }}</span>
+                    <span class="timeline-time">{{ toLocalTimeStr(row.bm.created_at) }}</span>
                     <div class="timeline-icon">
-                      <img
-                        v-if="bm.url && !iconErrors[bm.id]"
-                        :src="getFaviconUrl(bm)"
-                        alt=""
-                        @error="handleIconError(bm.id)"
-                      />
-                      <div v-else class="timeline-letter-icon">{{ bm.name.charAt(0) }}</div>
+                      <LazyIcon v-if="row.bm.url && getIconUrl(row.bm)" :size="20">
+                        <img
+                          :src="getIconUrl(row.bm)"
+                          alt=""
+                          @error="handleIconError(row.bm)"
+                        />
+                      </LazyIcon>
+                      <div v-else class="timeline-letter-icon">{{ row.bm.name.charAt(0) }}</div>
                     </div>
                     <div class="timeline-info">
-                      <div class="timeline-name">{{ bm.name }}</div>
-                      <div class="timeline-meta">{{ getCategoryPathForBookmark(bm.category_id) }}</div>
+                      <div class="timeline-name">{{ row.bm.name }}</div>
+                      <div class="timeline-meta">{{ getCategoryPathForBookmark(row.bm.category_id) }}</div>
                     </div>
                   </div>
                 </template>
+                <div v-if="hasMoreTrendRows" ref="trendSentinelRef" class="bookmark-load-more"></div>
               </div>
             </div>
 
@@ -1133,6 +1206,8 @@
 <script setup>
 import { ref, reactive, computed, watch, nextTick, onMounted, onUnmounted } from 'vue'
 import { useSettings } from '@/composables/useSettings'
+import { getIconUrl, handleIconError } from '@/composables/useIcon'
+import { useIncrementalRender } from '@/composables/useIncrementalRender'
 import { useTheme } from '@/composables/useTheme'
 import { useAuth } from '@/composables/useAuth'
 import { useBookmarks } from '@/composables/useBookmarks'
@@ -1147,6 +1222,7 @@ import NavBookmarkEditModal from '@/components/NavBookmarkEditModal.vue'
 import BaseDialog from '@/components/BaseDialog.vue'
 import ConfirmDialog from '@/components/ConfirmDialog.vue'
 import TagManagement from '@/components/TagManagement.vue'
+import LazyIcon from '@/components/LazyIcon.vue'
 
 const props = defineProps({
   show: {
@@ -1168,6 +1244,7 @@ const {
   navCardTextShadow, toggleNavCardTextShadow,
   toggleIconSourceEnabled, toggleIconSourceLarger,
   moveIconSource, updateProxyUrl, parseIconSourceUrl,
+  addIconSource, removeIconSource,
   navWallpaperHistory, wallpaperApiHistory
 } = useSettings()
 
@@ -1231,6 +1308,9 @@ const showWallpaperHistory = ref(false)
 const testDomain = ref('')
 const isTesting = ref(false)
 const testResults = ref([])
+const showAddSource = ref(false)
+const newSourceName = ref('')
+const newSourceUrl = ref('')
 const maxMenuItems = ref(7)
 
 const showApiKey = ref(false)
@@ -1313,10 +1393,6 @@ const bmSearchFieldRef = ref(null)
 const bmSearchFieldBtnRef = ref(null)
 const bmSearchFieldDropdownRef = ref(null)
 const bmDropdownStyle = ref({})
-
-// Icon error handling (same as NavCardGrid.vue)
-const iconErrors = ref({})
-const iconSourceIndexes = ref({})
 
 const openBmFieldDropdown = () => {
   bookmarkSearchFieldOpen.value = !bookmarkSearchFieldOpen.value
@@ -1584,6 +1660,34 @@ const groupedBookmarks = computed(() => {
   return sorted
 })
 
+/* ===== Bookmark list incremental rendering ===== */
+const bookmarkListRef = ref(null)
+
+const bookmarkRows = computed(() => {
+  const rows = []
+  for (const group of groupedBookmarks.value) {
+    rows.push({
+      type: 'header',
+      key: 'h-' + (group.categoryId || '__none__'),
+      name: getCategoryName(group.categoryId),
+      count: group.bookmarks.length
+    })
+    for (const bm of group.bookmarks) {
+      rows.push({ type: 'bookmark', key: 'b-' + bm.id, bm })
+    }
+  }
+  return rows
+})
+
+const {
+  sentinelRef: bookmarkSentinelRef,
+  rendered: renderedBookmarkRows,
+  hasMore: hasMoreBookmarkRows
+} = useIncrementalRender(bookmarkRows, {
+  scrollRootRef: bookmarkListRef,
+  activateWhen: () => activeTab.value === 'bookmark'
+})
+
 /* ===== Trend tab ===== */
 const trendGranularity = ref('day')
 
@@ -1763,6 +1867,8 @@ const trendFilterCount = computed(() => {
   }).length
 })
 
+const settingsContentRef = ref(null)
+
 const filteredTimeline = computed(() => {
   if (!trendFilter.value) return trendTimeline.value
   const groups = {}
@@ -1786,6 +1892,26 @@ const filteredTimeline = computed(() => {
       })
       return g
     })
+})
+
+const trendRows = computed(() => {
+  const rows = []
+  for (const group of filteredTimeline.value) {
+    rows.push({ type: 'date', key: 'd-' + group.date, date: group.date, count: group.bookmarks.length })
+    for (const bm of group.bookmarks) {
+      rows.push({ type: 'item', key: 'i-' + bm.id, bm })
+    }
+  }
+  return rows
+})
+
+const {
+  sentinelRef: trendSentinelRef,
+  rendered: renderedTrendRows,
+  hasMore: hasMoreTrendRows
+} = useIncrementalRender(trendRows, {
+  scrollRootRef: settingsContentRef,
+  activateWhen: () => activeTab.value === 'trend'
 })
 
 const handleBarClick = (key) => {
@@ -1813,7 +1939,6 @@ watch(() => chartBars.value, () => {
   scrollChartToEnd()
 }, { deep: false })
 
-const settingsContentRef = ref(null)
 const trendChartWrapRef = ref(null)
 const trendShowBackTop = ref(false)
 let trendScrollHandler = null
@@ -1860,42 +1985,6 @@ function getCategoryName(categoryId) {
   if (!categoryId) return '未分类'
   const cat = categoryFlatList.value.find(c => c.id === categoryId)
   return cat ? cat.displayName : '未分类'
-}
-
-const getIconSources = (bookmark) => {
-  if (bookmark.icon && bookmark.icon.trim()) {
-    return []
-  }
-  try {
-    const enabledSources = iconSources.value.filter(s => s.enabled)
-    return enabledSources.map(source => parseIconSourceUrl(source.url, bookmark.url))
-  } catch {
-    return []
-  }
-}
-
-function getFaviconUrl(bm) {
-  if (bm.icon && bm.icon.trim()) {
-    return bm.icon
-  }
-  const sources = getIconSources(bm)
-  const index = iconSourceIndexes.value[bm.id] || 0
-  if (sources.length > 0 && index < sources.length) {
-    return sources[index]
-  }
-  return ''
-}
-
-function handleIconError(bmId) {
-  const bookmark = bookmarks.value.find(b => b.id === bmId)
-  if (!bookmark) return
-  const sources = getIconSources(bookmark)
-  const currentIndex = iconSourceIndexes.value[bmId] || 0
-  if (currentIndex < sources.length - 1) {
-    iconSourceIndexes.value[bmId] = currentIndex + 1
-  } else {
-    iconErrors.value[bmId] = true
-  }
 }
 
 // Category dialog handlers
@@ -2163,6 +2252,32 @@ const selectApiHistory = (item) => {
 const selectWallpaperHistory = (item) => {
   updateNavWallpaper(item)
   showWallpaperHistory.value = false
+}
+
+const handleAddSource = () => {
+  if (!newSourceUrl.value.trim()) return
+  addIconSource({
+    name: newSourceName.value.trim() || newSourceUrl.value.trim(),
+    url: newSourceUrl.value.trim()
+  })
+  newSourceName.value = ''
+  newSourceUrl.value = ''
+  showAddSource.value = false
+}
+
+const handleClearAllIcons = async () => {
+  if (!requireAuth()) return
+  const confirmed = await confirmDialog.value.open(
+    '确定要清除全部书签的自定义图标吗？\n清除后，对应页面显示时将自动从图标源重新获取。',
+    '清除全部书签图标'
+  )
+  if (!confirmed) return
+  const result = await batchOperation('clear-icons')
+  if (result.success) {
+    toastSuccess('已清除全部书签图标')
+  } else {
+    toastError(result.error || '清除失败')
+  }
 }
 
 const handleTestAll = async () => {
@@ -2895,6 +3010,175 @@ textarea.setting-input {
 .test-table tr:last-child td { border-bottom: none; }
 
 .source-name { font-weight: 500; }
+
+/* ===== Icon Source List ===== */
+.icon-sources-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.icon-source-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: 10px;
+}
+
+.source-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.move-btn {
+  width: 18px;
+  height: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 0.7rem;
+  cursor: pointer;
+  border-radius: 4px;
+  padding: 0;
+}
+
+.move-btn:hover:not(:disabled) {
+  background: var(--nav-bg-hover);
+  color: var(--text-primary);
+}
+
+.move-btn:disabled { opacity: 0.3; cursor: default; }
+
+.source-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.source-info .source-name {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.source-info .source-url {
+  font-size: 0.65rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.larger-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.65rem;
+  color: var(--text-muted);
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.larger-checkbox input { cursor: pointer; }
+
+.delete-btn {
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 1rem;
+  cursor: pointer;
+  border-radius: 6px;
+  flex-shrink: 0;
+  padding: 0;
+}
+
+.delete-btn:hover { color: var(--error); background: var(--nav-bg-hover); }
+
+.add-source-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 10px;
+  padding: 12px;
+  background: var(--nav-bg);
+  border: 1px dashed var(--card-border);
+  border-radius: 10px;
+}
+
+.add-source-hint {
+  font-size: 0.65rem;
+  color: var(--text-muted);
+}
+
+.add-source-buttons {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.text-btn {
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+  cursor: pointer;
+  padding: 6px 10px;
+  border-radius: 8px;
+}
+
+.text-btn:hover { color: var(--text-primary); background: var(--nav-bg-hover); }
+
+.add-source-btn {
+  border: none;
+  background: transparent;
+  color: var(--accent);
+  font-size: 0.75rem;
+  cursor: pointer;
+  padding: 6px 10px;
+  border-radius: 8px;
+  margin-bottom: 2px;
+}
+
+.add-source-btn:hover { background: var(--nav-bg-hover); }
+
+.batch-clear-icon-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid var(--card-border);
+  background: var(--card-bg);
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+  cursor: pointer;
+  padding: 8px 12px;
+  border-radius: 10px;
+  margin-top: 4px;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.batch-clear-icon-btn:hover {
+  border-color: var(--error);
+  color: var(--error);
+  background: color-mix(in srgb, var(--error) 8%, transparent);
+}
 .status-ok { color: var(--accent); }
 .status-fail { color: var(--error); }
 .status-loading { color: var(--accent); opacity: 0.7; }
@@ -3999,6 +4283,9 @@ textarea.setting-input {
   overflow-y: auto;
   padding: 0;
   min-height: 0;
+}
+.bookmark-load-more {
+  height: 4px;
 }
 .bookmark-group-header {
   display: flex;

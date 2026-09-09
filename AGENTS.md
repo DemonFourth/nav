@@ -970,6 +970,101 @@ Categories: {id}: {path}
 | settings 输入框灰色锁定 | 对应字段已通过环境变量配置 | 修改 wrangler.toml / Cloudflare Pages 控制台 |
 | AI 返回速度慢 | 网络延迟或模型响应慢 | 检查 `baseUrl` 是否为国内可直连地址；考虑使用 `gpt-4o-mini` 而非 `gpt-4o` |
 
+## 统一图标获取模块（useIcon）
+
+`src/composables/useIcon.js` 是所有界面（nav 模式卡片、编辑弹窗、设置书签列表、标签页）**共享的图标获取唯一入口**。各界面不再各自对接图标源，只调用两个函数：
+
+```javascript
+import { getIconUrl, handleIconError } from '@/composables/useIcon'
+
+// 模板中绑定
+<img v-if="getIconUrl(bookmark)" :src="getIconUrl(bookmark)" @error="handleIconError(bookmark)" />
+// getIconUrl 返回空字符串时显示字母图标兜底
+```
+
+### 获取优先级
+
+```
+① bookmark.icon（自定义，存在 D1）—— 除非已被标记"失效"（见下）
+② 启用的图标源链，按优先级依次尝试
+③ 全部失败 → 字母图标
+```
+
+### 共享失败记忆（localStorage `bookmarkIconSourceMemory`）
+
+- 模块级 `reactive(Map)`，key = `String(bookmark.id)`，value = **源 id**（或 `null` = 已耗尽）
+- 所有界面共用一份进度：A 界面失败切换源后，B 界面直接用记忆的源，不再各自从头遍历
+- 已耗尽（`null`）**不持久化**，刷新后重新探测；成功记忆跨刷新保留
+- 记忆的源失效/被禁用时自动回落到第 0 个启用的源重试
+
+### 自定义 icon 失效自动回退（方案 A）
+
+`src/composables/useIcon.js` 实现"自定义图标死链自动回退源链"：
+
+- `customIconBroken`（`reactive(Map)`，key = bookmark.id，value = **失败的自定义 icon URL**），持久化到 localStorage `bookmarkCustomIconBroken`
+- `getIconUrl`：仅当 `bookmark.icon` 存在**且未被标记失效**时使用它；该 URL 已被标记失效 → 自动回退源链
+- `handleIconError`：带自定义 icon 的书签加载失败时，该 URL 尚未标记 → 标记失效并返回；已标记 → 走正常源链切换
+- **标记绑定 URL 而非布尔值**：用户改新 icon URL → 立即恢复正常；清除 icon → 走源链，标记不再阻塞
+- 不改数据库字段；想彻底清掉仍用「清除图标」或「批量清除」
+
+### 已接入界面
+
+| 文件 | 说明 |
+|------|------|
+| `src/components/NavCard.vue` | nav 卡片 |
+| `src/components/NavBookmarkEditModal.vue` | 编辑弹窗 header 图标 + 图标URL字段（清除/重新获取） |
+| `src/components/NavSettingsModal.vue` | 书签 tab 列表 + 趋势 tab 时间轴 |
+| `src/components/TagManagement.vue` | 标签 tab 展开书签列表 |
+
+`NavSearch.vue` 曾有过一套独立的搜索图标逻辑（`searchIconSourceIndexes`/`getSearchResultIconUrl` 等），搜索结果显示已移交 `NavCardGrid` 渲染后即为死代码，已删除。
+
+### 注意
+
+- 模块在文件加载时调用 `useSettings()`（模块级单例，无生命周期钩子，可在模块作用域安全调用）
+- `proxyUrl`（代理）目前**只用于"测试图标源"**，实际图标加载不走代理
+- `resetIconMemory()` 可清空源记忆与失效标记（当前未接 UI）
+
+## 图标懒加载（LazyIcon + useIncrementalRender）
+
+所有图标展示界面统一懒加载，**图标进入视口附近（rootMargin 200px）才发起请求**，加载成功后立即显示，无需刷新页面。
+
+### LazyIcon 组件（`src/components/LazyIcon.vue`）
+
+- 图片级懒加载：默认 slot 传入 `<img>`，组件在元素进入视口前不渲染 slot，避免一次性为所有书签并发请求图标
+- `size` prop 指定占位盒尺寸（卡片 40 / 书签列表 24 / 趋势 20 / 标签 20），`display: inline-flex` 居中，不破坏各界面原有布局
+- 触发一次即断开 observer，图标保持显示；失败换源仍由 `useIcon` 的响应式记忆驱动 `:src` 变化
+
+```html
+<LazyIcon v-if="bm.url && getIconUrl(bm)" :size="24">
+  <img :src="getIconUrl(bm)" alt="" @error="handleIconError(bm)" />
+</LazyIcon>
+<div v-else class="letter-icon">{{ bm.name.charAt(0) }}</div>
+```
+
+### useIncrementalRender composable（`src/composables/useIncrementalRender.js`）
+
+行级增量渲染，用于大列表（设置→书签 tab、趋势 tab）：
+
+- 把分组列表**扁平化为行数组**（`{type:'header'}` / `{type:'bookmark'|'item'}`），每批渲染 60 行，哨兵元素进入滚动容器附近（rootMargin 300px）时继续加载下一批
+- 参数：`rows`（computed）、`scrollRootRef`（滚动容器 ref，趋势用 `settingsContentRef`）、`activateWhen`（getter，tab 激活时初始化 observer）
+- 返回 `{ sentinelRef, rendered, hasMore }`；`rendered` 用于 `v-for`，`sentinelRef` 绑定哨兵 `<div ref="..." class="bookmark-load-more">`
+- 列表数据变化自动重置为首屏并重建观察器，组件卸载时断开
+
+### 各界面懒加载情况
+
+| 界面 | 图片级（LazyIcon） | 行级分批 |
+|------|-------------------|---------|
+| 主页卡片网格（NavCard） | ✅ | —（按分类只渲染当前） |
+| 设置→书签 tab | ✅ | ✅（60/批，root=列表滚动容器） |
+| 设置→趋势 tab 时间轴 | ✅ | ✅（60/批，root=内容滚动容器） |
+| 设置→标签 tab 展开书签 | ✅ | — |
+| 编辑书签弹窗 header | —（单个书签，本就即时） | — |
+
+### 注意事项
+
+- `LazyIcon` 依赖 `useIcon.getIconUrl`，图标 URL 计算与懒加载解耦：懒加载只决定**何时**渲染 `<img>`，URL/失败切换仍由 `useIcon` 统一管理
+- 书签/趋势两个大列表同时启用"行级分批 + 图片级懒加载"：分批控制 DOM 数量，懒加载控制图标请求时机
+
 ## 自建图标代理（/api/icon-proxy）
 
 `functions/api/icon-proxy.js` 提供自建 favicon 抓取端点，用 Cloudflare 原生 `HTMLRewriter` 解析目标站点真实图标，不依赖第三方图标服务。

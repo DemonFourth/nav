@@ -117,12 +117,13 @@
               class="bookmark-item"
             >
               <div class="bookmark-icon">
-                <img
-                  v-if="bookmark.url && !iconErrors[bookmark.id]"
-                  :src="getFaviconUrl(bookmark)"
-                  alt=""
-                  @error="() => handleIconError(bookmark.id)"
-                />
+                <LazyIcon v-if="bookmark.url && getIconUrl(bookmark)" :size="20">
+                  <img
+                    :src="getIconUrl(bookmark)"
+                    alt=""
+                    @error="handleIconError(bookmark)"
+                  />
+                </LazyIcon>
                 <div v-else class="letter-icon">{{ bookmark.name.charAt(0) }}</div>
               </div>
               <div class="bookmark-info">
@@ -171,21 +172,8 @@ import { useBookmarks } from '@/composables/useBookmarks'
 import { buildCategoryTree, getCategoryPath } from '@/utils/categoryTree'
 import TagRenameDialog from './TagRenameDialog.vue'
 import ConfirmDialog from './ConfirmDialog.vue'
-
-const props = defineProps({
-  getFaviconUrl: {
-    type: Function,
-    default: () => ''
-  },
-  iconErrors: {
-    type: Object,
-    default: () => ({})
-  },
-  handleIconError: {
-    type: Function,
-    default: () => {}
-  }
-})
+import { getIconUrl, handleIconError } from '@/composables/useIcon'
+import LazyIcon from './LazyIcon.vue'
 
 const {
   tags,
