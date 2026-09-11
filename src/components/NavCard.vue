@@ -47,6 +47,9 @@
         </span>
       </div>
       <div class="nav-card-url">{{ bookmark.url }}</div>
+      <div v-if="bookmark.notes && bookmark.notes.trim()" class="nav-card-notes">
+        {{ bookmark.notes }}
+      </div>
     </div>
     
     <!-- 详情按钮 -->
@@ -329,6 +332,15 @@ const handleShowDetail = () => {
 .nav-card-url {
   font-size: 12px;
   color: var(--nav-text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.nav-card-notes {
+  font-size: 14px;
+  color: var(--nav-text-secondary);
+  line-height: 1.4;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
