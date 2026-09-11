@@ -1675,6 +1675,8 @@ html.dark ::selection {
   font-size: 12px;
   line-height: 1.5;
   white-space: pre-line;
+  overflow-wrap: break-word;
+  word-break: break-all;
   pointer-events: none;
   opacity: 0;
   transform: translateY(2px);
