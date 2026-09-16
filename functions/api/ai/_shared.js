@@ -120,14 +120,25 @@ export function extractJson(text, validIds = new Set()) {
   return null
 }
 
+const RETRY_ATTEMPTS = 3
+const RETRY_DELAY_MS = 1000
+const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms))
+
 export async function callOpenAI(env, { path, method = 'POST', body, headers = {} }) {
   const config = await getAIConfig(env)
 
+  console.log('[callOpenAI] 请求开始', {
+    path, method, baseUrl: config.baseUrl, apiKeyPresent: !!config.apiKey,
+    authHeader: config.authHeader, authPrefix: config.authPrefix
+  })
+
   if (!config.apiKey) {
+    console.warn('[callOpenAI] ❌ API Key 未配置')
     throw new Error('Missing OpenAI API key')
   }
 
   const url = joinBaseUrl(config.baseUrl, path)
+  console.log('[callOpenAI] 目标 URL:', url)
 
   const finalHeaders = new Headers(headers)
   if (!finalHeaders.has(config.authHeader)) {
@@ -139,13 +150,30 @@ export async function callOpenAI(env, { path, method = 'POST', body, headers = {
     body = JSON.stringify(body)
   }
 
-  const response = await fetch(url, {
-    method,
-    headers: finalHeaders,
-    body: body instanceof ReadableStream ? body : body ?? undefined
-  })
+  // 记录请求体大小（避免打印敏感内容）
+  const bodyPreview = body ? (body.length > 200 ? body.slice(0, 200) + '...[略]' : body) : null
+  console.log('[callOpenAI] 请求准备', { method, headersCount: finalHeaders.entries().next().done ? 0 : [...finalHeaders].length, bodyPreview })
 
-  if (!response.ok) {
+  let lastError = null
+  for (let attempt = 0; attempt < RETRY_ATTEMPTS; attempt++) {
+    console.log(`[callOpenAI] 发起请求 #${attempt + 1}...`)
+
+    const response = await fetch(url, {
+      method,
+      headers: finalHeaders,
+      body: body instanceof ReadableStream ? body : body ?? undefined
+    })
+
+    console.log('[callOpenAI] 响应收到', {
+      status: response.status, ok: response.ok,
+      headers: Object.fromEntries([...response.headers.entries()].slice(0, 5))  // 前5个headers
+    })
+
+    if (response.ok) {
+      console.log(`[callOpenAI] ✅ 请求成功`);
+      return response
+    }
+
     const rawText = await response.text()
     let details = rawText
     try {
@@ -153,13 +181,28 @@ export async function callOpenAI(env, { path, method = 'POST', body, headers = {
       details = errorData.error?.message || errorData.error || JSON.stringify(errorData)
     } catch (_) {}
 
+    console.log('[callOpenAI] 错误详情', { status: response.status, details: details.slice(0, 200) })
+
     // 将 OpenAI content filter 错误映射为友好提示
     if (details.includes('content policy') || details.includes('content filter') || details.includes('blocked by')) {
+      console.warn('[callOpenAI] ❌ 内容审核拦截')
       throw new Error('内容审核：请求内容触发了安全策略，请修改后重试')
     }
 
+    // 429/503 限流或服务不可用，等待后重试
+    if (response.status === 429 || response.status === 503) {
+      lastError = new Error(`[${response.status}] ${details || 'OpenAI request failed'}`)
+      const retryAfter = response.headers.get('Retry-After')
+      const delay = retryAfter ? Number.parseInt(retryAfter, 10) * 1000 : RETRY_DELAY_MS * (attempt + 1)
+      console.warn(`[callOpenAI] ⚠️ ${response.status} (attempt ${attempt + 1}/${RETRY_ATTEMPTS}), retrying in ${delay}ms${retryAfter ? ` (Retry-After: ${retryAfter}s)` : ''}`)
+      await sleep(delay)
+      continue
+    }
+
+    console.error('[callOpenAI] ❌ 非重试错误', { status: response.status, details })
     throw new Error(`[${response.status}] ${details || 'OpenAI request failed'}`)
   }
 
-  return response
+  console.error('[callOpenAI] ❌ 重试次数耗尽，最终失败')
+  throw lastError
 }
