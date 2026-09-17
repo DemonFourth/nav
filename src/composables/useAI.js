@@ -73,6 +73,7 @@ const checkAIAvailability = async () => {
       if (error.message === 'Token expired') {
         return { success: false, error: '登录已过期，请重新登录' }
       }
+      console.error('[AI] 失败详情:', error.message)
       return { success: false, error: error.message || '网络错误' }
     }
   }
@@ -93,6 +94,7 @@ const checkAIAvailability = async () => {
       if (error.message === 'Token expired') {
         return { success: false, error: '登录已过期，请重新登录' }
       }
+      console.error('[AI] 失败详情:', error.message)
       return { success: false, error: error.message || '网络错误' }
     }
   }
@@ -118,6 +120,7 @@ const checkAIAvailability = async () => {
       if (error.message === 'Token expired') {
         return { success: false, error: '登录已过期，请重新登录' }
       }
+      console.error('[AI] 失败详情:', error.message)
       return { success: false, error: error.message || '网络错误' }
     }
   }
@@ -143,6 +146,7 @@ const checkAIAvailability = async () => {
       if (error.message === 'Token expired') {
         return { success: false, error: '登录已过期，请重新登录' }
       }
+      console.error('[AI] 失败详情:', error.message)
       return { success: false, error: error.message || '网络错误' }
     }
   }
@@ -164,7 +168,8 @@ const checkAIAvailability = async () => {
       if (error.message === 'Token expired') {
         return { success: false, error: '登录已过期，请重新登录' }
       }
-      return { success: false, error: error.message || '网络错误' }
+      console.error('[AI] 失败详情:', error.message)
+      return { success: false, error: error.message || '保存失败' }
     }
   }
 
@@ -199,7 +204,8 @@ const checkAIAvailability = async () => {
       if (error.message === 'Token expired') {
         return { success: false, error: '登录已过期，请重新登录' }
       }
-      return { success: false, error: error.message || '网络错误' }
+      console.error('[AI] 失败详情:', error.message)
+      return { success: false, error: error.message || '获取失败' }
     }
   }
 
@@ -222,6 +228,23 @@ const checkAIAvailability = async () => {
         valid: false,
         message: error.message || '验证失败'
       }
+    }
+  }
+
+  const diagnoseConnection = async () => {
+    try {
+      const response = await apiRequest('/api/ai/diagnose', {
+        method: 'POST'
+      })
+
+      const result = await response.json()
+      return result
+    } catch (error) {
+      if (error.message === 'Token expired') {
+        return { success: false, error: '登录已过期，请重新登录' }
+      }
+      console.error('[AI 诊断] 请求诊断端点失败:', error)
+      return { success: false, error: error.message || '诊断请求失败' }
     }
   }
 
@@ -263,6 +286,7 @@ const checkAIAvailability = async () => {
     searchBookmarks,
     saveAISettings,
     getAISettings,
-    verifyApiKey
+    verifyApiKey,
+    diagnoseConnection
   }
 }

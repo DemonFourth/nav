@@ -24,6 +24,62 @@
           >
             需要登录后配置
           </button>
+          <button
+            v-else
+            type="button"
+            class="btn-info diag-btn"
+            :disabled="diagDiagnosing"
+            @click="runDiagnose"
+          >
+            <span v-if="diagDiagnosing">诊断中...</span>
+            <span v-else>诊断连接</span>
+          </button>
+        </div>
+      </div>
+
+      <div v-if="diagResult" class="diag-panel">
+        <div class="diag-head">
+          <span class="diag-title">连接诊断报告</span>
+          <span class="diag-time">{{ diagResult.checkedAt }}</span>
+          <button class="btn btn-secondary btn-sm" @click="diagResult = null">关闭</button>
+        </div>
+        <div class="diag-summary" :class="diagAllOk ? 'diag-ok' : 'diag-fail'">
+          {{ diagResult.summary }}
+        </div>
+        <p class="diag-note">
+          <span class="diag-note-line">端点 <code>{{ diagResult.config.baseUrl }}</code> ｜ 模型 <code>{{ diagResult.config.model }}</code> ｜ Key <code>{{ diagResult.config.apiKeyMasked }}</code>（{{ diagResult.config.apiKeyLength }} 位）</span>
+          <span class="diag-note-line">配置来源：Key={{ diagResult.config.source.apiKey }} BaseURL={{ diagResult.config.source.baseUrl }} 模型={{ diagResult.config.source.model }}</span>
+        </p>
+        <div class="diag-table-wrap">
+          <table class="diag-table">
+            <thead>
+              <tr>
+                <th>检查项</th>
+                <th>结论</th>
+                <th>耗时</th>
+                <th>状态</th>
+                <th>Retry-After</th>
+                <th>cf-ray</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="item in diagItems" :key="item.name">
+                <td class="diag-name">{{ item.name }}</td>
+                <td :class="item.ok ? 'diag-cell-ok' : 'diag-cell-fail'">{{ item.verdict }}</td>
+                <td>{{ item.durationMs }}ms</td>
+                <td>{{ item.status || '-' }}</td>
+                <td>{{ item.retryAfter || '无' }}</td>
+                <td>{{ item.cfRay || '无' }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="diag-detail">
+          <div v-for="item in diagItems" :key="`detail-${item.name}`" class="diag-detail-item">
+            <div class="diag-detail-name">{{ item.name }}</div>
+            <div v-if="item.networkError" class="diag-error">网络错误：{{ item.networkError }}</div>
+            <div v-if="item.bodyPreview" class="diag-body">{{ item.bodyPreview }}</div>
+          </div>
         </div>
       </div>
 
@@ -312,8 +368,45 @@ import { useAuth } from '../../composables/useAuth'
 import { useToast } from '../../composables/useToast'
 
 const { isAuthenticated } = useAuth()
-const { aiEnabled, aiSource, checkAIAvailability, saveAISettings, getAISettings } = useAI()
+const { aiEnabled, aiSource, checkAIAvailability, saveAISettings, getAISettings, diagnoseConnection } = useAI()
 const { success: toastSuccess, error: toastError } = useToast()
+
+const diagDiagnosing = ref(false)
+const diagResult = ref(null)
+
+const DIAG_ITEM_NAMES = {
+  models: 'GET /models',
+  completion: 'POST /chat/completions'
+}
+
+const diagItems = computed(() => {
+  const checks = diagResult.value?.checks
+  if (!checks) return []
+  return Object.keys(DIAG_ITEM_NAMES).map(key => ({
+    name: DIAG_ITEM_NAMES[key],
+    ...checks[key]
+  }))
+})
+
+const diagAllOk = computed(() => diagItems.value.every(item => item.ok))
+
+const runDiagnose = async () => {
+  diagDiagnosing.value = true
+  diagResult.value = null
+  try {
+    const result = await diagnoseConnection()
+    if (result.success) {
+      diagResult.value = result
+    } else {
+      toastError(result.error || '诊断失败')
+    }
+  } catch (error) {
+    console.error('[AI 诊断] 执行失败:', error)
+    toastError('诊断执行失败，请查看浏览器控制台')
+  } finally {
+    diagDiagnosing.value = false
+  }
+}
 
 const localApiKey = ref('')
 const localBaseUrl = ref('https://api.openai.com/v1')
@@ -1011,4 +1104,161 @@ onMounted(async () => {
   padding: 0.5rem 1rem;
   font-size: var(--text-xs);
 }
+.diag-panel {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg);
+  padding: 0.75rem;
+  margin-bottom: 1.5rem;
+  font-size: var(--text-xs);
+}
+
+.diag-head {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.diag-title {
+  font-weight: var(--font-semibold);
+  color: var(--text);
+  font-size: var(--text-sm);
+}
+
+.diag-time {
+  flex: 1 1 auto;
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.diag-btn {
+  background: var(--bg-secondary);
+  color: var(--primary);
+  border-color: var(--border);
+  cursor: pointer;
+  transition: all var(--transition);
+}
+
+.diag-btn:hover:not(:disabled) {
+  border-color: var(--primary);
+}
+
+.diag-btn:disabled {
+  opacity: 0.6;
+}
+
+.diag-summary {
+  padding: 0.375rem 0.5rem;
+  border-radius: var(--radius-xs);
+  margin-bottom: 0.5rem;
+  line-height: 1.5;
+}
+
+.diag-ok {
+  color: var(--primary);
+  background: rgba(var(--primary-rgb), 0.1);
+}
+
+.diag-fail {
+  color: var(--text);
+  background: var(--bg-secondary);
+}
+
+.diag-note {
+  color: var(--text-secondary);
+  line-height: 1.6;
+  margin: 0 0 0.5rem 0;
+}
+
+.diag-note-line {
+  display: block;
+}
+
+.diag-note code,
+.diag-body code {
+  background: var(--bg-secondary);
+  padding: 0 0.25rem;
+  border-radius: var(--radius-xs);
+}
+
+.diag-table-wrap {
+  overflow-x: auto;
+}
+
+.diag-table {
+  width: 100%;
+  border-collapse: collapse;
+  color: var(--text-secondary);
+}
+
+.diag-table th,
+.diag-table td {
+  padding: 0.375rem 0.5rem;
+  border-top: 1px solid var(--border);
+  text-align: left;
+  vertical-align: top;
+  white-space: nowrap;
+}
+
+.diag-table th {
+  color: var(--text-secondary);
+  font-weight: var(--font-semibold);
+  white-space: nowrap;
+}
+
+.diag-name {
+  color: var(--text);
+  white-space: nowrap;
+}
+
+.diag-cell-ok {
+  color: var(--primary);
+}
+
+.diag-cell-fail {
+  color: var(--text);
+}
+
+.diag-detail {
+  margin-top: 0.5rem;
+}
+
+.diag-detail-item {
+  padding-top: 0.5rem;
+  border-top: 1px dashed var(--border);
+}
+
+.diag-detail-name {
+  color: var(--text);
+  font-weight: var(--font-semibold);
+  margin-bottom: 0.25rem;
+}
+
+.diag-error {
+  color: var(--text);
+  line-height: 1.5;
+}
+
+.diag-body {
+  color: var(--text-secondary);
+  line-height: 1.5;
+  word-break: break-all;
+  margin-top: 0.25rem;
+}
+
+@media (max-width: 768px) {
+  .diag-panel {
+    padding: 0.5rem;
+  }
+
+  .diag-table th,
+  .diag-table td {
+    padding: 0.25rem 0.375rem;
+  }
+}
+
 </style>

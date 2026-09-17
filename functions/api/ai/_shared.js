@@ -120,6 +120,30 @@ export function extractJson(text, validIds = new Set()) {
   return null
 }
 
+/**
+ * 构造 AI 请求的诊断行，用于定位限流发生在哪一层。
+ * cfRay 非空或 body 含 "error code" → Cloudflare 防护层拦截（请求未达应用层）
+ * Retry-After 非空 → 服务返回的限流恢复时间，可直接用于退避策略
+ */
+export function buildDiag({ url, model, start, response, body = '' }) {
+  const parts = [
+    `url=${url}`,
+    `model=${model}`,
+    `耗时=${Date.now() - start}ms`
+  ]
+  if (response) {
+    const retryAfter = response.headers.get('retry-after')
+    if (retryAfter) parts.push(`Retry-After=${retryAfter}`)
+    const cfRay = response.headers.get('cf-ray')
+    parts.push(`cfRay=${cfRay || '无'}`)
+    parts.push(`ct=${response.headers.get('content-type') || '无'}`)
+  }
+  const lines = [`[诊断] ${parts.join(' | ')}`]
+  const preview = (body || '').replace(/\s+/g, ' ').trim().slice(0, 300)
+  if (preview) lines.push(`[响应体前300字] ${preview}`)
+  return lines.join('\n')
+}
+
 export async function callOpenAI(env, { path, method = 'POST', body, headers = {} }) {
   const config = await getAIConfig(env)
 
@@ -128,6 +152,7 @@ export async function callOpenAI(env, { path, method = 'POST', body, headers = {
   }
 
   const url = joinBaseUrl(config.baseUrl, path)
+  const start = Date.now()
 
   const finalHeaders = new Headers(headers)
   if (!finalHeaders.has(config.authHeader)) {
@@ -139,11 +164,19 @@ export async function callOpenAI(env, { path, method = 'POST', body, headers = {
     body = JSON.stringify(body)
   }
 
-  const response = await fetch(url, {
-    method,
-    headers: finalHeaders,
-    body: body instanceof ReadableStream ? body : body ?? undefined
-  })
+  let response
+  try {
+    response = await fetch(url, {
+      method,
+      headers: finalHeaders,
+      body: body instanceof ReadableStream ? body : body ?? undefined
+    })
+  } catch (err) {
+    const code = err?.cause?.code || err?.name || ''
+    throw new Error(
+      `[网络错误] ${err.message || '请求失败'}\n${buildDiag({ url, model: config.model, start, body: code })}`
+    )
+  }
 
   if (!response.ok) {
     const rawText = await response.text()
@@ -158,7 +191,9 @@ export async function callOpenAI(env, { path, method = 'POST', body, headers = {
       throw new Error('内容审核：请求内容触发了安全策略，请修改后重试')
     }
 
-    throw new Error(`[${response.status}] ${details || 'OpenAI request failed'}`)
+    throw new Error(
+      `[${response.status}] ${details || 'OpenAI request failed'}\n${buildDiag({ url, model: config.model, start, response, body: rawText })}`
+    )
   }
 
   return response
