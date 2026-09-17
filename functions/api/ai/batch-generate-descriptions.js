@@ -60,7 +60,7 @@ Please generate a brief, useful description (1-2 sentences) that explains what t
             messages: [
               {
                 role: 'system',
-                content: 'You generate bookmark descriptions in Simplified Chinese. Each description must be 60 characters or fewer.'
+                content: 'You generate bookmark descriptions in Simplified Chinese. Each description must be 100 characters or fewer.'
               },
               {
                 role: 'user',
@@ -76,7 +76,7 @@ Please generate a brief, useful description (1-2 sentences) that explains what t
         const choice = data.choices?.[0]
         console.log('[AI desc] finish_reason:', choice?.finish_reason, 'content:', JSON.stringify(choice?.message?.content)?.slice(0, 200))
 
-        const description = (choice?.message?.content?.trim() || '').slice(0, 60)
+        const description = (choice?.message?.content?.trim() || '').slice(0, 100)
 
         if (description) {
           results.push({
