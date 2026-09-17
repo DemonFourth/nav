@@ -25,7 +25,7 @@ Given the following bookmark information:
 Name: {name}
 URL: {url}
 
-Please generate a brief, useful description (1-2 sentences) that explains what this website/resource is about. The description MUST be no more than 60 Chinese characters. Write in Simplified Chinese only. Return only the description text, no quotes or formatting.`
+Please write a specific 1-2 sentence description in Simplified Chinese that explains: what this website is, what it does, and who it is for. Aim for 40-100 characters (do not underwrite to sound "concise"; use the full budget). Never exceed 100 Chinese characters. Return only the description text, no quotes or formatting.`
 
   // 增强 Prompt（有 pageMeta 时使用页面元数据）
   const enhancedPrompt = `You are an expert assistant that generates concise and helpful descriptions for bookmarks/websites.
@@ -35,7 +35,7 @@ Name: {name}
 URL: {url}
 {pageMetaContext}
 
-Based on the above information, generate a brief, useful description (1-2 sentences) that explains what this website/resource is about. The description MUST be no more than 60 Chinese characters. Write in Simplified Chinese only. Return only the description text, no quotes or formatting.`
+Based on the above information, write a specific 1-2 sentence description in Simplified Chinese that explains: what this website is, what it does, and who it is for. Aim for 40-100 characters (do not underwrite to sound "concise"; use the full budget). Never exceed 100 Chinese characters. Return only the description text, no quotes or formatting.`
 
   // 获取自定义 Prompt 配置
   const settingsResults = await env.DB.prepare(
@@ -84,7 +84,7 @@ Based on the above information, generate a brief, useful description (1-2 senten
         messages: [
           {
             role: 'system',
-            content: 'You generate bookmark descriptions in Simplified Chinese. Each description must be 100 characters or fewer.'
+            content: 'You generate bookmark descriptions in Simplified Chinese. Aim for 40-100 characters (use the full budget); each description should be specific and informative rather than a generic tagline.'
           },
           {
             role: 'user',

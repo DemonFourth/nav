@@ -25,7 +25,7 @@ Given the following bookmark information:
 Name: {name}
 URL: {url}
 
-Please generate a brief, useful description (1-2 sentences) that explains what this website/resource is about. The description MUST be no more than 60 Chinese characters. Write in Simplified Chinese only. Return only the description text, no quotes or formatting.`
+Please write a specific 1-2 sentence description in Simplified Chinese that explains: what this website is, what it does, and who it is for. Aim for 40-100 characters (do not underwrite to sound "concise"; use the full budget). Never exceed 100 Chinese characters. Return only the description text, no quotes or formatting.`
     
     // 获取自定义 Prompt 配置和开关状态（优先使用描述专用提示词）
     const settingsResults = await env.DB.prepare(
@@ -60,7 +60,7 @@ Please generate a brief, useful description (1-2 sentences) that explains what t
             messages: [
               {
                 role: 'system',
-                content: 'You generate bookmark descriptions in Simplified Chinese. Each description must be 100 characters or fewer.'
+                content: 'You generate bookmark descriptions in Simplified Chinese. Aim for 40-100 characters (use the full budget); each description should be specific and informative rather than a generic tagline.'
               },
               {
                 role: 'user',
