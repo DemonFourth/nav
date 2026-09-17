@@ -202,7 +202,11 @@ export async function callOpenAI(env, { path, method = 'POST', body, headers = {
     if (response.status === 429 || response.status === 503) {
       lastError = new Error(`[${response.status}] ${details || 'OpenAI request failed'} ${diag}`)
       const retryAfter = response.headers.get('Retry-After')
-      const delay = retryAfter ? Number.parseInt(retryAfter, 10) * 1000 : RETRY_DELAY_MS * (attempt + 1)
+      // 等待时间设上限（最多 3 秒），避免前台请求因等待过久触发 Cloudflare 524 超时
+      const maxDelay = 3000
+      const retryAfterMs = Number.parseInt(retryAfter, 10) * 1000
+      const defaultDelay = RETRY_DELAY_MS * (attempt + 1)
+      const delay = Math.min(Number.isFinite(retryAfterMs) && retryAfterMs > 0 ? retryAfterMs : defaultDelay, maxDelay)
       console.warn(`[callOpenAI] ⚠️ ${response.status} (attempt ${attempt + 1}/${RETRY_ATTEMPTS}), retrying in ${delay}ms${retryAfter ? ` (Retry-After: ${retryAfter}s)` : ''}`)
       await sleep(delay)
       continue
