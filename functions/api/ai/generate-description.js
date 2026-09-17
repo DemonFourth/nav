@@ -110,9 +110,11 @@ Based on the above information, generate a brief, useful description (1-2 senten
       } else if (reason) {
         errorMsg = `AI 生成中断：${reason}`
       }
-      const rawPreview = choice?.message?.content?.slice(0, 150).replace(/\n/g, ' ')
+      const rawContent = choice?.message?.content || ''
+      errorMsg += ` · 诊断: finish_reason=${reason || '无'}, max_tokens=400, content长度=${rawContent.length}`
+      const rawPreview = rawContent.slice(0, 150).replace(/\n/g, ' ')
       if (rawPreview && rawPreview !== description) {
-        errorMsg += `。AI 实际回复：${rawPreview}`
+        errorMsg += ` · AI 实际回复前150字: ${rawPreview}`
       }
       return new Response(JSON.stringify({
         success: false,
