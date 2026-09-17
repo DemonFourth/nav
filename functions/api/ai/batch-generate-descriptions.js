@@ -72,9 +72,37 @@ Please write a specific 1-2 sentence description in Simplified Chinese that expl
           }
         })
 
-        const data = await response.json()
-        const choice = data.choices?.[0]
+        let data = await response.json()
+        let choice = data.choices?.[0]
         console.log('[AI desc] finish_reason:', choice?.finish_reason, 'content:', JSON.stringify(choice?.message?.content)?.slice(0, 200))
+
+        // 上游在限流窗口内可能返回畸形响应：finish_reason=length 但 content 完全为空。
+        // 这种明显是网关错误而非真实截断（真实截断应有部分文本），立即重试一次可自愈。
+        if (!choice?.message?.content?.trim() && choice?.finish_reason === 'length') {
+          console.log('[AI desc] 畸形响应（length + 空 content），重试一次')
+          const retryResponse = await callOpenAI(env, {
+            path: 'chat/completions',
+            method: 'POST',
+            body: {
+              model: config.model,
+              messages: [
+                {
+                  role: 'system',
+                  content: 'You generate bookmark descriptions in Simplified Chinese. Aim for 40-100 characters (use the full budget); each description should be specific and informative rather than a generic tagline.'
+                },
+                {
+                  role: 'user',
+                  content: prompt
+                }
+              ],
+              temperature: 0.7,
+              max_tokens: 400
+            }
+          })
+          data = await retryResponse.json()
+          choice = data.choices?.[0]
+          console.log('[AI desc] 重试后 finish_reason:', choice?.finish_reason, 'content:', JSON.stringify(choice?.message?.content)?.slice(0, 200))
+        }
 
         const description = (choice?.message?.content?.trim() || '').slice(0, 100)
 
