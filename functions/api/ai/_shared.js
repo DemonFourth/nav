@@ -22,7 +22,7 @@ export async function getAIConfig(env) {
     'ai_auth_prefix'
   ])
 
-  const apiKey = env.OPENAI_API_KEY || settings.secret_openai_api_key || ''
+  const apiKey = (env.OPENAI_API_KEY || settings.secret_openai_api_key || '').trim()
   const baseUrl = (env.OPENAI_BASE_URL || settings.ai_base_url || DEFAULT_BASE_URL).trim()
   const model = (env.OPENAI_MODEL || settings.ai_model || DEFAULT_MODEL).trim()
   const authHeader = (env.OPENAI_AUTH_HEADER || settings.ai_auth_header || 'Authorization').trim()
@@ -124,11 +124,17 @@ const RETRY_ATTEMPTS = 3
 const RETRY_DELAY_MS = 1000
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms))
 
+// 脱敏 key：只暴露前 8 位与长度，便于比对生产/本地是否同一把 key
+function maskApiKey(key) {
+  if (!key) return 'EMPTY'
+  return `${key.slice(0, 8)}...(${key.length}字符)`
+}
+
 export async function callOpenAI(env, { path, method = 'POST', body, headers = {} }) {
   const config = await getAIConfig(env)
 
   console.log('[callOpenAI] 请求开始', {
-    path, method, baseUrl: config.baseUrl, apiKeyPresent: !!config.apiKey,
+    path, method, baseUrl: config.baseUrl, apiKey: maskApiKey(config.apiKey),
     authHeader: config.authHeader, authPrefix: config.authPrefix
   })
 
@@ -153,6 +159,9 @@ export async function callOpenAI(env, { path, method = 'POST', body, headers = {
   // 记录请求体大小（避免打印敏感内容）
   const bodyPreview = body ? (body.length > 200 ? body.slice(0, 200) + '...[略]' : body) : null
   console.log('[callOpenAI] 请求准备', { method, headersCount: finalHeaders.entries().next().done ? 0 : [...finalHeaders].length, bodyPreview })
+
+  // 诊断信息，拼接进错误返回，便于前端直接查看
+  const diag = `[url=${url}] [key=${maskApiKey(config.apiKey)}] [authHeader=${config.authHeader}] [authPrefix=${JSON.stringify(config.authPrefix)}] [model=${config.model}]`
 
   let lastError = null
   for (let attempt = 0; attempt < RETRY_ATTEMPTS; attempt++) {
@@ -191,7 +200,7 @@ export async function callOpenAI(env, { path, method = 'POST', body, headers = {
 
     // 429/503 限流或服务不可用，等待后重试
     if (response.status === 429 || response.status === 503) {
-      lastError = new Error(`[${response.status}] ${details || 'OpenAI request failed'}`)
+      lastError = new Error(`[${response.status}] ${details || 'OpenAI request failed'} ${diag}`)
       const retryAfter = response.headers.get('Retry-After')
       const delay = retryAfter ? Number.parseInt(retryAfter, 10) * 1000 : RETRY_DELAY_MS * (attempt + 1)
       console.warn(`[callOpenAI] ⚠️ ${response.status} (attempt ${attempt + 1}/${RETRY_ATTEMPTS}), retrying in ${delay}ms${retryAfter ? ` (Retry-After: ${retryAfter}s)` : ''}`)
@@ -200,7 +209,7 @@ export async function callOpenAI(env, { path, method = 'POST', body, headers = {
     }
 
     console.error('[callOpenAI] ❌ 非重试错误', { status: response.status, details })
-    throw new Error(`[${response.status}] ${details || 'OpenAI request failed'}`)
+    throw new Error(`[${response.status}] ${details || 'OpenAI request failed'} ${diag}`)
   }
 
   console.error('[callOpenAI] ❌ 重试次数耗尽，最终失败')
