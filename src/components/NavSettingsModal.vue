@@ -932,6 +932,56 @@
               <div class="ai-status-bar" :class="{ enabled: aiEnabled }">
                 <span class="ai-status-dot"></span>
                 <span class="ai-status-text">{{ aiEnabled ? 'AI 功能已启用' : 'AI 功能未配置' }}</span>
+                <button v-if="isAuthenticated" type="button" class="ai-diag-btn" :disabled="diagDiagnosing" @click="runDiagnose">
+                  <span v-if="diagDiagnosing">诊断中...</span>
+                  <span v-else>诊断连接</span>
+                </button>
+              </div>
+
+              <div v-if="diagResult" class="ai-diag-panel">
+                <div class="ai-diag-head">
+                  <span class="ai-diag-title">连接诊断报告</span>
+                  <span class="ai-diag-time">{{ diagResult.checkedAt }}</span>
+                  <button class="ai-diag-close" @click="diagResult = null">关闭</button>
+                </div>
+                <div class="ai-diag-summary" :class="diagAllOk ? 'diag-ok' : 'diag-fail'">
+                  {{ diagResult.summary }}
+                </div>
+                <div class="ai-diag-note">
+                  <span>端点 <code>{{ diagResult.config.baseUrl }}</code> ｜ 模型 <code>{{ diagResult.config.model }}</code> ｜ Key <code>{{ diagResult.config.apiKeyMasked }}</code>（{{ diagResult.config.apiKeyLength }} 位）</span>
+                  <span>配置来源：Key={{ diagResult.config.source.apiKey }} BaseURL={{ diagResult.config.source.baseUrl }} 模型={{ diagResult.config.source.model }}</span>
+                </div>
+                <div class="ai-diag-table-wrap">
+                  <table class="ai-diag-table">
+                    <thead>
+                      <tr>
+                        <th>检查项</th>
+                        <th>结论</th>
+                        <th>耗时</th>
+                        <th>状态</th>
+                        <th>Retry-After</th>
+                        <th>cf-ray</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr v-for="item in diagItems" :key="item.name">
+                        <td class="ai-diag-name">{{ item.name }}</td>
+                        <td :class="item.ok ? 'diag-ok-cell' : 'diag-fail-cell'">{{ item.verdict }}</td>
+                        <td>{{ item.durationMs }}ms</td>
+                        <td>{{ item.status || '-' }}</td>
+                        <td>{{ item.retryAfter || '无' }}</td>
+                        <td>{{ item.cfRay || '无' }}</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+                <div class="ai-diag-detail">
+                  <div v-for="item in diagItems" :key="`detail-${item.name}`" class="ai-diag-detail-item">
+                    <div class="ai-diag-detail-name">{{ item.name }}</div>
+                    <div v-if="item.networkError" class="ai-diag-error">网络错误：{{ item.networkError }}</div>
+                    <div v-if="item.bodyPreview" class="ai-diag-body">{{ item.bodyPreview }}</div>
+                  </div>
+                </div>
               </div>
 
               <div v-if="isAuthenticated" class="ai-stack">
@@ -1266,7 +1316,7 @@ const {
 
 const { isDark, setThemeMode } = useTheme()
 const { isAuthenticated, validateAuthState } = useAuth()
-const { aiEnabled, aiSource, checkAIAvailability, saveAISettings, getAISettings } = useAI()
+const { aiEnabled, aiSource, checkAIAvailability, saveAISettings, getAISettings, diagnoseConnection } = useAI()
 
 // Category editor (uses useBookmarks internally)
 const {
@@ -1340,6 +1390,43 @@ const localAuthPrefix = ref('Bearer ')
 const localCustomPrompt = ref('')
 const localCustomPromptEnabled = ref(false)
 const promptSaving = ref(false)
+
+const diagDiagnosing = ref(false)
+const diagResult = ref(null)
+
+const DIAG_ITEM_NAMES = {
+  models: 'GET /models',
+  completion: 'POST /chat/completions'
+}
+
+const diagItems = computed(() => {
+  const checks = diagResult.value?.checks
+  if (!checks) return []
+  return Object.keys(DIAG_ITEM_NAMES).map(key => ({
+    name: DIAG_ITEM_NAMES[key],
+    ...checks[key]
+  }))
+})
+
+const diagAllOk = computed(() => diagItems.value.every(item => item.ok))
+
+const runDiagnose = async () => {
+  diagDiagnosing.value = true
+  diagResult.value = null
+  try {
+    const result = await diagnoseConnection()
+    if (result.success) {
+      diagResult.value = result
+    } else {
+      toastError(result.error || '诊断失败')
+    }
+  } catch (error) {
+    console.error('[AI 诊断] 执行失败:', error)
+    toastError('诊断执行失败，请查看浏览器控制台')
+  } finally {
+    diagDiagnosing.value = false
+  }
+}
 
 // Dialog state
 const showAddDialog = ref(false)
@@ -3821,6 +3908,148 @@ textarea.setting-input {
 
 .ai-status-text { font-size: 0.8rem; color: var(--text-secondary); }
 .ai-status-bar.enabled .ai-status-text { color: var(--accent); }
+
+/* AI 诊断按钮 + 报告面板 */
+.ai-diag-btn {
+  margin-left: auto;
+  padding: 5px 12px;
+  font-size: 0.75rem;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.ai-diag-btn:hover:not(:disabled) {
+  background: var(--bg-hover);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.ai-diag-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.ai-diag-panel {
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: 12px;
+  padding: 14px 16px;
+  margin-bottom: 16px;
+  font-size: 0.8rem;
+}
+.ai-diag-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+.ai-diag-title {
+  font-weight: 600;
+  color: var(--text);
+}
+.ai-diag-time {
+  font-size: 0.7rem;
+  color: var(--text-tertiary);
+}
+.ai-diag-close {
+  margin-left: auto;
+  padding: 3px 10px;
+  font-size: 0.7rem;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+.ai-diag-close:hover { color: var(--text); }
+
+.ai-diag-summary {
+  padding: 8px 12px;
+  border-radius: 6px;
+  margin-bottom: 8px;
+  font-weight: 500;
+}
+.diag-ok {
+  background: rgba(16, 185, 129, 0.1);
+  color: var(--success);
+  border: 1px solid rgba(16, 185, 129, 0.2);
+}
+.diag-fail {
+  background: rgba(239, 68, 68, 0.1);
+  color: var(--danger, #ef4444);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+}
+
+.ai-diag-note {
+  font-size: 0.7rem;
+  color: var(--text-tertiary);
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin-bottom: 10px;
+}
+.ai-diag-note code {
+  background: var(--bg-tertiary);
+  padding: 1px 4px;
+  border-radius: 3px;
+  font-family: ui-monospace, monospace;
+  font-size: 0.7rem;
+}
+
+.ai-diag-table-wrap {
+  overflow-x: auto;
+  margin-bottom: 10px;
+}
+.ai-diag-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.75rem;
+}
+.ai-diag-table th,
+.ai-diag-table td {
+  padding: 6px 8px;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+}
+.ai-diag-table th {
+  color: var(--text-tertiary);
+  font-weight: 500;
+  white-space: nowrap;
+}
+.ai-diag-name {
+  font-family: ui-monospace, monospace;
+  color: var(--text);
+  white-space: nowrap;
+}
+.diag-ok-cell { color: var(--success); }
+.diag-fail-cell { color: var(--danger, #ef4444); }
+
+.ai-diag-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.ai-diag-detail-item {
+  padding: 6px 10px;
+  background: var(--bg-tertiary);
+  border-radius: 6px;
+  font-size: 0.7rem;
+}
+.ai-diag-detail-name {
+  font-family: ui-monospace, monospace;
+  color: var(--text-secondary);
+  margin-bottom: 3px;
+}
+.ai-diag-error {
+  color: var(--danger, #ef4444);
+}
+.ai-diag-body {
+  color: var(--text);
+  word-break: break-all;
+  white-space: pre-wrap;
+}
 
 .ai-features-list { display: flex; flex-direction: column; gap: 10px; }
 
