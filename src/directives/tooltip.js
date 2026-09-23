@@ -6,6 +6,8 @@
 let tooltipEl = null
 let activeEl = null
 let hideTimeout = null
+let showTimeout = null
+const SHOW_DELAY = 500
 
 function ensureTooltip() {
   if (tooltipEl) return tooltipEl
@@ -57,16 +59,24 @@ const onMouseEnter = (event) => {
   if (!text) return
   activeEl = el
   clearTimeout(hideTimeout)
-  showTooltip(el, text, event)
+  clearTimeout(showTimeout)
+  const { clientX, clientY } = event
+  showTimeout = setTimeout(() => {
+    const currentText = el.__vTooltipText
+    if (!currentText) return
+    showTooltip(el, currentText, { clientX, clientY })
+  }, SHOW_DELAY)
 }
 
 const onMouseLeave = () => {
+  clearTimeout(showTimeout)
   if (!activeEl) return
   hideTimeout = setTimeout(hideTooltip, 100)
   activeEl = null
 }
 
 const onScroll = () => {
+  clearTimeout(showTimeout)
   hideTooltip()
 }
 
@@ -88,6 +98,7 @@ export const tooltipDirective = {
     el.removeEventListener('mouseleave', onMouseLeave)
     delete el.__vTooltipText
     if (activeEl === el) {
+      clearTimeout(showTimeout)
       hideTooltip()
       activeEl = null
     }
