@@ -181,7 +181,7 @@ const props = defineProps({
   },
   navWallpaper: {
     type: String,
-    default: 'https://main.ssss.nyc.mn/background.webp'
+    default: ''
   }
 })
 

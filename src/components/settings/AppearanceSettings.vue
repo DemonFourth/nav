@@ -257,7 +257,7 @@
       <div class="form-row">
         <input 
           type="text" 
-          :value="navWallpaper || '使用默认壁纸'" 
+          :value="navWallpaper || '无壁纸（纯色背景）'" 
           class="form-input" 
           readonly
         />
@@ -265,7 +265,7 @@
           编辑
         </button>
       </div>
-      <div class="form-hint">设置导航站模式的背景图片（留空使用默认壁纸）</div>
+      <div class="form-hint">设置导航站模式的背景图片（留空则不显示壁纸）</div>
     </div>
 
     <!-- 图标获取设置 -->
@@ -517,7 +517,7 @@
                   class="example-btn" 
                   @click="navWallpaperInput = 'https://main.ssss.nyc.mn/background.webp'"
                 >
-                  参考项目默认壁纸
+                  参考项目壁纸
                 </button>
                 <button 
                   type="button"
