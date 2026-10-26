@@ -391,6 +391,48 @@ const clearSearchResults = () => {
 - 搜索结果的排序默认跟随书签的 `position` 字段，如需自定义排序可修改 `currentBookmarks` 中的逻辑
 - `openSearchWithTags` 方法可被任何需要触发标签搜索的外部组件调用，只需通过 `ref` 访问 `navSearchRef.value.openSearchWithTags([tag])`
 
+## 导航站卡片拖拽排序
+
+nav 模式下支持在**当前分类内**拖拽卡片调整顺序，复用后端 `POST /api/reorder`（`useBookmarks.reorderItems('bookmarks', items)`）。
+
+### 触发条件（canReorder）
+
+`NavItemView.vue` 的 `canReorder`：**已登录 + 浏览某分类 + 非搜索结果 + 非标签筛选** 时才允许排序。不满足则把手不渲染、不可拖。
+
+### 交互
+
+| 阶段 | 行为 |
+|------|------|
+| hover 卡片 | 右上角出现**拖拽把手**（`NavCard` 内 `draggable` 元素），点卡片本体仍打开 URL |
+| 拖动到目标卡 | 以该卡**水平中线**分界：左半显示蓝条+「插入左侧」，右半「插入右侧」，随指针实时切换 |
+| 拖动到网格空白区 | 显示**视口底部固定**的「移动到末尾」，松手该卡追加到末尾 |
+| 拖动期间 | **固定顶部 NavBar 上滑隐藏**（`drag-reordering` 类 + `:deep(.nav-bar)`），`search-section` 顶部留白压缩到 `1rem`，松手恢复 |
+| 松手 | 乐观重排 → `reorderItems` 持久化 → 后台 `fetchData` 同步；失败回滚 + toast |
+
+### 数据流
+
+```
+NavCard（dragstart/drop）→ NavCardGrid（计算重排 items）→ NavItemView（handleReorder 乐观更新+持久化）→ /api/reorder
+```
+
+- `NavCard` emit：`dragstart`、`dragend`、`drop`（含 `draggedId/targetId/position/draggedBookmark`）
+- `NavCardGrid` emit：`dragstart/dragend`（转发，供拖时隐藏菜单）、`reorder`（`[{id, position}]`）
+- 空白区置底：`handleGridDrop` 把拖拽卡移到 `bookmarks` 末尾
+
+### 相关文件
+
+| 文件 | 作用 |
+|------|------|
+| `src/components/NavCard.vue` | 拖拽把手、dragstart/drop、插入左右条+文字提示（`drop-before`/`drop-after`）、`reorderable` prop |
+| `src/components/NavCardGrid.vue` | 转发拖拽生命周期、`handleCardDrop` 重排、空白区置底（`gridAppendActive` + 固定「移动到末尾」提示） |
+| `src/views/NavItemView.vue` | `canReorder`、`handleReorder`（乐观更新+回滚+持久化）、拖拽期间隐藏 NavBar |
+
+### 已知限制
+
+- **无滚轮控制**：原生 HTML5 `draggable` 拖拽期间浏览器**不派发 `wheel` 事件**，无法在拖拽时用滚轮滚动。长列表定位靠①视口边缘原生自动滚动、②空白区置底。曾尝试 `window.addEventListener('wheel')` 无效，已回滚（commit `db7b386`）。
+- **不要用占位格 `<div>` 做插入指示**：`auto-fill` 网格插入占位格会触发整行重排 → 拖拽时卡片闪烁 + 松手时落点错位。必须用不影响布局的 `outline`/`inset box-shadow` + drop 时按 `dropInfo` 算终序（commit `1b74ca5`）。
+- **拖拽交互无法自动化验证**：需登录态浏览器会话（登录需用户接管），手动验证把手/指示条/落位行为。
+
 ## 统一书签搜索（src/utils/search.js）
 
 ### searchBookmarks(bookmarks, query, options)
