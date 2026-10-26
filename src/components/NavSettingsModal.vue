@@ -25,9 +25,6 @@
                 {{ tab.name }}
               </button>
             </nav>
-            <div class="sidebar-footer">
-              <div class="credit-text">Designed by <a href="https://github.com/Leonxlnx/taste-skill" target="_blank" rel="noopener" style="color:var(--accent);text-decoration:none;">taste-skill</a></div>
-            </div>
           </aside>
 
           <button class="modal-close-btn" @click="handleClose" title="关闭设置">
@@ -3101,21 +3098,6 @@ textarea.setting-input {
 
 .slider-label { font-size: 0.75rem; color: var(--text-secondary); }
 
-/* ===== Credit ===== */
-.sidebar-footer {
-  padding-top: 12px;
-  border-top: 1px solid var(--sidebar-border, rgba(255,255,255,0.05));
-}
-
-.credit-text {
-  font-size: 0.6rem;
-  color: var(--text-muted);
-  text-align: center;
-  padding: 6px 0;
-  opacity: 0.6;
-  letter-spacing: 0.02em;
-}
-
 /* ===== Collapsed Sidebar ===== */
 .settings-sidebar.collapsed {
   width: 52px;
@@ -3139,10 +3121,6 @@ textarea.setting-input {
 
 .settings-sidebar.collapsed .nav-tab-btn.active::before {
   left: -8px;
-}
-
-.settings-sidebar.collapsed .sidebar-footer {
-  display: none;
 }
 
 .settings-sidebar.collapsed .collapse-btn {
@@ -4314,8 +4292,7 @@ textarea.setting-input {
     padding: 16px;
   }
   .settings-sidebar.collapsed .sidebar-title,
-  .settings-sidebar.collapsed .nav-tab-btn span,
-  .settings-sidebar.collapsed .sidebar-footer {
+  .settings-sidebar.collapsed .nav-tab-btn span {
     display: revert;
   }
   .settings-sidebar.collapsed .nav-tab-btn {
