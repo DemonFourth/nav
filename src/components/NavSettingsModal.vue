@@ -4327,7 +4327,7 @@ textarea.setting-input {
     left: -16px;
   }
   .sidebar-nav { flex-direction: row; overflow-x: auto; padding-top: 8px; gap: 4px; }
-  .nav-tab-btn { white-space: nowrap; flex-shrink: 0; }
+  .nav-tab-btn { white-space: nowrap; flex-shrink: 0; width: auto; }
   .nav-tab-btn::before { display: none; }
   .settings-content { padding: 20px; }
       .settings-grid { grid-template-columns: 1fr; }
