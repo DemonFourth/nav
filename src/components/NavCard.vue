@@ -92,6 +92,11 @@
         <circle cx="15" cy="18" r="1"/>
       </svg>
     </div>
+
+    <!-- 插入位置文字提示 -->
+    <div v-if="isDragOver" class="nav-drag-cue" :class="dropPosition">
+      {{ dropPosition === 'before' ? '插入左侧' : '插入右侧' }}
+    </div>
   </div>
 </template>
 
@@ -545,5 +550,30 @@ const handleDrop = (e) => {
   outline: 2px solid var(--nav-primary);
   outline-offset: 3px;
   box-shadow: inset -5px 0 0 0 var(--nav-primary);
+}
+
+/* 插入位置文字提示 */
+.nav-drag-cue {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  padding: 2px 10px;
+  border-radius: 9999px;
+  background: var(--nav-primary);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+  z-index: 12;
+  pointer-events: none;
+  box-shadow: 0 2px 10px color-mix(in srgb, var(--nav-primary) 40%, transparent);
+}
+
+.nav-drag-cue.before {
+  left: 40px;
+}
+
+.nav-drag-cue.after {
+  right: 40px;
 }
 </style>
