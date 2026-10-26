@@ -211,22 +211,13 @@ const canReorder = computed(() => {
   return isAuthenticated.value && !searchResults.value && !selectedFilterTag.value && !!activeMenu.value
 })
 
-// 拖拽期间隐藏固定顶部菜单，露出最顶部卡片；并支持滚轮控制页面滚动
-const handleWheelDuringDrag = (e) => {
-  // 保留 Ctrl/Cmd+滚轮（页面缩放），其余滚轮用于拖动时滚动定位
-  if (e.ctrlKey || e.metaKey) return
-  e.preventDefault()
-  window.scrollBy(0, e.deltaY)
-}
-
+// 拖拽期间隐藏固定顶部菜单，露出最顶部卡片
 const onNavDragStart = () => {
   dragReorderActive.value = true
-  window.addEventListener('wheel', handleWheelDuringDrag, { passive: false })
 }
 
 const onNavDragEnd = () => {
   dragReorderActive.value = false
-  window.removeEventListener('wheel', handleWheelDuringDrag)
 }
 
 const handleToggleStyle = () => {
