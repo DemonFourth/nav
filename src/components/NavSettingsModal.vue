@@ -2286,7 +2286,7 @@ const batchMoveBookmarks = async () => {
   if (!requireAuth()) return
   const ids = Array.from(selectedBookmarks.value)
   if (ids.length === 0 || !bookmarkMoveTarget.value) return
-  const result = await batchOperation('moveCategory', ids, { category_id: bookmarkMoveTarget.value })
+  const result = await batchOperation('move', ids, { categoryId: bookmarkMoveTarget.value })
   if (result.success) {
     toastSuccess(`已移动 ${ids.length} 个书签`)
     selectedBookmarks.value.clear()
