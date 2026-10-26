@@ -1,30 +1,17 @@
 <template>
   <div class="nav-card-grid">
     <div v-if="bookmarks.length > 0" class="cards-container" :class="animationClass">
-      <template v-for="(bookmark, index) in bookmarks" :key="bookmark.id">
-        <div
-          v-if="showPlaceholder && placeholderIndex === index && placeholderPosition === 'before' && currentDraggedId !== bookmark.id"
-          class="nav-drag-placeholder"
-        />
-        <NavCard
-          :bookmark="bookmark"
-          :isAuthenticated="isAuthenticated"
-          :reorderable="reorderable"
-          :style="getCardStyle(index)"
-          @tag-click="handleTagClick"
-          @show-detail="handleShowDetail"
-          @dragstart="handleDragStart"
-          @dragend="handleDragEnd"
-          @drop="handleCardDrop"
-          @dragleave="handleCardDragLeave"
-          @dragoverPosition="handleDragOverPosition"
-        />
-        <div
-          v-if="showPlaceholder && placeholderIndex === index && placeholderPosition === 'after' && currentDraggedId !== bookmark.id"
-          class="nav-drag-placeholder"
-        />
-      </template>
-      <div v-if="showPlaceholder && placeholderIndex >= bookmarks.length" class="nav-drag-placeholder" />
+      <NavCard
+        v-for="(bookmark, index) in bookmarks"
+        :key="bookmark.id"
+        :bookmark="bookmark"
+        :isAuthenticated="isAuthenticated"
+        :reorderable="reorderable"
+        :style="getCardStyle(index)"
+        @tag-click="handleTagClick"
+        @show-detail="handleShowDetail"
+        @drop="handleCardDrop"
+      />
     </div>
 
     <div v-else class="empty-state">
@@ -58,11 +45,6 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['tag-click', 'show-detail', 'reorder'])
-
-const showPlaceholder = ref(false)
-const placeholderIndex = ref(-1)
-const placeholderPosition = ref('after')
-const currentDraggedId = ref(null)
 
 const { navCardAnimation, navCardBlur, navCardOpacity } = useSettings()
 const { isDark } = useTheme()
@@ -101,41 +83,14 @@ const handleShowDetail = (payload) => {
   emit('show-detail', payload)
 }
 
-// 排序拖拽：占位符 + 插入位置计算（仅当前分类内排序）
-const handleDragStart = (bookmark) => {
-  currentDraggedId.value = bookmark.id
-}
-
-const handleDragEnd = () => {
-  currentDraggedId.value = null
-  showPlaceholder.value = false
-  placeholderIndex.value = -1
-}
-
-const handleCardDragLeave = () => {
-  setTimeout(() => {
-    showPlaceholder.value = false
-  }, 50)
-}
-
-const handleDragOverPosition = ({ id, position }) => {
-  if (currentDraggedId.value === id) return
-  const targetIndex = props.bookmarks.findIndex(b => b.id === id)
-  if (targetIndex === -1) return
-  showPlaceholder.value = true
-  placeholderIndex.value = targetIndex
-  placeholderPosition.value = position
-}
-
+// 排序拖拽：drop 时按 dropInfo 计算重排 items（仅当前分类内排序）
 const handleCardDrop = (dropInfo) => {
   if (!dropInfo || dropInfo.draggedId === dropInfo.targetId) {
-    showPlaceholder.value = false
     return
   }
   const draggedIndex = props.bookmarks.findIndex(b => b.id === dropInfo.draggedId)
   const targetIndex = props.bookmarks.findIndex(b => b.id === dropInfo.targetId)
   if (draggedIndex === -1 || targetIndex === -1) {
-    showPlaceholder.value = false
     return
   }
   const bookmarksCopy = [...props.bookmarks]
@@ -145,7 +100,6 @@ const handleCardDrop = (dropInfo) => {
   bookmarksCopy.splice(insertIndex, 0, removed)
   const items = bookmarksCopy.map((b, index) => ({ id: b.id, position: index }))
   emit('reorder', items)
-  showPlaceholder.value = false
 }
 </script>
 
@@ -162,13 +116,6 @@ const handleCardDrop = (dropInfo) => {
   gap: 16px;
   justify-content: center;
   width: 100%;
-}
-
-.nav-drag-placeholder {
-  min-height: 100px;
-  border-radius: 12px;
-  border: 2px dashed color-mix(in srgb, var(--nav-primary) 45%, transparent);
-  background: color-mix(in srgb, var(--nav-primary) 8%, transparent);
 }
 
 .empty-state {

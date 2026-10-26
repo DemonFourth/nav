@@ -120,9 +120,7 @@ const emit = defineEmits([
   'show-detail',
   'dragstart',
   'dragend',
-  'drop',
-  'dragleave',
-  'dragoverPosition'
+  'drop'
 ])
 
 const isDragOver = ref(false)
@@ -239,13 +237,14 @@ const handleDragOver = (e) => {
   // Grid 布局：按垂直中线判断插入到卡片前/后
   dropPosition.value = (e.clientY - rect.top) < rect.height / 2 ? 'before' : 'after'
   isDragOver.value = true
-  emit('dragoverPosition', { id: props.bookmark.id, position: dropPosition.value })
 }
 
-const handleDragLeave = () => {
+const handleDragLeave = (e) => {
   if (!props.reorderable) return
+  // 移入卡片内部子元素（图标/文字）时不算离开，避免高亮闪烁
+  const toEl = e.relatedTarget
+  if (toEl && e.currentTarget.contains(toEl)) return
   isDragOver.value = false
-  emit('dragleave', props.bookmark.id)
 }
 
 const handleDrop = (e) => {
@@ -536,9 +535,15 @@ const handleDrop = (e) => {
   cursor: grabbing;
 }
 
-.nav-card-horizontal.drop-before,
-.nav-card-horizontal.drop-after {
-  outline: 2px solid color-mix(in srgb, var(--nav-primary) 55%, transparent);
+.nav-card-horizontal.drop-before {
+  outline: 2px solid color-mix(in srgb, var(--nav-primary) 60%, transparent);
   outline-offset: 2px;
+  box-shadow: inset 4px 0 0 0 var(--nav-primary);
+}
+
+.nav-card-horizontal.drop-after {
+  outline: 2px solid color-mix(in srgb, var(--nav-primary) 60%, transparent);
+  outline-offset: 2px;
+  box-shadow: inset -4px 0 0 0 var(--nav-primary);
 }
 </style>
