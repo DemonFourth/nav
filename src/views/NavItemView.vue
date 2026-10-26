@@ -59,10 +59,13 @@
 
     <NavSettingsModal
       :show="showNavSettings"
+      ref="navSettingsRef"
       @close="showNavSettings = false"
       @action="handleSettingsAction"
     />
 
+    <ImportExportDialog ref="importExportDialog" />
+    <BackupDialog ref="backupDialog" />
     <ConfirmDialog ref="confirmDialog" />
   </div>
 </template>
@@ -74,6 +77,8 @@ import NavSearch from '../components/NavSearch.vue'
 import NavCardGrid from '../components/NavCardGrid.vue'
 import NavSettingsModal from '../components/NavSettingsModal.vue'
 import NavBookmarkEditModal from '../components/NavBookmarkEditModal.vue'
+import ImportExportDialog from '../components/ImportExportDialog.vue'
+import BackupDialog from '../components/BackupDialog.vue'
 import ConfirmDialog from '../components/ConfirmDialog.vue'
 import { useBookmarks } from '../composables/useBookmarks'
 import { useSettings } from '../composables/useSettings'
@@ -82,7 +87,7 @@ import { useToast } from '../composables/useToast'
 import { useAuthGuard } from '../composables/useAuthGuard'
 import { buildCategoryTree } from '../utils/categoryTree'
 
-const { categories, bookmarks, fetchData, searchTags, updateBookmark, deleteBookmark, allTags } = useBookmarks()
+const { categories, bookmarks, fetchData, searchTags, updateBookmark, deleteBookmark, allTags, getEmptyCategories, cleanupEmptyCategories } = useBookmarks()
 const { isAuthenticated, logout } = useAuth()
 const { customTitle, navWallpaper, showSearch, randomWallpaper, wallpaperApi, applyWallpaper } = useSettings()
 const { success: toastSuccess, error: errorToast } = useToast()
@@ -99,6 +104,9 @@ const showDetailModal = ref(false)
 const showNavSettings = ref(false)
 const navBookmarkEditModalRef = ref(null)
 const confirmDialog = ref(null)
+const navSettingsRef = ref(null)
+const importExportDialog = ref(null)
+const backupDialog = ref(null)
 const selectedFilterTag = ref(null)
 const searchResults = ref(null)
 
@@ -317,9 +325,53 @@ const handleDeleteBookmark = async (bookmark) => {
   }
 }
 
-const handleSettingsAction = (action) => {
-  showNavSettings.value = false
-  navBarRef.value?.closeUserMenu()
+const handleSettingsAction = async (action) => {
+  switch (action) {
+    case 'importExport':
+      importExportDialog.value?.open()
+      break
+    case 'backup':
+      backupDialog.value?.open()
+      break
+    case 'cleanupEmptyCategories':
+      await handleCleanupEmptyCategories()
+      break
+  }
+}
+
+const handleCleanupEmptyCategories = async () => {
+  const result = await getEmptyCategories()
+  if (!result.success) {
+    errorToast(result.error || '获取空分类失败')
+    return
+  }
+
+  if (result.count === 0) {
+    errorToast('当前没有空分类需要清理')
+    return
+  }
+
+  const categoryNames = result.emptyCategories.map(cat => `"${cat.name}"`).join('、')
+  const message = result.count === 1
+    ? `确定要删除空分类 ${categoryNames} 吗？`
+    : `确定要删除以下 ${result.count} 个空分类吗？\n\n${categoryNames}\n\n此操作不可恢复！`
+
+  const confirmed = await confirmDialog.value.open(message, '清理空分类')
+  if (!confirmed) return
+
+  const cleanupResult = await cleanupEmptyCategories()
+  if (!cleanupResult.success) {
+    errorToast(cleanupResult.error || '清理空分类失败')
+    return
+  }
+
+  if (cleanupResult.deletedCount === 0) {
+    errorToast('没有空分类需要清理')
+    return
+  }
+
+  toastSuccess(`已成功清理 ${cleanupResult.deletedCount} 个空分类`)
+  navSettingsRef.value?.refreshEmptyCategoryCount()
 }
 
 const handleLogout = () => {

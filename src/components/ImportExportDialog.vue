@@ -609,9 +609,9 @@ defineExpose({
   max-width: 500px;
 }
 
-/* 确保导入导出对话框显示在设置页面之上 */
+/* 确保导入导出对话框显示在设置页面（含导航站设置弹窗）之上 */
 .dialog-overlay {
-  z-index: 4000 !important;
+  z-index: 10000 !important;
 }
 
 .export-section,

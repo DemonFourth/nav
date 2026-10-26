@@ -478,7 +478,7 @@
                       </svg>
                     </span>
                   </div>
-                  <div class="action-row" :style="{ opacity: emptyCategoryCount === 0 ? 0.5 : 1 }" @click="emptyCategoryCount > 0 && $emit('action', 'cleanup')">
+                  <div class="action-row" :style="{ opacity: emptyCategoryCount === 0 ? 0.5 : 1 }" @click="emptyCategoryCount > 0 && $emit('action', 'cleanupEmptyCategories')">
                     <div class="action-info">
                       <div class="action-name">清空空分类</div>
                       <div class="action-desc">{{ emptyCategoryCount > 0 ? `当前有 ${emptyCategoryCount} 个空分类` : '暂无空分类' }}</div>
@@ -1682,6 +1682,10 @@ onMounted(() => {
 
 onUnmounted(() => {
   document.removeEventListener('mouseup', handleSliderMouseUp)
+})
+
+defineExpose({
+  refreshEmptyCategoryCount: checkEmptyCategories
 })
 
 const handleSliderMouseUp = () => {
