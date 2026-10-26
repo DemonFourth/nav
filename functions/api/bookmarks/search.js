@@ -44,9 +44,8 @@ export async function onRequestGet(context) {
       ? fieldsParam.split(',').map(f => f.trim()).filter(f => FIELD_MAP[f]).map(f => FIELD_MAP[f]).join(',') || defaultSQL
       : defaultSQL
 
-    // 认证检查
-    const authHeader = request.headers.get('Authorization')
-    const isAuthenticated = authHeader && authHeader.startsWith('Bearer ')
+    // 认证检查（中间件已验签）
+    const isAuthenticated = context.data?.auth?.verified === true
 
     const publicModeSetting = await env.DB.prepare(
       'SELECT value FROM settings WHERE key = ?'

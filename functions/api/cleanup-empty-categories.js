@@ -37,14 +37,11 @@ function isCategoryTreeEmpty(categoryId, categoriesMap, bookmarksByCategoryId) {
 }
 
 export async function onRequestGet(context) {
-  const { env, request } = context;
+  const { env } = context;
   
   try {
-    // 检查是否已登录
-    const authHeader = request.headers.get('Authorization');
-    const isAuthenticated = authHeader && authHeader.startsWith('Bearer ');
-    
-    if (!isAuthenticated) {
+    // 中间件已验签，只读取可信结果
+    if (context.data?.auth?.verified !== true) {
       return new Response(JSON.stringify({ error: 'Unauthorized' }), {
         status: 401,
         headers: { 'Content-Type': 'application/json' }
@@ -106,14 +103,11 @@ export async function onRequestGet(context) {
 }
 
 export async function onRequestPost(context) {
-  const { env, request } = context;
+  const { env } = context;
   
   try {
-    // 检查是否已登录
-    const authHeader = request.headers.get('Authorization');
-    const isAuthenticated = authHeader && authHeader.startsWith('Bearer ');
-    
-    if (!isAuthenticated) {
+    // 中间件已验签，只读取可信结果
+    if (context.data?.auth?.verified !== true) {
       return new Response(JSON.stringify({ error: 'Unauthorized' }), {
         status: 401,
         headers: { 'Content-Type': 'application/json' }

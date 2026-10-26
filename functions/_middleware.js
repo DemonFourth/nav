@@ -47,6 +47,15 @@ const expiryTime = tokenType === 'long'
   }
 }
 
+const PUBLIC_READ_PATHS = new Set([
+  '/api/bookmarks',
+  '/api/categories',
+  '/api/fetch-metadata',
+  '/api/icon-proxy',
+  '/api/settings',
+  '/api/ai/status'
+]);
+
 // JWT验证中间件
 export async function onRequest(context) {
   const { request, env, next } = context;
@@ -73,63 +82,40 @@ export async function onRequest(context) {
     'Permissions-Policy': 'geolocation=(), microphone=(), camera=()'
   };
   
+  const unauthorized = (error = 'Unauthorized') => new Response(
+    JSON.stringify({ error }),
+    { status: 401, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
+  );
+
   // 登录接口不需要验证
   if (url.pathname === '/api/login') {
     return await next();
   }
-  
-  // GET请求的bookmarks、categories、settings和AI状态不需要登录即可访问（只读）
-  if (request.method === 'GET' && 
-      (url.pathname === '/api/bookmarks' || 
-       url.pathname === '/api/categories' ||
-       url.pathname === '/api/fetch-metadata' ||
-       url.pathname === '/api/icon-proxy' ||
-       url.pathname === '/api/settings' ||
-       url.pathname === '/api/ai/status')) {
-    return await next();
-  }
-  
-  // settings API 的 POST 请求需要认证（修改设置）
-  if (url.pathname === '/api/settings' && request.method === 'POST') {
-    const authHeader = request.headers.get('Authorization');
-    
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-        status: 401,
-        headers: { 'Content-Type': 'application/json', ...corsHeaders }
-      });
-    }
-    
-    const token = authHeader.substring(7);
-    const validation = await validateToken(token, env);
-    
-    if (!validation.valid) {
-      return new Response(JSON.stringify({ error: validation.error }), {
-        status: 401,
-        headers: { 'Content-Type': 'application/json', ...corsHeaders }
-      });
-    }
-  }
-  
-  // 其他API需要验证token
+
+  // 任何带认证头的 API 请求都先验签，结果写入 context.data 供 handler 使用
   if (url.pathname.startsWith('/api/')) {
+    if (!context.data) context.data = {};
+
     const authHeader = request.headers.get('Authorization');
-    
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-        status: 401,
-        headers: { 'Content-Type': 'application/json', ...corsHeaders }
-      });
+    let verified = false;
+
+    if (authHeader) {
+      if (!authHeader.startsWith('Bearer ')) {
+        return unauthorized();
+      }
+
+      const validation = await validateToken(authHeader.substring(7), env);
+      if (!validation.valid) {
+        return unauthorized(validation.error);
+      }
+      verified = true;
     }
-    
-    const token = authHeader.substring(7);
-    const validation = await validateToken(token, env);
-    
-    if (!validation.valid) {
-      return new Response(JSON.stringify({ error: validation.error }), {
-        status: 401,
-        headers: { 'Content-Type': 'application/json', ...corsHeaders }
-      });
+
+    context.data.auth = { verified };
+
+    const isPublicRead = request.method === 'GET' && PUBLIC_READ_PATHS.has(url.pathname);
+    if (!verified && !isPublicRead) {
+      return unauthorized();
     }
   }
   

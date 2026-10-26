@@ -1,11 +1,10 @@
 // GET all bookmarks
 export async function onRequestGet(context) {
-  const { env, request } = context;
+  const { env } = context;
   
   try {
-    // 检查是否已登录
-    const authHeader = request.headers.get('Authorization');
-    const isAuthenticated = authHeader && authHeader.startsWith('Bearer ');
+    // 中间件已验签，只读取可信结果
+    const isAuthenticated = context.data?.auth?.verified === true;
     
     // 获取 publicMode 设置
     const publicModeSetting = await env.DB.prepare(

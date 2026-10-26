@@ -1,11 +1,10 @@
 // GET list all tags with bookmark counts
 export async function onRequestGet(context) {
-  const { env, request } = context;
+  const { env } = context;
   
   try {
-    // Check authentication
-    const authHeader = request.headers.get('Authorization');
-    if (!authHeader) {
+    // 认证检查（中间件已验签）
+    if (context.data?.auth?.verified !== true) {
       return new Response(JSON.stringify({ error: 'Unauthorized' }), {
         status: 401,
         headers: { 'Content-Type': 'application/json' }
