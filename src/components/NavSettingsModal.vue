@@ -518,6 +518,34 @@
                     </div>
                   </div>
                 </div>
+
+                <div class="setting-card full-width">
+                  <div class="card-label">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                    </svg>
+                    隐私分类检查
+                  </div>
+                  <div v-if="!isAuthenticated" class="privacy-check-empty">登录状态已失效，请重新登录</div>
+                  <div v-else-if="privacyCheckItems.length === 0" class="privacy-check-empty">未发现异常</div>
+                  <template v-else>
+                    <div class="privacy-check-summary">
+                      发现 <strong>{{ privacyCheckItems.length }}</strong> 条公开书签位于隐私分类
+                    </div>
+                    <div class="privacy-check-list">
+                      <button
+                        v-for="item in privacyCheckItems"
+                        :key="item.id"
+                        type="button"
+                        class="privacy-check-item"
+                        @click="openBookmarkEdit(item)"
+                      >
+                        <span class="privacy-check-name">{{ item.name }}</span>
+                        <span class="privacy-check-cat">{{ getCategoryPathForBookmark(item.category_id) }}</span>
+                      </button>
+                    </div>
+                  </template>
+                </div>
               </div>
             </div>
 
@@ -1283,6 +1311,7 @@ import { useAuthGuard } from '@/composables/useAuthGuard'
 import { useCategoryEditor } from '@/composables/useCategoryEditor'
 import { buildCategoryTree, getCategoryPath } from '@/utils/categoryTree'
 import { searchBookmarks, SEARCH_FIELD_OPTIONS } from '@/utils/search'
+import { findPublicBookmarksInPrivateCategories } from '@/utils/privacyCheck'
 import MenuTreeNode from '@/components/MenuTreeNode.vue'
 import NavBookmarkEditModal from '@/components/NavBookmarkEditModal.vue'
 import BaseDialog from '@/components/BaseDialog.vue'
@@ -1611,6 +1640,7 @@ const themeModes = [
 
 const totalBookmarks = computed(() => bookmarks.value.length)
 const privateBookmarks = computed(() => bookmarks.value.filter(b => b.is_private).length)
+const privacyCheckItems = computed(() => findPublicBookmarksInPrivateCategories(bookmarks.value, categories.value))
 const emptyCategoryCount = ref(0)
 
 const checkEmptyCategories = async () => {
@@ -2291,6 +2321,23 @@ const handleSaveBookmark = async (bookmark, formData) => {
     result = await addBookmark(formData)
   }
   if (result.success) {
+    if (bookmark) {
+      const categoryId = formData.category_id === '' || formData.category_id === null || formData.category_id === undefined
+        ? null
+        : Number(formData.category_id)
+      const category = categoryId === null ? null : categories.value.find(c => c.id === categoryId)
+      bookmarks.value = bookmarks.value.map(b => (
+        b.id === bookmark.id
+          ? {
+              ...b,
+              ...formData,
+              category_id: categoryId,
+              category_name: category ? category.name : null,
+              is_private: formData.is_private ? 1 : 0
+            }
+          : b
+      ))
+    }
     toastSuccess(bookmark ? '已更新书签' : '已添加书签')
     closeBookmarkDialog()
   } else if (result.duplicate) {
@@ -3396,6 +3443,44 @@ textarea.setting-input {
 
 .action-arrow { color: var(--text-muted); transition: all 0.2s; }
 .action-arrow svg { width: 16px; height: 16px; }
+
+/* ===== Privacy Check ===== */
+.privacy-check-summary { font-size: 0.75rem; color: var(--text-secondary); margin-bottom: 6px; }
+.privacy-check-summary strong { color: var(--warning); font-weight: 600; }
+.privacy-check-empty { font-size: 0.8125rem; color: var(--text-secondary); }
+.privacy-check-list { display: flex; flex-direction: column; max-height: 240px; overflow-y: auto; }
+.privacy-check-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 0;
+  background: none;
+  border: none;
+  border-top: 1px solid var(--row-divider);
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+}
+.privacy-check-item:first-child { border-top: none; }
+.privacy-check-name {
+  font-size: 0.8125rem;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  transition: color 0.2s;
+}
+.privacy-check-item:hover .privacy-check-name { color: var(--accent); text-decoration: underline; }
+.privacy-check-cat {
+  font-size: 0.7rem;
+  color: var(--text-secondary);
+  flex-shrink: 0;
+  max-width: 45%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 
 /* ===== Sortable ===== */
 .sortable-list { display: flex; flex-direction: column; gap: 6px; }
