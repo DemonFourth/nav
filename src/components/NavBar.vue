@@ -369,16 +369,6 @@ defineExpose({
   transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-.submenu-dropdown::before {
-  content: '';
-  position: absolute;
-  bottom: 100%;
-  left: 0;
-  right: 0;
-  height: 16px;
-  z-index: 200;
-}
-
 .submenu-dropdown.show {
   opacity: 1;
   visibility: visible;
