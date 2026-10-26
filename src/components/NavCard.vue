@@ -234,8 +234,8 @@ const handleDragOver = (e) => {
   if (!props.reorderable) return
   e.preventDefault()
   const rect = e.currentTarget.getBoundingClientRect()
-  // Grid 布局：按垂直中线判断插入到卡片前/后
-  dropPosition.value = (e.clientY - rect.top) < rect.height / 2 ? 'before' : 'after'
+  // Grid 布局：按水平中线判断插入到卡片左(before)/右(after)，随指针实时切换
+  dropPosition.value = (e.clientX - rect.left) < rect.width / 2 ? 'before' : 'after'
   isDragOver.value = true
 }
 
@@ -536,14 +536,14 @@ const handleDrop = (e) => {
 }
 
 .nav-card-horizontal.drop-before {
-  outline: 2px solid color-mix(in srgb, var(--nav-primary) 60%, transparent);
-  outline-offset: 2px;
-  box-shadow: inset 4px 0 0 0 var(--nav-primary);
+  outline: 2px solid var(--nav-primary);
+  outline-offset: 3px;
+  box-shadow: inset 5px 0 0 0 var(--nav-primary);
 }
 
 .nav-card-horizontal.drop-after {
-  outline: 2px solid color-mix(in srgb, var(--nav-primary) 60%, transparent);
-  outline-offset: 2px;
-  box-shadow: inset -4px 0 0 0 var(--nav-primary);
+  outline: 2px solid var(--nav-primary);
+  outline-offset: 3px;
+  box-shadow: inset -5px 0 0 0 var(--nav-primary);
 }
 </style>
