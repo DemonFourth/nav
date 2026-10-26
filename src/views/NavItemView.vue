@@ -482,6 +482,15 @@ const handleLogout = () => {
   min-height: calc(100vh - 180px);
 }
 
+@media (max-width: 778px) {
+  .category-tabs {
+    padding: 8px 16px 4px;
+  }
+  .content-section {
+    padding: 0 16px 2rem;
+  }
+}
+
 /* Detail Modal */
 .detail-modal-overlay {
   position: fixed;
