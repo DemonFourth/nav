@@ -1,7 +1,15 @@
 <template>
   <div 
     class="nav-card-horizontal"
+    :class="{
+      'reorderable': reorderable,
+      'drop-before': isDragOver && dropPosition === 'before',
+      'drop-after': isDragOver && dropPosition === 'after'
+    }"
     @click="handleCardClick"
+    @dragover.prevent="handleDragOver"
+    @dragleave="handleDragLeave"
+    @drop="handleDrop"
     v-tooltip="shouldShowTitle ? hoverTitle : ''"
   >
     <!-- 第一行：图标 + 名称 + 描述 -->
@@ -65,6 +73,25 @@
         <line x1="12" y1="8" x2="12.01" y2="8"/>
       </svg>
     </button>
+
+    <!-- 排序拖拽把手：hover 卡片时显现，仅可排序状态下出现 -->
+    <div
+      v-if="reorderable"
+      class="nav-card-drag-handle"
+      draggable="true"
+      @dragstart="handleDragStart"
+      @dragend="handleDragEnd"
+      @click.stop
+    >
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+        <circle cx="9" cy="6" r="1"/>
+        <circle cx="15" cy="6" r="1"/>
+        <circle cx="9" cy="12" r="1"/>
+        <circle cx="15" cy="12" r="1"/>
+        <circle cx="9" cy="18" r="1"/>
+        <circle cx="15" cy="18" r="1"/>
+      </svg>
+    </div>
   </div>
 </template>
 
@@ -81,10 +108,26 @@ const props = defineProps({
   isAuthenticated: {
     type: Boolean,
     default: false
+  },
+  reorderable: {
+    type: Boolean,
+    default: false
   }
 })
 
-const emit = defineEmits(['tag-click', 'show-detail'])
+const emit = defineEmits([
+  'tag-click',
+  'show-detail',
+  'dragstart',
+  'dragend',
+  'drop',
+  'dragleave',
+  'dragoverPosition'
+])
+
+const isDragOver = ref(false)
+const dropPosition = ref('after')
+let dragPreviewEl = null
 
 const expanded = ref(false)
 const MAX_VISIBLE_TAGS = 6
@@ -151,6 +194,78 @@ const handleTagClick = (tag) => {
 
 const handleShowDetail = () => {
   emit('show-detail', { tag: null, bookmark: props.bookmark })
+}
+
+// 排序拖拽：仅可排序状态生效
+const createDragPreview = () => {
+  const el = document.createElement('div')
+  el.style.cssText = 'position:fixed;top:-9999px;left:-9999px;padding:8px 14px;border-radius:10px;background:var(--nav-bg);border:1px solid var(--nav-border);box-shadow:0 12px 32px var(--shadow-lg);color:var(--nav-text);font-size:13px;font-weight:600;white-space:nowrap;z-index:100000;'
+  el.textContent = props.bookmark.name
+  document.body.appendChild(el)
+  return el
+}
+
+const removeDragPreview = () => {
+  if (dragPreviewEl?.parentNode) {
+    dragPreviewEl.parentNode.removeChild(dragPreviewEl)
+    dragPreviewEl = null
+  }
+}
+
+const handleDragStart = (e) => {
+  if (!props.reorderable) return
+  e.dataTransfer.effectAllowed = 'move'
+  e.dataTransfer.setData('bookmarkId', props.bookmark.id.toString())
+  e.dataTransfer.setData('bookmarkData', JSON.stringify({
+    id: props.bookmark.id,
+    category_id: props.bookmark.category_id,
+    name: props.bookmark.name
+  }))
+  emit('dragstart', props.bookmark)
+  dragPreviewEl = createDragPreview()
+  e.dataTransfer.setDragImage(dragPreviewEl, 30, 12)
+}
+
+const handleDragEnd = () => {
+  isDragOver.value = false
+  removeDragPreview()
+  emit('dragend', props.bookmark.id)
+}
+
+const handleDragOver = (e) => {
+  if (!props.reorderable) return
+  e.preventDefault()
+  const rect = e.currentTarget.getBoundingClientRect()
+  // Grid 布局：按垂直中线判断插入到卡片前/后
+  dropPosition.value = (e.clientY - rect.top) < rect.height / 2 ? 'before' : 'after'
+  isDragOver.value = true
+  emit('dragoverPosition', { id: props.bookmark.id, position: dropPosition.value })
+}
+
+const handleDragLeave = () => {
+  if (!props.reorderable) return
+  isDragOver.value = false
+  emit('dragleave', props.bookmark.id)
+}
+
+const handleDrop = (e) => {
+  if (!props.reorderable) return
+  e.preventDefault()
+  e.stopPropagation()
+  const draggedId = e.dataTransfer.getData('bookmarkId')
+  if (!draggedId) return
+  let draggedBookmarkData = null
+  const str = e.dataTransfer.getData('bookmarkData')
+  if (str) {
+    try { draggedBookmarkData = JSON.parse(str) } catch (err) {}
+  }
+  emit('drop', {
+    draggedId: parseInt(draggedId, 10),
+    targetId: props.bookmark.id,
+    position: dropPosition.value,
+    draggedBookmark: draggedBookmarkData
+  })
+  isDragOver.value = false
 }
 </script>
 
@@ -378,5 +493,52 @@ const handleShowDetail = () => {
   background: color-mix(in srgb, var(--nav-primary) 45%, transparent);
   color: var(--nav-text);
   transform: scale(1.1);
+}
+
+/* 排序拖拽把手 */
+.reorderable .nav-card-top {
+  padding-right: 68px;
+}
+
+.nav-card-drag-handle {
+  position: absolute;
+  top: 12px;
+  right: 42px;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  background: var(--nav-card-bg);
+  color: var(--nav-text-secondary);
+  cursor: grab;
+  opacity: 0;
+  transition: opacity 0.2s ease, background 0.2s ease, color 0.2s ease;
+  z-index: 11;
+}
+
+.nav-card-drag-handle svg {
+  width: 15px;
+  height: 15px;
+}
+
+.nav-card-horizontal:hover .nav-card-drag-handle {
+  opacity: 1;
+}
+
+.nav-card-drag-handle:hover {
+  background: color-mix(in srgb, var(--nav-primary) 20%, transparent);
+  color: var(--nav-primary);
+}
+
+.nav-card-drag-handle:active {
+  cursor: grabbing;
+}
+
+.nav-card-horizontal.drop-before,
+.nav-card-horizontal.drop-after {
+  outline: 2px solid color-mix(in srgb, var(--nav-primary) 55%, transparent);
+  outline-offset: 2px;
 }
 </style>

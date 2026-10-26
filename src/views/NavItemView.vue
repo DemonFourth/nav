@@ -41,8 +41,10 @@
         :key="animationKey" 
         :bookmarks="currentBookmarks"
         :isAuthenticated="isAuthenticated"
+        :reorderable="canReorder"
         @tag-click="handleTagClick"
         @show-detail="handleShowDetail"
+        @reorder="handleReorder"
       />
       <!-- columns prop removed: responsive breakpoints in NavCardGrid control column count -->
     </div>
@@ -87,7 +89,7 @@ import { useToast } from '../composables/useToast'
 import { useAuthGuard } from '../composables/useAuthGuard'
 import { buildCategoryTree } from '../utils/categoryTree'
 
-const { categories, bookmarks, fetchData, searchTags, updateBookmark, deleteBookmark, allTags, getEmptyCategories, cleanupEmptyCategories } = useBookmarks()
+const { categories, bookmarks, fetchData, searchTags, updateBookmark, deleteBookmark, allTags, getEmptyCategories, cleanupEmptyCategories, reorderItems } = useBookmarks()
 const { isAuthenticated, logout } = useAuth()
 const { customTitle, navWallpaper, showSearch, randomWallpaper, wallpaperApi, applyWallpaper } = useSettings()
 const { success: toastSuccess, error: errorToast } = useToast()
@@ -199,6 +201,11 @@ const currentBookmarks = computed(() => {
   }
 
   return result
+})
+
+// 仅已登录 + 浏览某分类 + 非搜索结果 + 非标签筛选时允许排序
+const canReorder = computed(() => {
+  return isAuthenticated.value && !searchResults.value && !selectedFilterTag.value && !!activeMenu.value
 })
 
 const handleToggleStyle = () => {
@@ -322,6 +329,32 @@ const handleDeleteBookmark = async (bookmark) => {
     toastSuccess('书签已删除')
   } else {
     errorToast(result.error || '删除失败')
+  }
+}
+
+const handleReorder = async (items) => {
+  if (!items || !items.length) return
+  if (!canReorder.value) return
+
+  const originalPositions = {}
+  items.forEach(item => {
+    const b = bookmarks.value.find(b => b.id === item.id)
+    if (b) originalPositions[item.id] = b.position
+  })
+
+  bookmarks.value = bookmarks.value.map(b => {
+    const item = items.find(i => i.id === b.id)
+    if (item) return { ...b, position: item.position }
+    return b
+  })
+
+  const result = await reorderItems('bookmarks', items)
+  if (!result.success) {
+    bookmarks.value = bookmarks.value.map(b => {
+      if (originalPositions[b.id] !== undefined) return { ...b, position: originalPositions[b.id] }
+      return b
+    })
+    errorToast(result.error || '排序保存失败')
   }
 }
 
