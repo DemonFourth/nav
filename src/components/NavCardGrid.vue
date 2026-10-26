@@ -161,10 +161,10 @@ const handleGridDrop = (e) => {
 }
 
 .nav-grid-append-cue {
-  position: absolute;
-  top: -12px;
+  position: fixed;
+  bottom: 40px;
   left: 50%;
-  transform: translate(-50%, -100%);
+  transform: translateX(-50%);
   padding: 4px 14px;
   border-radius: 9999px;
   background: var(--nav-primary);
