@@ -10,6 +10,8 @@
         :style="getCardStyle(index)"
         @tag-click="handleTagClick"
         @show-detail="handleShowDetail"
+        @dragstart="handleDragStart"
+        @dragend="handleDragEnd"
         @drop="handleCardDrop"
       />
       <div v-if="gridAppendActive" class="nav-grid-append-cue">移动到末尾</div>
@@ -45,7 +47,7 @@ const props = defineProps({
   }
 })
 
-const emit = defineEmits(['tag-click', 'show-detail', 'reorder'])
+const emit = defineEmits(['tag-click', 'show-detail', 'dragstart', 'dragend', 'reorder'])
 
 const gridAppendActive = ref(false)
 
@@ -103,6 +105,15 @@ const handleCardDrop = (dropInfo) => {
   bookmarksCopy.splice(insertIndex, 0, removed)
   const items = bookmarksCopy.map((b, index) => ({ id: b.id, position: index }))
   emit('reorder', items)
+}
+
+// 拖拽生命周期：向上转发，供父级在拖拽时隐藏顶部菜单
+const handleDragStart = () => {
+  emit('dragstart')
+}
+
+const handleDragEnd = () => {
+  emit('dragend')
 }
 
 // 拖到卡片网格空白区域：把拖拽卡片移动到末尾（底部）

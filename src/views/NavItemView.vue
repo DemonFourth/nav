@@ -1,5 +1,5 @@
 <template>
-  <div class="nav-item-view" :style="backgroundStyle">
+  <div class="nav-item-view" :class="{ 'drag-reordering': dragReorderActive }" :style="backgroundStyle">
     <NavBar 
       :menus="menuTree"
       :active-menu="activeMenu"
@@ -45,6 +45,8 @@
         @tag-click="handleTagClick"
         @show-detail="handleShowDetail"
         @reorder="handleReorder"
+        @dragstart="onNavDragStart"
+        @dragend="onNavDragEnd"
       />
       <!-- columns prop removed: responsive breakpoints in NavCardGrid control column count -->
     </div>
@@ -111,6 +113,7 @@ const importExportDialog = ref(null)
 const backupDialog = ref(null)
 const selectedFilterTag = ref(null)
 const searchResults = ref(null)
+const dragReorderActive = ref(false)
 
 const categoryOptions = computed(() => {
   if (!categories.value.length) return []
@@ -207,6 +210,15 @@ const currentBookmarks = computed(() => {
 const canReorder = computed(() => {
   return isAuthenticated.value && !searchResults.value && !selectedFilterTag.value && !!activeMenu.value
 })
+
+// 拖拽期间隐藏固定顶部菜单，露出最顶部卡片
+const onNavDragStart = () => {
+  dragReorderActive.value = true
+}
+
+const onNavDragEnd = () => {
+  dragReorderActive.value = false
+}
 
 const handleToggleStyle = () => {
   emit('toggleStyle')
@@ -445,6 +457,21 @@ const handleLogout = () => {
   position: relative;
   z-index: 2;
   background: transparent;
+}
+
+/* 拖拽排序期间：隐藏固定顶部菜单，内容上移露出最顶部卡片 */
+.nav-item-view.drag-reordering :deep(.nav-bar) {
+  transform: translateY(-100%);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.nav-item-view :deep(.nav-bar) {
+  transition: transform 0.3s ease, opacity 0.3s ease;
+}
+
+.nav-item-view.drag-reordering .search-section {
+  padding-top: 1rem;
 }
 
 .category-tabs {
