@@ -1,6 +1,6 @@
 <template>
   <div class="nav-card-grid">
-    <div v-if="bookmarks.length > 0" class="cards-container" :class="animationClass">
+    <div v-if="bookmarks.length > 0" class="cards-container" :class="[animationClass, { 'grid-append': gridAppendActive }]" @dragover.prevent="handleGridDragOver" @drop="handleGridDrop">
       <NavCard
         v-for="(bookmark, index) in bookmarks"
         :key="bookmark.id"
@@ -12,6 +12,7 @@
         @show-detail="handleShowDetail"
         @drop="handleCardDrop"
       />
+      <div v-if="gridAppendActive" class="nav-grid-append-cue">移动到末尾</div>
     </div>
 
     <div v-else class="empty-state">
@@ -45,6 +46,8 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['tag-click', 'show-detail', 'reorder'])
+
+const gridAppendActive = ref(false)
 
 const { navCardAnimation, navCardBlur, navCardOpacity } = useSettings()
 const { isDark } = useTheme()
@@ -101,6 +104,27 @@ const handleCardDrop = (dropInfo) => {
   const items = bookmarksCopy.map((b, index) => ({ id: b.id, position: index }))
   emit('reorder', items)
 }
+
+// 拖到卡片网格空白区域：把拖拽卡片移动到末尾（底部）
+const handleGridDragOver = (e) => {
+  if (!props.reorderable) return
+  const onCard = !!(e.target && e.target.closest && e.target.closest('.nav-card-horizontal'))
+  gridAppendActive.value = !onCard
+}
+
+const handleGridDrop = (e) => {
+  if (!props.reorderable) return
+  gridAppendActive.value = false
+  const draggedId = e.dataTransfer?.getData('bookmarkId')
+  if (!draggedId) return
+  const id = parseInt(draggedId, 10)
+  if (!props.bookmarks.some(b => b.id === id)) return
+  if (props.bookmarks[props.bookmarks.length - 1]?.id === id) return
+  const others = props.bookmarks.filter(b => b.id !== id)
+  const dragged = props.bookmarks.find(b => b.id === id)
+  const items = [...others, dragged].map((b, index) => ({ id: b.id, position: index }))
+  emit('reorder', items)
+}
 </script>
 
 <style scoped>
@@ -116,6 +140,30 @@ const handleCardDrop = (dropInfo) => {
   gap: 16px;
   justify-content: center;
   width: 100%;
+  position: relative;
+}
+
+.cards-container.grid-append {
+  outline: 2px dashed color-mix(in srgb, var(--nav-primary) 50%, transparent);
+  outline-offset: 6px;
+  border-radius: 12px;
+}
+
+.nav-grid-append-cue {
+  position: absolute;
+  top: -12px;
+  left: 50%;
+  transform: translate(-50%, -100%);
+  padding: 4px 14px;
+  border-radius: 9999px;
+  background: var(--nav-primary);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 12;
+  box-shadow: 0 4px 14px color-mix(in srgb, var(--nav-primary) 40%, transparent);
 }
 
 .empty-state {
