@@ -13,10 +13,27 @@
             >
               <button 
                 class="menu-trigger"
-                :class="{ active: activeMenu?.id === menu.id }"
+                :class="[{ active: activeMenu?.id === menu.id }, menuReorder.rowState(menu.id)]"
                 @click="handleSelectMenu(menu)"
                 @mouseenter="showSubMenu(menu.id)"
+                @dragover="handleRootDragOver($event, menu)"
+                @dragleave="handleRootDragLeave"
+                @drop="handleRootDrop($event, menu)"
               >
+                <span
+                  v-if="reorderable"
+                  class="drag-grip"
+                  draggable="true"
+                  @click.stop.prevent
+                  @dragstart.stop="handleRootDragStart($event, menu)"
+                  @dragend.stop="handleRootDragEnd"
+                >
+                  <svg viewBox="0 0 10 16" fill="currentColor" aria-hidden="true">
+                    <circle cx="3" cy="3" r="1.3" /><circle cx="7" cy="3" r="1.3" />
+                    <circle cx="3" cy="8" r="1.3" /><circle cx="7" cy="8" r="1.3" />
+                    <circle cx="3" cy="13" r="1.3" /><circle cx="7" cy="13" r="1.3" />
+                  </svg>
+                </span>
                 <span class="menu-text" :title="menu.description || ''">{{ menu.name }}</span>
                 <svg 
                   v-if="menu.children && menu.children.length > 0"
@@ -41,7 +58,10 @@
                   v-for="sub in menu.children"
                   :key="sub.id"
                   :item="sub"
+                  :parent-id="menu.id"
                   :active-id="activeSubMenu?.id"
+                  :reorderable="reorderable"
+                  :reorder="menuReorder"
                   @select="(item) => handleSelectSubmenu(menu, item)"
                 />
               </div>
@@ -99,6 +119,18 @@
 
     <LoginModal ref="loginModalRef" />
   </nav>
+
+  <Teleport to="body">
+    <Transition name="reorder-hint">
+      <div
+        v-if="menuReorder.isActive.value"
+        class="reorder-hint"
+        :class="{ 'reorder-hint-invalid': menuReorder.isInvalid.value }"
+      >
+        {{ menuReorder.hintText.value }}
+      </div>
+    </Transition>
+  </Teleport>
 </template>
 
 <script setup>
@@ -107,6 +139,7 @@ import { useAuth } from '../composables/useAuth'
 import { useToast } from '../composables/useToast'
 import LoginModal from './LoginModal.vue'
 import NavMenuItem from './NavMenuItem.vue'
+import { useMenuReorder, resolveDropPosition } from '../composables/useMenuReorder'
 
 const props = defineProps({
   menus: {
@@ -124,13 +157,24 @@ const props = defineProps({
   customTitle: {
     type: String,
     default: '导航站'
+  },
+  reorderable: {
+    type: Boolean,
+    default: false
   }
 })
 
-const emit = defineEmits(['select-menu', 'select-submenu', 'toggle-style', 'open-settings', 'logout'])
+const emit = defineEmits(['select-menu', 'select-submenu', 'toggle-style', 'open-settings', 'logout', 'reorder-categories'])
 
 const { isAuthenticated, username, logout, validateAuthState } = useAuth()
 const { warning: warningToast } = useToast()
+
+const menuReorder = useMenuReorder({
+  menus: () => props.menus,
+  canReorder: () => props.reorderable,
+  onReorder: (payload) => emit('reorder-categories', payload),
+  onInvalidDrop: () => warningToast('只能在同一层级内排序')
+})
 
 const hoveredMenuId = ref(null)
 const hideTimeout = ref(null)
@@ -158,12 +202,14 @@ const scheduleAutoClose = () => {
   cancelAutoClose()
   if (window.innerWidth <= 768) {
     autoCloseTimeout.value = setTimeout(() => {
+      if (menuReorder.isActive.value) return
       hoveredMenuId.value = null
     }, 2000)
   }
 }
 
 const showSubMenu = (menuId) => {
+  if (menuReorder.isActive.value) return
   cancelAutoClose()
   if (hideTimeout.value) {
     clearTimeout(hideTimeout.value)
@@ -173,6 +219,7 @@ const showSubMenu = (menuId) => {
 }
 
 const keepSubmenu = (menuId) => {
+  if (menuReorder.isActive.value) return
   cancelAutoClose()
   if (hideTimeout.value) {
     clearTimeout(hideTimeout.value)
@@ -183,13 +230,48 @@ const keepSubmenu = (menuId) => {
 
 const hideSubMenu = (menuId) => {
   hideTimeout.value = setTimeout(() => {
+    if (menuReorder.isActive.value) return
     if (hoveredMenuId.value === menuId) {
       hoveredMenuId.value = null
     }
   }, 200)
 }
 
+const handleRootDragStart = (event, menu) => {
+  if (!menuReorder.beginDrag(event, menu, null)) return
+  if (hideTimeout.value) {
+    clearTimeout(hideTimeout.value)
+    hideTimeout.value = null
+  }
+  cancelAutoClose()
+  hoveredMenuId.value = null
+}
+
+const handleRootDragOver = (event, menu) => {
+  if (!menuReorder.isActive.value) return
+  event.preventDefault()
+  menuReorder.hoverItem(menu, null, resolveDropPosition(event, event.currentTarget, 'horizontal'))
+}
+
+const handleRootDragLeave = (event) => {
+  if (!menuReorder.isActive.value) return
+  const next = event.relatedTarget
+  if (next && event.currentTarget.contains(next)) return
+  menuReorder.clearTarget()
+}
+
+const handleRootDrop = (event, menu) => {
+  if (!menuReorder.isActive.value) return
+  event.preventDefault()
+  menuReorder.dropItem(menu, null, resolveDropPosition(event, event.currentTarget, 'horizontal'))
+}
+
+const handleRootDragEnd = () => {
+  menuReorder.endDrag()
+}
+
 const handleSelectMenu = (menu) => {
+  if (menuReorder.wasJustDragging()) return
   emit('select-menu', menu)
   scheduleAutoClose()
   if (window.innerWidth <= 768) {
@@ -338,6 +420,80 @@ defineExpose({
 .menu-text {
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.drag-grip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 10px;
+  height: 16px;
+  margin-left: -2px;
+  color: var(--nav-text-secondary);
+  opacity: 0;
+  cursor: grab;
+  transition: opacity 0.15s ease;
+  flex-shrink: 0;
+}
+
+.drag-grip svg {
+  width: 10px;
+  height: 16px;
+}
+
+.menu-trigger:hover .drag-grip { opacity: 0.7; }
+.drag-grip:active { cursor: grabbing; }
+
+.menu-trigger.is-dragging { opacity: 0.4; }
+
+.menu-trigger.drop-before { box-shadow: inset 3px 0 0 var(--nav-primary); }
+.menu-trigger.drop-after { box-shadow: inset -3px 0 0 var(--nav-primary); }
+
+.menu-trigger.drop-forbidden {
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--error) 55%, transparent);
+  color: var(--error);
+}
+
+.reorder-hint {
+  position: fixed;
+  left: 50%;
+  bottom: 24px;
+  transform: translateX(-50%);
+  z-index: 500;
+  max-width: 90vw;
+  padding: 8px 16px;
+  border-radius: 999px;
+  background: var(--nav-glass);
+  border: 1px solid var(--nav-border);
+  box-shadow: 0 8px 30px var(--shadow-lg);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  color: var(--nav-text);
+  font-size: 0.78rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  pointer-events: none;
+}
+
+.reorder-hint-invalid {
+  color: var(--error);
+  border-color: color-mix(in srgb, var(--error) 45%, transparent);
+}
+
+.reorder-hint-enter-active,
+.reorder-hint-leave-active {
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+
+.reorder-hint-enter-from,
+.reorder-hint-leave-to {
+  opacity: 0;
+  transform: translate(-50%, 6px);
+}
+
+@media (hover: none) {
+  .drag-grip { display: none; }
 }
 
 .chevron-icon {

@@ -5,8 +5,10 @@
       :active-menu="activeMenu"
       :active-sub-menu="activeSubMenu"
       :custom-title="customTitle"
+      :reorderable="isAuthenticated"
       @select-menu="handleSelectMenu"
       @select-submenu="handleSelectSubMenu"
+      @reorder-categories="handleMenuReorder"
       @toggle-style="handleToggleStyle"
       @open-settings="handleOpenSettings"
       @logout="handleLogout"
@@ -367,6 +369,32 @@ const handleReorder = async (items) => {
       return b
     })
     errorToast(result.error || '排序保存失败')
+  }
+}
+
+const handleMenuReorder = async ({ parentId, ids }) => {
+  if (!isAuthenticated.value || !ids || ids.length < 2) return
+
+  const originalPositions = {}
+  categories.value.forEach(category => {
+    if (ids.includes(category.id)) originalPositions[category.id] = category.position
+  })
+  if (Object.keys(originalPositions).length !== ids.length) return
+
+  categories.value = categories.value.map(category => {
+    const index = ids.indexOf(category.id)
+    return index === -1 ? category : { ...category, position: index + 1 }
+  })
+
+  const items = ids.map((id, index) => ({ id, position: index + 1 }))
+  const result = await reorderItems('categories', items)
+  if (!result.success) {
+    categories.value = categories.value.map(category => (
+      originalPositions[category.id] !== undefined
+        ? { ...category, position: originalPositions[category.id] }
+        : category
+    ))
+    errorToast(result.error || '菜单排序保存失败')
   }
 }
 
