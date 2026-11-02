@@ -321,8 +321,13 @@ async function checkDuplicateUrl(url) {
     }
 
     const categoryName = existing.category_name || '未分类';
+    const name = String(existing.name || '').trim();
+    const shortName = name && name.length <= 24 ? `「${name}」` : '';
+
     showStatus(
-      `⚠️ 该 URL 已存在：「${existing.name || targetUrl}」 · 分类：${categoryName}`,
+      shortName
+        ? `⚠️ 该 URL 已存在：${shortName} · 分类：${categoryName}`
+        : `⚠️ 该 URL 已存在 · 分类：${categoryName}`,
       'warning',
       { persistent: true }
     );
@@ -991,6 +996,35 @@ async function getTabInfo() {
   })
 }
 
+// 供 chrome.scripting.executeScript 按需注入，函数必须自包含
+function readPageMetadataInPage() {
+  try {
+    const metaContent = (selector) => document.querySelector(selector)?.content || ''
+    const segments = location.pathname.split('/').filter(Boolean)
+
+    const stripUrlSuffix = (text) => {
+      if (!text) return ''
+      if (segments.length >= 2) {
+        const suffix = ` - ${segments[0]}/${segments[1]}`
+        if (text.endsWith(suffix)) {
+          return text.slice(0, -suffix.length).trim()
+        }
+      }
+      return text
+    }
+
+    return {
+      title: document.title || '',
+      metaDescription: stripUrlSuffix(metaContent('meta[name="description"]')),
+      ogDescription: stripUrlSuffix(metaContent('meta[property="og:description"]')),
+      h1: document.querySelector('h1')?.textContent?.trim() || '',
+      keywords: metaContent('meta[name="keywords"]')
+    }
+  } catch (e) {
+    return null
+  }
+}
+
 /**
  * 从当前标签页抓取页面元数据（title, meta description, OG description, h1, keywords）
  * 用于增强 AI 生成描述和推荐分类的上下文
@@ -1005,19 +1039,27 @@ async function fetchPageMetadata(tabUrl) {
     const tab = await getCurrentTab()
     if (!tab || !tab.id) return null
 
-    return new Promise((resolve) => {
+    const fromContentScript = await new Promise((resolve) => {
       chrome.tabs.sendMessage(tab.id, { type: 'get-page-metadata' }, (response) => {
-        if (chrome.runtime.lastError || !response) {
-          resolve(null)
-        } else {
-          resolve(response)
-        }
+        resolve(chrome.runtime.lastError ? null : response || null)
       })
     })
+    if (fromContentScript) return fromContentScript
+
+    // 扩展更新前已打开的页面没有 content script，按需注入读取，无需刷新
+    if (chrome.scripting?.executeScript) {
+      const [injection] = await chrome.scripting.executeScript({
+        target: { tabId: tab.id },
+        func: readPageMetadataInPage
+      })
+      return injection?.result || null
+    }
   } catch (error) {
     console.error('Failed to fetch page metadata:', error)
     return null
   }
+
+  return null
 }
 
 document.addEventListener('DOMContentLoaded', () => {
