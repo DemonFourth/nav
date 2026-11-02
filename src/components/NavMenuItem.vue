@@ -382,7 +382,8 @@ const handleDragEnd = () => {
 .submenu-drop-cue.after { bottom: -9px; }
 
 .submenu-children.has-add {
-  min-width: 150px;
+  width: max-content;
+  max-width: min(320px, 90vw);
 }
 
 .submenu-add-trigger {
@@ -392,13 +393,13 @@ const handleDragEnd = () => {
   width: 100%;
   white-space: nowrap;
   margin-top: 4px;
-  padding: 0.45rem 1rem;
+  padding: 0.4rem 1rem;
   border: none;
   border-top: 1px solid var(--nav-border);
   border-radius: 0 0 6px 6px;
   background: transparent;
   color: var(--nav-text-secondary);
-  font-size: 0.8125rem;
+  font-size: 0.75rem;
   font-family: inherit;
   text-align: left;
   cursor: pointer;
@@ -411,8 +412,8 @@ const handleDragEnd = () => {
 }
 
 .submenu-add-trigger svg {
-  width: 13px;
-  height: 13px;
+  width: 12px;
+  height: 12px;
   flex-shrink: 0;
 }
 
@@ -506,7 +507,9 @@ const handleDragEnd = () => {
 @media (max-width: 768px) {
   .submenu-children {
     position: static;
+    width: auto;
     min-width: 0;
+    max-width: none;
     box-shadow: none;
     border: none;
     padding: 0 0 0 0.75rem;
