@@ -466,9 +466,24 @@ const handleCleanupEmptyCategories = async () => {
   navSettingsRef.value?.refreshEmptyCategoryCount()
 }
 
-const handleLogout = () => {
+const handleLogout = async () => {
   showNavSettings.value = false
   navBarRef.value?.closeUserMenu()
+
+  const confirmed = await confirmDialog.value.open('确定要退出登录吗？', '退出登录')
+  if (!confirmed) return
+
+  logout()
+  activeMenu.value = null
+  activeSubMenu.value = null
+  searchResults.value = null
+  selectedFilterTag.value = null
+
+  await fetchData({ forceRefresh: true })
+  if (menuTree.value.length > 0) {
+    activeMenu.value = menuTree.value[0]
+  }
+  animationKey.value++
 }
 </script>
 
