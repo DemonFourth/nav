@@ -14,6 +14,8 @@
         v-if="reorderable && reorder"
         class="drag-grip"
         draggable="true"
+        aria-label="按住并拖动，调整同级顺序"
+        v-tooltip="'按住并拖动，调整同级顺序'"
         @click.stop.prevent
         @dragstart.stop="handleDragStart"
         @dragend.stop="handleDragEnd"
@@ -138,6 +140,7 @@ const handleMouseLeave = () => {
 }
 
 const handleDragStart = (event) => {
+  event.currentTarget.dispatchEvent(new MouseEvent('mouseleave'))
   props.reorder?.beginDrag(event, props.item, props.parentId ?? null)
 }
 
@@ -212,14 +215,15 @@ const handleDragEnd = () => {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 10px;
-  height: 14px;
+  width: 14px;
+  height: 16px;
   margin-right: 4px;
+  border-radius: 4px;
   color: var(--nav-text-secondary);
   opacity: 0;
   cursor: grab;
   flex-shrink: 0;
-  transition: opacity 0.15s ease;
+  transition: opacity 0.15s ease, color 0.15s ease, background-color 0.15s ease;
 }
 
 .drag-grip svg {
@@ -228,6 +232,13 @@ const handleDragEnd = () => {
 }
 
 .submenu-trigger:hover .drag-grip { opacity: 0.7; }
+
+.drag-grip:hover {
+  opacity: 1;
+  color: var(--nav-primary);
+  background: color-mix(in srgb, var(--nav-primary) 15%, transparent);
+}
+
 .drag-grip:active { cursor: grabbing; }
 
 .submenu-trigger.is-dragging { opacity: 0.4; }

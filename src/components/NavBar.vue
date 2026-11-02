@@ -24,6 +24,8 @@
                   v-if="reorderable"
                   class="drag-grip"
                   draggable="true"
+                  aria-label="按住并拖动，调整同级顺序"
+                  v-tooltip="'按住并拖动，调整同级顺序'"
                   @click.stop.prevent
                   @dragstart.stop="handleRootDragStart($event, menu)"
                   @dragend.stop="handleRootDragEnd"
@@ -245,6 +247,7 @@ const hideSubMenu = (menuId) => {
 }
 
 const handleRootDragStart = (event, menu) => {
+  event.currentTarget.dispatchEvent(new MouseEvent('mouseleave'))
   if (!menuReorder.beginDrag(event, menu, null)) return
   if (hideTimeout.value) {
     clearTimeout(hideTimeout.value)
@@ -443,13 +446,14 @@ defineExpose({
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 10px;
-  height: 16px;
+  width: 14px;
+  height: 18px;
   margin-left: -2px;
+  border-radius: 4px;
   color: var(--nav-text-secondary);
   opacity: 0;
   cursor: grab;
-  transition: opacity 0.15s ease;
+  transition: opacity 0.15s ease, color 0.15s ease, background-color 0.15s ease;
   flex-shrink: 0;
 }
 
@@ -459,6 +463,13 @@ defineExpose({
 }
 
 .menu-trigger:hover .drag-grip { opacity: 0.7; }
+
+.drag-grip:hover {
+  opacity: 1;
+  color: var(--nav-primary);
+  background: color-mix(in srgb, var(--nav-primary) 15%, transparent);
+}
+
 .drag-grip:active { cursor: grabbing; }
 
 .menu-trigger.is-dragging { opacity: 0.4; }
