@@ -14,6 +14,7 @@
               <button 
                 class="menu-trigger"
                 :class="[{ active: activeMenu?.id === menu.id }, rootRowClasses(menu.id)]"
+                :style="rootMarkStyle(menu.id)"
                 @click="handleSelectMenu(menu)"
                 @mouseenter="showSubMenu(menu.id)"
                 @dragover="handleRootDragOver($event, menu)"
@@ -69,6 +70,7 @@
                   :item="sub"
                   :parent-id="menu.id"
                   :active-id="activeSubMenu?.id"
+                  :active-path="activePath"
                   :reorderable="reorderable"
                   :reorder="menuReorder"
                   @select="(item) => handleSelectSubmenu(menu, item)"
@@ -170,6 +172,10 @@ const props = defineProps({
   reorderable: {
     type: Boolean,
     default: false
+  },
+  activePath: {
+    type: Array,
+    default: () => []
   }
 })
 
@@ -255,6 +261,19 @@ const handleRootDragStart = (event, menu) => {
   }
   cancelAutoClose()
   hoveredMenuId.value = null
+}
+
+const MARK_STRENGTH = ['100%', '55%', '35%', '22%', '15%']
+const MARK_BG_STRENGTH = ['18%', '10%', '6%', '4%', '3%']
+
+const rootMarkStyle = (id) => {
+  const path = props.activePath || []
+  if (!path.length || path[0] !== id) return null
+  const distance = Math.min(path.length - 1, MARK_STRENGTH.length - 1)
+  return {
+    '--mark-strength': MARK_STRENGTH[distance],
+    '--mark-bg-strength': MARK_BG_STRENGTH[distance]
+  }
 }
 
 const rootRowClasses = (id) => {
@@ -432,8 +451,8 @@ defineExpose({
 }
 
 .menu-trigger.active {
-  background: color-mix(in srgb, var(--nav-primary) 18%, transparent);
-  color: var(--nav-primary);
+  background: color-mix(in srgb, var(--nav-primary) var(--mark-bg-strength, 18%), transparent);
+  color: color-mix(in srgb, var(--nav-primary) var(--mark-strength, 100%), var(--nav-text));
   opacity: 1;
 }
 
@@ -443,12 +462,15 @@ defineExpose({
 }
 
 .drag-grip {
+  position: absolute;
+  top: 50%;
+  left: 4px;
+  transform: translateY(-50%);
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 14px;
-  height: 18px;
-  margin-left: -2px;
+  width: 10px;
+  height: 16px;
   border-radius: 4px;
   color: var(--nav-text-secondary);
   opacity: 0;

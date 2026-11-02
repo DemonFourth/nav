@@ -2,7 +2,8 @@
   <div class="nav-submenu-wrapper">
     <button 
       class="submenu-trigger"
-      :class="[{ active: activeId === item.id }, dragClasses]"
+      :class="[{ 'is-active': isActive, 'is-ancestor': isAncestor }, dragClasses]"
+      :style="markStyle"
       @click="handleSelect"
       @mouseenter="handleMouseEnter"
       @mouseleave="handleMouseLeave"
@@ -58,6 +59,7 @@
         :item="child"
         :parent-id="item.id"
         :active-id="activeId"
+        :active-path="activePath"
         :reorderable="reorderable"
         :reorder="reorder"
         @select="$emit('select', $event)"
@@ -86,6 +88,10 @@ const props = defineProps({
   activeId: {
     type: [String, Number],
     default: null
+  },
+  activePath: {
+    type: Array,
+    default: () => []
   },
   reorderable: {
     type: Boolean,
@@ -116,6 +122,28 @@ const dragClasses = computed(() => {
 })
 
 const dropCue = computed(() => props.reorder?.dropCue?.(props.item.id) || null)
+
+const MARK_STRENGTH = ['100%', '55%', '35%', '22%', '15%']
+
+const pathIndex = computed(() => {
+  if (props.activePath?.length) return props.activePath.indexOf(props.item.id)
+  return props.activeId === props.item.id ? 0 : -1
+})
+
+const activeDistance = computed(() => {
+  if (pathIndex.value < 0) return -1
+  const length = props.activePath?.length || 1
+  return length - 1 - pathIndex.value
+})
+
+const isActive = computed(() => activeDistance.value === 0)
+const isAncestor = computed(() => activeDistance.value > 0)
+
+const markStyle = computed(() => {
+  if (activeDistance.value < 0) return null
+  const index = Math.min(activeDistance.value, MARK_STRENGTH.length - 1)
+  return { '--mark-strength': MARK_STRENGTH[index] }
+})
 
 const handleSelect = () => {
   if (props.reorder?.wasJustDragging?.()) return
@@ -188,7 +216,7 @@ const handleDragEnd = () => {
   align-items: center;
   justify-content: space-between;
   width: 100%;
-  padding: 0.5rem 0.8rem;
+  padding: 0.5rem 0.8rem 0.5rem 1rem;
   background: transparent;
   border: none;
   border-radius: 6px;
@@ -205,30 +233,47 @@ const handleDragEnd = () => {
   color: var(--nav-text);
 }
 
-.submenu-trigger.active {
-  color: var(--nav-primary);
+.submenu-trigger.is-active {
+  color: color-mix(in srgb, var(--nav-primary) var(--mark-strength, 100%), var(--nav-text));
   font-weight: 600;
 }
 
-.submenu-trigger.active::before {
+.submenu-trigger.is-ancestor {
+  color: color-mix(in srgb, var(--nav-primary) var(--mark-strength, 55%), var(--nav-text));
+  font-weight: 500;
+}
+
+.submenu-trigger.is-active::before,
+.submenu-trigger.is-ancestor::before {
   content: '';
   position: absolute;
-  left: 2px;
+  left: 0;
   top: 50%;
   transform: translateY(-50%);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--nav-primary) var(--mark-strength, 100%), transparent);
+}
+
+.submenu-trigger.is-active::before {
   width: 3px;
   height: 55%;
-  border-radius: 999px;
-  background: var(--nav-primary);
+}
+
+.submenu-trigger.is-ancestor::before {
+  width: 2px;
+  height: 40%;
 }
 
 .drag-grip {
+  position: absolute;
+  top: 50%;
+  left: 3px;
+  transform: translateY(-50%);
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 14px;
-  height: 16px;
-  margin-right: 4px;
+  width: 10px;
+  height: 14px;
   border-radius: 4px;
   color: var(--nav-text-secondary);
   opacity: 0;

@@ -6,6 +6,7 @@
       :active-sub-menu="activeSubMenu"
       :custom-title="customTitle"
       :reorderable="isAuthenticated"
+      :active-path="activePath"
       @select-menu="handleSelectMenu"
       @select-submenu="handleSelectSubMenu"
       @reorder-categories="handleMenuReorder"
@@ -146,6 +147,24 @@ const backgroundStyle = computed(() => {
 const menuTree = computed(() => {
   const { tree } = buildCategoryTree(categories.value)
   return tree
+})
+
+// 从根到当前选中项的分类路径，用于逐级递减高亮祖先
+const activePath = computed(() => {
+  const targetId = activeSubMenu.value?.id ?? activeMenu.value?.id
+  if (!targetId) return []
+  const search = (nodes, trail) => {
+    for (const node of nodes) {
+      const next = [...trail, node.id]
+      if (node.id === targetId) return next
+      if (node.children?.length) {
+        const found = search(node.children, next)
+        if (found) return found
+      }
+    }
+    return null
+  }
+  return search(menuTree.value, []) || [targetId]
 })
 
 const allBookmarks = computed(() => bookmarks.value)
