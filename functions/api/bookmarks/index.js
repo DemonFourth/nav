@@ -22,7 +22,10 @@ export async function onRequestGet(context) {
 
       const existing = await env.DB.prepare(duplicateQuery).bind(exactUrl.trim()).first();
 
-      return new Response(JSON.stringify({ data: existing ? [existing] : [] }), {
+      return new Response(JSON.stringify({
+        data: existing ? [existing] : [],
+        exactUrl: true
+      }), {
         status: 200,
         headers: { 'Content-Type': 'application/json' }
       });

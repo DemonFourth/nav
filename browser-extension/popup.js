@@ -296,6 +296,12 @@ async function checkDuplicateUrl(url) {
     const result = await response.json();
     if (seq !== duplicateCheckSeq) return;
 
+    // 旧版后端会忽略 url 参数并返回全量列表，此时不能据此判断重复
+    if (result.exactUrl !== true) {
+      hideDuplicateNotice();
+      return;
+    }
+
     const existing = (result.data || [])[0];
     if (!existing) {
       hideDuplicateNotice();
