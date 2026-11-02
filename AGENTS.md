@@ -433,6 +433,81 @@ NavCard（dragstart/drop）→ NavCardGrid（计算重排 items）→ NavItemVie
 - **不要用占位格 `<div>` 做插入指示**：`auto-fill` 网格插入占位格会触发整行重排 → 拖拽时卡片闪烁 + 松手时落点错位。必须用不影响布局的 `outline`/`inset box-shadow` + drop 时按 `dropInfo` 算终序（commit `1b74ca5`）。
 - **拖拽交互无法自动化验证**：需登录态浏览器会话（登录需用户接管），手动验证把手/指示条/落位行为。
 
+## 导航站菜单拖拽排序
+
+nav 模式下支持在**同一父级内**拖拽菜单项调整顺序，覆盖根菜单、下拉第一层及更深的每一级。复用后端 `POST /api/reorder`（`useBookmarks.reorderItems('categories', items)`），**只写 `position`，不写 `parent_id`**。
+
+### 触发条件
+
+- `NavItemView` 将 `isAuthenticated` 传给 `NavBar` 的 `reorderable`，只有登录后才渲染拖拽把手。
+- `/api/reorder` 的 POST 不在公开读名单内，未登录返回 401，服务端二次兜底。
+- 触摸设备（`@media (hover: none)`）隐藏把手：原生 HTML5 拖拽在触屏不工作。
+
+### 统一机制（useMenuReorder）
+
+`src/composables/useMenuReorder.js` 是唯一拖拽状态机，根菜单与所有下拉层级共用：
+
+| 状态/方法 | 说明 |
+|-----------|------|
+| `draggingId` / `draggingParentId` | 被拖项及其父级 |
+| `targetId` / `targetParentId` / `dropPosition` | 当前落点与 `before`/`after` |
+| `beginDrag` / `hoverItem` / `dropItem` / `endDrag` | 生命周期入口 |
+| `rowState(id)` | 返回 `{ dragging, before, after, forbidden }`，组件映射成 class |
+| `dropCue(id)` | 返回 `before`/`after`，用于目标项旁的「插入…」胶囊 |
+| `wasJustDragging()` | 松手后 300ms 内抑制误触发的点击 |
+
+核心规则：**只有 `draggingParentId === targetParentId` 才认可落点**；父级不同时显示禁止样式与提示，松手不产生任何写入。落点方向由 `resolveDropPosition(event, element, 'horizontal' | 'vertical')` 按目标元素中线计算。
+
+### 交互
+
+| 阶段 | 行为 |
+|------|------|
+| hover 菜单项 | 左侧出现抓手（`v-tooltip` 提示「按住并拖动，调整同级顺序」，悬停 500ms 显示），热区 10px，绝对定位在行内留白中 |
+| 拖拽开始 | 被拖整项：主色 14% 浅底 + 主色文字 + 1px 虚线描边 + 85% 不透明度；抓手保持高亮；tooltip 主动收起 |
+| 同级落点 | 目标项 2px 描边 + 4px 插入条；根级显示「插入左侧/右侧」，下拉层显示「插入上方/下方」胶囊 |
+| 跨父级落点 | 目标项红色虚线描边，不显示插入条与胶囊；视口底部提示「只能在同一层级内排序 · 跨层级请到 设置 → 菜单 修改父分类」 |
+| 无效松手 | 不写入，warning toast「只能在同一层级内排序」 |
+| 有效松手 | 乐观更新组内 `position`（1..n）→ `reorderItems` → 失败回滚 + toast |
+| 拖拽期间 | 冻结下拉展开/收起与隐藏定时器（根 200ms / 移动端 2000ms、嵌套浮层 100ms），避免拖到一半浮层被销毁 |
+
+### 选中与祖先标记
+
+- `NavItemView` 计算 `activePath`（根 → 当前选中项），传给 `NavBar` 与各级 `NavMenuItem`。
+- 当前项：主色文字 + 左侧 3px 主色竖线；祖先按距离递减：`100% / 55% / 35% / 22% / 15%`（父级 55%，祖级 35%），竖线宽 2px、颜色与文字同步变淡。
+- 根菜单按同一距离递减文字与背景强度（背景 `18% / 10% / 6% / 4% / 3%`），使三级选中时能顺着二级父项找到根分类。
+- 竖线用 `::before` 绝对定位，不参与布局；**禁止用“实心底 + 内侧白条”组合**，两者叠在圆角里会看成两个重叠矩形。
+
+### 数据流
+
+```
+NavBar / NavMenuItem（共用 useMenuReorder）
+  → NavBar emit reorder-categories { parentId, ids }
+  → NavItemView.handleMenuReorder（快照 → 乐观改 position 1..n）
+  → reorderItems('categories', [{ id, position }])
+  → POST /api/reorder（只更新 categories.position）
+```
+
+- 顺序未变、拖到自身、拖到无效区域都不发请求。
+- 失败时按快照回滚该组 `position` 并提示。
+- 与设置页菜单 Tab 的区别：nav 导航栏是**即时保存**；设置页是“待保存 → 确认”（`useCategoryEditor.confirmSave`）。
+- **跨父级移动不在本机制内**：`/api/reorder` 不写 `parent_id`。改父级仍走设置 → 菜单 → 右侧「父分类」表单（已知：设置页把分类拖到另一分类上只改本地，保存不会落库父级）。
+
+### 相关文件
+
+| 文件 | 作用 |
+|------|------|
+| `src/composables/useMenuReorder.js` | 统一拖拽状态机、同父级判定、落点方向、提示文案 |
+| `src/components/NavBar.vue` | 根菜单把手与横向拖拽、冻结 hover 定时器、底部提示条（Teleport）、emit `reorder-categories` |
+| `src/components/NavMenuItem.vue` | 各层级纵向拖拽、递归透传 `reorder` / `activePath`、祖先递减标记 |
+| `src/views/NavItemView.vue` | `activePath`、`handleMenuReorder`（乐观更新+回滚+持久化）、传入 `reorderable` |
+
+### 布局与已知限制
+
+- 抓手绝对定位在行内左留白中（根菜单 `left: 4px`，下拉行 `left: 3px`），**不占布局宽度**；下拉行 `padding-left: 1rem`，抓手需保持在该留白内，避免压住文字。
+- 插入指示只用 `outline` / `inset box-shadow` / 绝对定位胶囊，不插占位元素，避免重排闪烁。
+- 原生 HTML5 拖拽期间无法滚轮滚动；触摸端不可用。
+- 拖拽交互需要登录态浏览器手动验证（把手、插入条、落点、刷新后顺序保持、断网回滚）。
+
 ## 统一书签搜索（src/utils/search.js）
 
 ### searchBookmarks(bookmarks, query, options)
