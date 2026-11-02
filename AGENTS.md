@@ -508,6 +508,62 @@ NavBar / NavMenuItem（共用 useMenuReorder）
 - 原生 HTML5 拖拽期间无法滚轮滚动；触摸端不可用。
 - 拖拽交互需要登录态浏览器手动验证（把手、插入条、落点、刷新后顺序保持、断网回滚）。
 
+## 导航站菜单内联新建分类
+
+nav 模式下可在菜单栏直接新建分类，覆盖根分类与各层级子分类，仅登录态显示入口。
+
+### 入口
+
+| 位置 | 父级 | 说明 |
+|------|------|------|
+| 导航栏根菜单末尾「＋」 | `null`（根分类） | 仅登录态渲染 |
+| 有子项的下拉/浮层底部「＋ 新建子分类」 | 当前菜单 id | 自动带入父级 |
+| 叶子菜单 hover 右侧「＋」 | 该菜单 id | 叶子没有下拉/浮层，用行内＋补齐；触屏隐藏 |
+
+- 深度达到 5 层时隐藏子级入口，服务端仍二次校验。
+- 入口显示条件沿用 `reorderable`（= `isAuthenticated`），未登录服务端返回 401。
+
+### 弹窗（CategoryCreateDialog）
+
+`src/components/CategoryCreateDialog.vue`：分类名称 + 父分类选择。
+
+- 打开时按点击位置预填父分类：根级＋为「作为根分类」，子级/叶子＋为该项完整路径。
+- 父分类可搜索、可修改，最终以选择结果为准（不强制锁定点击位置）。
+- 名称为空或提交中时「创建」禁用；失败（重名 409 / 父级不存在 / 超过 5 层）保留弹窗与已填内容并 toast；成功后关闭并刷新。
+- 创建后保持当前浏览分类不变。
+
+### 数据流
+
+```
+NavBar / NavMenuItem（emit create-category(parentId)）
+  → NavItemView.handleCreateCategory（打开弹窗）
+  → CategoryCreateDialog emit confirm({ name, parentId })
+  → useBookmarks.addCategory(name, parentId)
+  → POST /api/categories（父级校验、depth、同父级重名、position 末尾）
+  → fetchData({ forceRefresh: true })
+```
+
+### 相关文件
+
+| 文件 | 作用 |
+|------|------|
+| `src/components/CategoryCreateDialog.vue` | 名称 + 父分类选择弹窗（导航栏主题） |
+| `src/components/NavBar.vue` | 根级＋、下拉底部入口 |
+| `src/components/NavMenuItem.vue` | 各级浮层底部入口、叶子行内＋、depth 传递 |
+| `src/views/NavItemView.vue` | 打开弹窗、调用 `addCategory`、成功/失败处理 |
+
+### 样式约束
+
+- 新建入口是次级操作：字号 12px（菜单项 14px），图标 12px。
+- 该行 `white-space: nowrap`；下拉用 `width: max-content`（上限 320px），**不要用固定 `min-width`**，否则短菜单会被撑出大块留白。
+- 嵌套浮层在移动端恢复 `width: auto`，避免横向溢出。
+
+### 已知限制
+
+- 父分类允许修改（产品选择），不是严格绑定入口位置。
+- 第 5 层分类仍会出现在父级下拉，选中后服务端拒绝并 toast；如需可改为过滤/置灰。
+- 设置页“新增分类”仍使用设置面板自带弹窗（局部主题变量耦合），导航栏使用 `CategoryCreateDialog`；如要统一为共享组件，需要把强调色/表单样式参数化。
+
 ## 统一书签搜索（src/utils/search.js）
 
 ### searchBookmarks(bookmarks, query, options)
