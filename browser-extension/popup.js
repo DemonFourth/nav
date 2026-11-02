@@ -235,33 +235,45 @@ function showSection(sectionId) {
   document.getElementById(sectionId).classList.remove('hidden');
 }
 
-function showStatus(message, type = 'info') {
+let statusHideTimer = null;
+let persistentStatusActive = false;
+
+function showStatus(message, type = 'info', options = {}) {
   const statusEl = document.getElementById('status-message');
+  if (!statusEl) return;
+
+  clearTimeout(statusHideTimer);
+  persistentStatusActive = options.persistent === true;
+
   statusEl.textContent = message;
   statusEl.className = `status-message status-${type}`;
   statusEl.classList.remove('hidden');
-  
-  setTimeout(() => {
-    statusEl.classList.add('hidden');
-  }, 4000);
+
+  if (!persistentStatusActive) {
+    statusHideTimer = setTimeout(() => {
+      statusEl.classList.add('hidden');
+    }, 4000);
+  }
+}
+
+function clearPersistentStatus() {
+  if (!persistentStatusActive) return;
+
+  persistentStatusActive = false;
+  clearTimeout(statusHideTimer);
+
+  const statusEl = document.getElementById('status-message');
+  if (!statusEl) return;
+  statusEl.classList.add('hidden');
+  statusEl.textContent = '';
 }
 
 let duplicateCheckSeq = 0;
 
-function hideDuplicateNotice() {
-  const notice = document.getElementById('duplicate-notice');
-  if (!notice) return;
-  notice.classList.add('hidden');
-  notice.textContent = '';
-}
-
 async function checkDuplicateUrl(url) {
-  const notice = document.getElementById('duplicate-notice');
-  if (!notice) return;
-
   const targetUrl = (url || '').trim();
   if (!targetUrl) {
-    hideDuplicateNotice();
+    clearPersistentStatus();
     return;
   }
 
@@ -272,7 +284,7 @@ async function checkDuplicateUrl(url) {
     if (seq !== duplicateCheckSeq) return;
 
     if (!settings.serverUrl || !settings.authToken) {
-      hideDuplicateNotice();
+      clearPersistentStatus();
       return;
     }
 
@@ -289,7 +301,7 @@ async function checkDuplicateUrl(url) {
 
     if (seq !== duplicateCheckSeq) return;
     if (!response.ok) {
-      hideDuplicateNotice();
+      clearPersistentStatus();
       return;
     }
 
@@ -298,22 +310,25 @@ async function checkDuplicateUrl(url) {
 
     // 旧版后端会忽略 url 参数并返回全量列表，此时不能据此判断重复
     if (result.exactUrl !== true) {
-      hideDuplicateNotice();
+      clearPersistentStatus();
       return;
     }
 
     const existing = (result.data || [])[0];
     if (!existing) {
-      hideDuplicateNotice();
+      clearPersistentStatus();
       return;
     }
 
     const categoryName = existing.category_name || '未分类';
-    notice.textContent = `⚠️ 该 URL 已存在：「${existing.name || targetUrl}」 · 分类：${categoryName}`;
-    notice.classList.remove('hidden');
+    showStatus(
+      `⚠️ 该 URL 已存在：「${existing.name || targetUrl}」 · 分类：${categoryName}`,
+      'warning',
+      { persistent: true }
+    );
   } catch (error) {
     if (seq === duplicateCheckSeq) {
-      hideDuplicateNotice();
+      clearPersistentStatus();
     }
   }
 }
@@ -1021,7 +1036,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const urlInput = document.getElementById('url');
   urlInput.addEventListener('input', () => {
     duplicateCheckSeq++;
-    hideDuplicateNotice();
+    clearPersistentStatus();
   });
   urlInput.addEventListener('blur', () => {
     checkDuplicateUrl(urlInput.value);
