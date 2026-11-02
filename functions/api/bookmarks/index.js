@@ -1,10 +1,32 @@
 // GET all bookmarks
 export async function onRequestGet(context) {
-  const { env } = context;
+  const { env, request } = context;
   
   try {
     // 中间件已验签，只读取可信结果
     const isAuthenticated = context.data?.auth?.verified === true;
+
+    // 精确 URL 查重（与 POST 创建时的判定条件一致）
+    const exactUrl = new URL(request.url).searchParams.get('url');
+    if (exactUrl) {
+      let duplicateQuery = `
+        SELECT b.id, b.name, b.url, b.category_id, c.name as category_name
+        FROM bookmarks b
+        LEFT JOIN categories c ON b.category_id = c.id
+        WHERE b.url = ?
+      `;
+      if (!isAuthenticated) {
+        duplicateQuery += ` AND b.is_private = 0`;
+      }
+      duplicateQuery += ` LIMIT 1`;
+
+      const existing = await env.DB.prepare(duplicateQuery).bind(exactUrl.trim()).first();
+
+      return new Response(JSON.stringify({ data: existing ? [existing] : [] }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
     
     // 获取 publicMode 设置
     const publicModeSetting = await env.DB.prepare(

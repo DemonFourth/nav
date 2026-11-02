@@ -227,6 +227,23 @@ body.dark .status-warning {
   color: #1a365d;
 }
 
+.duplicate-notice {
+  margin-bottom: 12px;
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 12px;
+  line-height: 1.5;
+  background: rgba(254, 243, 199, 0.85);
+  color: #744210;
+  border: 1px solid rgba(245, 158, 11, 0.35);
+}
+
+body.dark .duplicate-notice {
+  background: rgba(146, 64, 14, 0.3);
+  color: #fbbf24;
+  border-color: rgba(245, 158, 11, 0.35);
+}
+
 .spinner {
   width: 32px;
   height: 32px;

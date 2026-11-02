@@ -38,6 +38,7 @@ Write-Host "🦊 打包 Firefox 版本..." -ForegroundColor Yellow
 New-Item -ItemType Directory -Path "dist/firefox" -Force | Out-Null
 Copy-Item "manifest.firefox.json" "dist/firefox/manifest.json"
 Copy-Item "popup.html", "popup.js" "dist/firefox/"
+Copy-Item "content.js" "dist/firefox/"
 Copy-Item "options.html", "options.js" "dist/firefox/"
 Copy-Item "background.firefox.js" "dist/firefox/background.js"
 Copy-Item "styles.css" "dist/firefox/"

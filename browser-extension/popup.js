@@ -246,6 +246,72 @@ function showStatus(message, type = 'info') {
   }, 4000);
 }
 
+let duplicateCheckSeq = 0;
+
+function hideDuplicateNotice() {
+  const notice = document.getElementById('duplicate-notice');
+  if (!notice) return;
+  notice.classList.add('hidden');
+  notice.textContent = '';
+}
+
+async function checkDuplicateUrl(url) {
+  const notice = document.getElementById('duplicate-notice');
+  if (!notice) return;
+
+  const targetUrl = (url || '').trim();
+  if (!targetUrl) {
+    hideDuplicateNotice();
+    return;
+  }
+
+  const seq = ++duplicateCheckSeq;
+
+  try {
+    await ensureTokenValid();
+    if (seq !== duplicateCheckSeq) return;
+
+    if (!settings.serverUrl || !settings.authToken) {
+      hideDuplicateNotice();
+      return;
+    }
+
+    const response = await fetch(
+      `${settings.serverUrl}/api/bookmarks?url=${encodeURIComponent(targetUrl)}`,
+      {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${settings.authToken}`
+        }
+      }
+    );
+
+    if (seq !== duplicateCheckSeq) return;
+    if (!response.ok) {
+      hideDuplicateNotice();
+      return;
+    }
+
+    const result = await response.json();
+    if (seq !== duplicateCheckSeq) return;
+
+    const existing = (result.data || [])[0];
+    if (!existing) {
+      hideDuplicateNotice();
+      return;
+    }
+
+    const categoryName = existing.category_name || '未分类';
+    notice.textContent = `⚠️ 该 URL 已存在：「${existing.name || targetUrl}」 · 分类：${categoryName}`;
+    notice.classList.remove('hidden');
+  } catch (error) {
+    if (seq === duplicateCheckSeq) {
+      hideDuplicateNotice();
+    }
+  }
+}
+
 function sortCategories(cats) {
   return cats.sort((a, b) => {
     const depth = c => {
@@ -891,15 +957,15 @@ async function getTabInfo() {
     document.getElementById('url').value = tab.url || '';
   }
 
-  // 抓取页面元数据用于 AI 功能（同时清除旧描述）
+  checkDuplicateUrl(document.getElementById('url')?.value || '')
+
+  // 抓取页面元数据自动填充描述（不覆盖用户已输入的内容）
   fetchPageMetadata(tab?.url).then(pageMeta => {
     const descEl = document.getElementById('description')
-    if (!descEl) return
+    if (!descEl || descEl.value.trim()) return
 
     if (pageMeta && (pageMeta.metaDescription || pageMeta.ogDescription)) {
       descEl.value = pageMeta.metaDescription || pageMeta.ogDescription
-    } else {
-      descEl.value = ''
     }
   })
 }
@@ -945,6 +1011,15 @@ document.addEventListener('DOMContentLoaded', () => {
   });
   
   document.getElementById('bookmark-form').addEventListener('submit', saveBookmark);
+
+  const urlInput = document.getElementById('url');
+  urlInput.addEventListener('input', () => {
+    duplicateCheckSeq++;
+    hideDuplicateNotice();
+  });
+  urlInput.addEventListener('blur', () => {
+    checkDuplicateUrl(urlInput.value);
+  });
   
   document.getElementById('ai-btn').addEventListener('click', generateDescription);
   

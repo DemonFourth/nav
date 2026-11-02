@@ -40,6 +40,7 @@ echo "🦊 打包 Firefox 版本..."
 mkdir -p dist/firefox
 cp manifest.firefox.json dist/firefox/manifest.json
 cp popup.html popup.js dist/firefox/
+cp content.js dist/firefox/
 cp options.html options.js dist/firefox/
 cp background.firefox.js dist/firefox/background.js
 cp styles.css dist/firefox/
