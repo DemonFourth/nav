@@ -297,7 +297,18 @@ const handleDragEnd = () => {
 
 .drag-grip:active { cursor: grabbing; }
 
-.submenu-trigger.is-dragging { opacity: 0.4; }
+.submenu-trigger.is-dragging {
+  background: color-mix(in srgb, var(--nav-primary) 14%, transparent);
+  color: var(--nav-primary);
+  outline: 1px dashed color-mix(in srgb, var(--nav-primary) 60%, transparent);
+  outline-offset: -1px;
+  opacity: 0.85;
+}
+
+.submenu-trigger.is-dragging .drag-grip {
+  opacity: 1;
+  color: var(--nav-primary);
+}
 
 .submenu-trigger.drop-before {
   outline: 2px solid var(--nav-primary);

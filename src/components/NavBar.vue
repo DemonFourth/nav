@@ -494,7 +494,18 @@ defineExpose({
 
 .drag-grip:active { cursor: grabbing; }
 
-.menu-trigger.is-dragging { opacity: 0.4; }
+.menu-trigger.is-dragging {
+  background: color-mix(in srgb, var(--nav-primary) 14%, transparent);
+  color: var(--nav-primary);
+  outline: 1px dashed color-mix(in srgb, var(--nav-primary) 60%, transparent);
+  outline-offset: -1px;
+  opacity: 0.85;
+}
+
+.menu-trigger.is-dragging .drag-grip {
+  opacity: 1;
+  color: var(--nav-primary);
+}
 
 .menu-trigger.drop-before {
   outline: 2px solid var(--nav-primary);
