@@ -1,3 +1,5 @@
+import { getUrlComparisonVariants } from './_shared.js';
+
 // PUT update bookmark
 export async function onRequestPut(context) {
   const { request, env, params } = context;
@@ -33,15 +35,16 @@ export async function onRequestPut(context) {
       }
     }
     
-    // 仅在 URL 被修改时检查是否重复
+    // 仅在 URL 被修改时检查是否重复（根路径忽略尾斜杠差异）
     if (url !== undefined) {
+      const urlVariants = getUrlComparisonVariants(url);
       const existingBookmark = await env.DB.prepare(
         `SELECT b.id, b.name, b.url, b.category_id, c.name as category_name 
          FROM bookmarks b 
          LEFT JOIN categories c ON b.category_id = c.id 
-         WHERE b.url = ? AND b.id != ? 
+         WHERE b.url IN (${urlVariants.map(() => '?').join(', ')}) AND b.id != ?
          LIMIT 1`
-      ).bind(url.trim(), id).first();
+      ).bind(...urlVariants, id).first();
       
       if (existingBookmark) {
         return new Response(JSON.stringify({

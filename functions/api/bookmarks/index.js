@@ -1,3 +1,5 @@
+import { getUrlComparisonVariants } from './_shared.js';
+
 // GET all bookmarks
 export async function onRequestGet(context) {
   const { env, request } = context;
@@ -6,21 +8,26 @@ export async function onRequestGet(context) {
     // 中间件已验签，只读取可信结果
     const isAuthenticated = context.data?.auth?.verified === true;
 
-    // 精确 URL 查重（与 POST 创建时的判定条件一致）
+    // URL 查重（与 POST 创建时的判定条件一致，根路径忽略尾斜杠差异）
     const exactUrl = new URL(request.url).searchParams.get('url');
-    if (exactUrl) {
-      let duplicateQuery = `
-        SELECT b.id, b.name, b.url, b.category_id, c.name as category_name
-        FROM bookmarks b
-        LEFT JOIN categories c ON b.category_id = c.id
-        WHERE b.url = ?
-      `;
-      if (!isAuthenticated) {
-        duplicateQuery += ` AND b.is_private = 0`;
-      }
-      duplicateQuery += ` LIMIT 1`;
+    if (exactUrl !== null) {
+      const variants = getUrlComparisonVariants(exactUrl);
+      let existing = null;
 
-      const existing = await env.DB.prepare(duplicateQuery).bind(exactUrl.trim()).first();
+      if (variants.length > 0) {
+        let duplicateQuery = `
+          SELECT b.id, b.name, b.url, b.category_id, c.name as category_name
+          FROM bookmarks b
+          LEFT JOIN categories c ON b.category_id = c.id
+          WHERE b.url IN (${variants.map(() => '?').join(', ')})
+        `;
+        if (!isAuthenticated) {
+          duplicateQuery += ` AND b.is_private = 0`;
+        }
+        duplicateQuery += ` LIMIT 1`;
+
+        existing = await env.DB.prepare(duplicateQuery).bind(...variants).first();
+      }
 
       return new Response(JSON.stringify({
         data: existing ? [existing] : [],
@@ -104,14 +111,15 @@ export async function onRequestPost(context) {
       });
     }
     
-    // 检查 URL 是否已存在
+    // 检查 URL 是否已存在（根路径忽略尾斜杠差异）
+    const urlVariants = getUrlComparisonVariants(trimmedUrl);
     const existingBookmark = await env.DB.prepare(
       `SELECT b.id, b.name, b.url, b.category_id, c.name as category_name 
        FROM bookmarks b 
        LEFT JOIN categories c ON b.category_id = c.id 
-       WHERE b.url = ? 
+       WHERE b.url IN (${urlVariants.map(() => '?').join(', ')})
        LIMIT 1`
-    ).bind(url.trim()).first();
+    ).bind(...urlVariants).first();
     
     if (existingBookmark) {
       return new Response(JSON.stringify({
