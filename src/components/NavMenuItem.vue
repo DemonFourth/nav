@@ -206,10 +206,20 @@ const handleDragEnd = () => {
 }
 
 .submenu-trigger.active {
-  background: color-mix(in srgb, var(--nav-primary) 70%, #0b2545);
-  color: #fff;
-  font-weight: 500;
-  box-shadow: inset 3px 0 0 rgba(255, 255, 255, 0.75);
+  color: var(--nav-primary);
+  font-weight: 600;
+}
+
+.submenu-trigger.active::before {
+  content: '';
+  position: absolute;
+  left: 2px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 3px;
+  height: 55%;
+  border-radius: 999px;
+  background: var(--nav-primary);
 }
 
 .drag-grip {
@@ -240,13 +250,6 @@ const handleDragEnd = () => {
   background: color-mix(in srgb, var(--nav-primary) 15%, transparent);
 }
 
-.submenu-trigger.active .drag-grip { color: rgba(255, 255, 255, 0.75); }
-
-.submenu-trigger.active .drag-grip:hover {
-  color: #fff;
-  background: rgba(255, 255, 255, 0.18);
-}
-
 .drag-grip:active { cursor: grabbing; }
 
 .submenu-trigger.is-dragging { opacity: 0.4; }
@@ -269,9 +272,6 @@ const handleDragEnd = () => {
   color: var(--error);
 }
 
-.submenu-trigger.active.drop-before { box-shadow: inset 0 4px 0 #fff; }
-.submenu-trigger.active.drop-after { box-shadow: inset 0 -4px 0 #fff; }
-.submenu-trigger.active.drop-forbidden { color: #fff; }
 
 .submenu-drop-cue {
   position: absolute;
