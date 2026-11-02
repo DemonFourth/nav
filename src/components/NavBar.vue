@@ -72,7 +72,7 @@
               <div 
                 v-if="menu.children && menu.children.length > 0"
                 class="submenu-dropdown"
-                :class="{ 'show': hoveredMenuId === menu.id }"
+                :class="{ 'show': hoveredMenuId === menu.id, 'has-add': reorderable }"
                 @mouseenter="keepSubmenu(menu.id)"
                 @mouseleave="hideSubMenu(menu.id)"
               >
@@ -548,11 +548,16 @@ defineExpose({
   height: 11px;
 }
 
+.submenu-dropdown.has-add {
+  min-width: 156px;
+}
+
 .submenu-add-trigger {
   display: flex;
   align-items: center;
   gap: 6px;
   width: 100%;
+  white-space: nowrap;
   margin-top: 4px;
   padding: 0.45rem 0.8rem 0.45rem 1rem;
   border: none;

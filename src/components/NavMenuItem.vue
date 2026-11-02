@@ -49,7 +49,7 @@
     <div 
       v-if="item.children && item.children.length > 0"
       class="submenu-children"
-      :class="{ 'show': isHovered }"
+      :class="{ 'show': isHovered, 'has-add': canAddChild }"
       @mouseenter="handleMouseEnter"
       @mouseleave="handleMouseLeave"
     >
@@ -381,11 +381,16 @@ const handleDragEnd = () => {
 .submenu-drop-cue.before { top: -9px; }
 .submenu-drop-cue.after { bottom: -9px; }
 
+.submenu-children.has-add {
+  min-width: 150px;
+}
+
 .submenu-add-trigger {
   display: flex;
   align-items: center;
   gap: 6px;
   width: 100%;
+  white-space: nowrap;
   margin-top: 4px;
   padding: 0.45rem 1rem;
   border: none;
@@ -501,6 +506,7 @@ const handleDragEnd = () => {
 @media (max-width: 768px) {
   .submenu-children {
     position: static;
+    min-width: 0;
     box-shadow: none;
     border: none;
     padding: 0 0 0 0.75rem;
