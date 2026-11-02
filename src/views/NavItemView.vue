@@ -75,7 +75,14 @@
     <ImportExportDialog ref="importExportDialog" />
     <BackupDialog ref="backupDialog" />
     <ConfirmDialog ref="confirmDialog" />
-    <PromptDialog ref="createCategoryPrompt" />
+    <CategoryCreateDialog
+      :show="showCreateCategory"
+      :categories="categoryOptions"
+      :default-parent-id="createCategoryParentId"
+      :saving="categorySaving"
+      @close="showCreateCategory = false"
+      @confirm="handleConfirmCreateCategory"
+    />
   </div>
 </template>
 
@@ -89,7 +96,7 @@ import NavBookmarkEditModal from '../components/NavBookmarkEditModal.vue'
 import ImportExportDialog from '../components/ImportExportDialog.vue'
 import BackupDialog from '../components/BackupDialog.vue'
 import ConfirmDialog from '../components/ConfirmDialog.vue'
-import PromptDialog from '../components/PromptDialog.vue'
+import CategoryCreateDialog from '../components/CategoryCreateDialog.vue'
 import { useBookmarks } from '../composables/useBookmarks'
 import { useSettings } from '../composables/useSettings'
 import { useAuth } from '../composables/useAuth'
@@ -114,7 +121,9 @@ const showDetailModal = ref(false)
 const showNavSettings = ref(false)
 const navBookmarkEditModalRef = ref(null)
 const confirmDialog = ref(null)
-const createCategoryPrompt = ref(null)
+const showCreateCategory = ref(false)
+const createCategoryParentId = ref(null)
+const categorySaving = ref(false)
 const navSettingsRef = ref(null)
 const importExportDialog = ref(null)
 const backupDialog = ref(null)
@@ -421,23 +430,24 @@ const handleMenuReorder = async ({ parentId, ids }) => {
   }
 }
 
-const handleCreateCategory = async (parentId = null) => {
+const handleCreateCategory = (parentId = null) => {
   if (!isAuthenticated.value) return
+  createCategoryParentId.value = parentId
+  showCreateCategory.value = true
+}
 
-  const name = await createCategoryPrompt.value.open('新建分类', '', '输入分类名称')
-  if (name === null) return
-
-  const trimmedName = name.trim()
-  if (!trimmedName) {
-    errorToast('分类名称不能为空')
-    return
-  }
-
-  const result = await addCategory(trimmedName, parentId)
-  if (result.success) {
-    toastSuccess('分类已创建')
-  } else {
-    errorToast(result.error || '创建失败')
+const handleConfirmCreateCategory = async ({ name, parentId }) => {
+  categorySaving.value = true
+  try {
+    const result = await addCategory(name, parentId)
+    if (result.success) {
+      showCreateCategory.value = false
+      toastSuccess('分类已创建')
+    } else {
+      errorToast(result.error || '创建失败')
+    }
+  } finally {
+    categorySaving.value = false
   }
 }
 
