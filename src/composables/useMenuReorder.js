@@ -35,7 +35,8 @@ export function useMenuReorder({ menus, canReorder = () => true, onReorder, onIn
     targetId: null,
     targetParentId: null,
     targetName: '',
-    dropPosition: null
+    dropPosition: null,
+    orientation: null
   })
 
   let lastDragEndAt = 0
@@ -50,7 +51,11 @@ export function useMenuReorder({ menus, canReorder = () => true, onReorder, onIn
     if (!isActive.value) return ''
     if (state.targetId === null) return '拖到同级菜单上调整顺序'
     if (isInvalid.value) return '只能在同一层级内排序 · 跨层级请到 设置 → 菜单 修改父分类'
-    return `松开后移动到「${state.targetName}」${state.dropPosition === DROP_BEFORE ? '上方' : '下方'}`
+    const before = state.dropPosition === DROP_BEFORE
+    const side = state.orientation === 'horizontal'
+      ? (before ? '左侧' : '右侧')
+      : (before ? '上方' : '下方')
+    return `松开后移动到「${state.targetName}」${side}`
   })
 
   const getMenus = () => {
@@ -74,6 +79,7 @@ export function useMenuReorder({ menus, canReorder = () => true, onReorder, onIn
     state.targetParentId = null
     state.targetName = ''
     state.dropPosition = null
+    state.orientation = null
   }
 
   function beginDrag(event, item, parentId = null) {
@@ -96,7 +102,7 @@ export function useMenuReorder({ menus, canReorder = () => true, onReorder, onIn
     return true
   }
 
-  function hoverItem(item, parentId, position) {
+  function hoverItem(item, parentId, position, orientation = 'vertical') {
     if (!isActive.value || !item) return
     if (item.id === state.draggingId) {
       clearTarget()
@@ -106,6 +112,7 @@ export function useMenuReorder({ menus, canReorder = () => true, onReorder, onIn
     state.targetParentId = parentId
     state.targetName = item.name
     state.dropPosition = position
+    state.orientation = orientation
   }
 
   function endDrag() {
@@ -128,6 +135,13 @@ export function useMenuReorder({ menus, canReorder = () => true, onReorder, onIn
       after: sameLevel && state.dropPosition === DROP_AFTER,
       forbidden: isTarget && !sameLevel
     }
+  }
+
+  function dropCue(id) {
+    const row = rowState(id)
+    if (row.before) return DROP_BEFORE
+    if (row.after) return DROP_AFTER
+    return null
   }
 
   function dropItem(item, parentId, position) {
@@ -177,6 +191,7 @@ export function useMenuReorder({ menus, canReorder = () => true, onReorder, onIn
     endDrag,
     wasJustDragging,
     rowState,
+    dropCue,
     dropItem
   }
 }

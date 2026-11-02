@@ -13,7 +13,7 @@
             >
               <button 
                 class="menu-trigger"
-                :class="[{ active: activeMenu?.id === menu.id }, menuReorder.rowState(menu.id)]"
+                :class="[{ active: activeMenu?.id === menu.id }, rootRowClasses(menu.id)]"
                 @click="handleSelectMenu(menu)"
                 @mouseenter="showSubMenu(menu.id)"
                 @dragover="handleRootDragOver($event, menu)"
@@ -45,6 +45,13 @@
                 >
                   <polyline points="6 9 12 15 18 9"/>
                 </svg>
+                <span
+                  v-if="menuReorder.dropCue(menu.id)"
+                  class="menu-drop-cue"
+                  :class="menuReorder.dropCue(menu.id)"
+                >
+                  {{ menuReorder.dropCue(menu.id) === 'before' ? '插入左侧' : '插入右侧' }}
+                </span>
               </button>
 
               <div 
@@ -247,10 +254,20 @@ const handleRootDragStart = (event, menu) => {
   hoveredMenuId.value = null
 }
 
+const rootRowClasses = (id) => {
+  const state = menuReorder.rowState(id)
+  return {
+    'is-dragging': state.dragging,
+    'drop-before': state.before,
+    'drop-after': state.after,
+    'drop-forbidden': state.forbidden
+  }
+}
+
 const handleRootDragOver = (event, menu) => {
   if (!menuReorder.isActive.value) return
   event.preventDefault()
-  menuReorder.hoverItem(menu, null, resolveDropPosition(event, event.currentTarget, 'horizontal'))
+  menuReorder.hoverItem(menu, null, resolveDropPosition(event, event.currentTarget, 'horizontal'), 'horizontal')
 }
 
 const handleRootDragLeave = (event) => {
@@ -446,13 +463,42 @@ defineExpose({
 
 .menu-trigger.is-dragging { opacity: 0.4; }
 
-.menu-trigger.drop-before { box-shadow: inset 3px 0 0 var(--nav-primary); }
-.menu-trigger.drop-after { box-shadow: inset -3px 0 0 var(--nav-primary); }
+.menu-trigger.drop-before {
+  outline: 2px solid var(--nav-primary);
+  outline-offset: 2px;
+  box-shadow: inset 4px 0 0 var(--nav-primary);
+}
+
+.menu-trigger.drop-after {
+  outline: 2px solid var(--nav-primary);
+  outline-offset: 2px;
+  box-shadow: inset -4px 0 0 var(--nav-primary);
+}
 
 .menu-trigger.drop-forbidden {
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--error) 55%, transparent);
+  outline: 2px dashed color-mix(in srgb, var(--error) 60%, transparent);
+  outline-offset: 2px;
   color: var(--error);
 }
+
+.menu-drop-cue {
+  position: absolute;
+  top: calc(100% + 6px);
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--nav-primary);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1.4;
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 300;
+  box-shadow: 0 2px 10px color-mix(in srgb, var(--nav-primary) 40%, transparent);
+}
+
+.menu-drop-cue.before { left: 0; }
+.menu-drop-cue.after { right: 0; }
 
 .reorder-hint {
   position: fixed;

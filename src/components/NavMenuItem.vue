@@ -34,6 +34,13 @@
       >
         <polyline points="9 18 15 12 9 6"/>
       </svg>
+      <span
+        v-if="dropCue"
+        class="submenu-drop-cue"
+        :class="dropCue"
+      >
+        {{ dropCue === 'before' ? '插入上方' : '插入下方' }}
+      </span>
     </button>
 
     <div 
@@ -106,6 +113,8 @@ const dragClasses = computed(() => {
   }
 })
 
+const dropCue = computed(() => props.reorder?.dropCue?.(props.item.id) || null)
+
 const handleSelect = () => {
   if (props.reorder?.wasJustDragging?.()) return
   emit('select', props.item)
@@ -138,7 +147,8 @@ const handleDragOver = (event) => {
   props.reorder.hoverItem(
     props.item,
     props.parentId ?? null,
-    resolveDropPosition(event, event.currentTarget, 'vertical')
+    resolveDropPosition(event, event.currentTarget, 'vertical'),
+    'vertical'
   )
 }
 
@@ -170,6 +180,7 @@ const handleDragEnd = () => {
 }
 
 .submenu-trigger {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -221,13 +232,42 @@ const handleDragEnd = () => {
 
 .submenu-trigger.is-dragging { opacity: 0.4; }
 
-.submenu-trigger.drop-before { box-shadow: inset 0 2px 0 var(--nav-primary); }
-.submenu-trigger.drop-after { box-shadow: inset 0 -2px 0 var(--nav-primary); }
+.submenu-trigger.drop-before {
+  outline: 2px solid var(--nav-primary);
+  outline-offset: -2px;
+  box-shadow: inset 0 4px 0 var(--nav-primary);
+}
+
+.submenu-trigger.drop-after {
+  outline: 2px solid var(--nav-primary);
+  outline-offset: -2px;
+  box-shadow: inset 0 -4px 0 var(--nav-primary);
+}
 
 .submenu-trigger.drop-forbidden {
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--error) 55%, transparent);
+  outline: 2px dashed color-mix(in srgb, var(--error) 60%, transparent);
+  outline-offset: -2px;
   color: var(--error);
 }
+
+.submenu-drop-cue {
+  position: absolute;
+  right: 6px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--nav-primary);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1.4;
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 12;
+  box-shadow: 0 2px 10px color-mix(in srgb, var(--nav-primary) 40%, transparent);
+}
+
+.submenu-drop-cue.before { top: -9px; }
+.submenu-drop-cue.after { bottom: -9px; }
 
 @media (hover: none) {
   .drag-grip { display: none; }
