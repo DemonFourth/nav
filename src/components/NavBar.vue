@@ -57,6 +57,18 @@
                 </span>
               </button>
 
+              <button
+                v-if="reorderable && (!menu.children || menu.children.length === 0)"
+                class="menu-leaf-add"
+                aria-label="新建子分类"
+                v-tooltip="'新建子分类'"
+                @click.stop="handleCreateCategory(menu.id)"
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M12 5v14M5 12h14" />
+                </svg>
+              </button>
+
               <div 
                 v-if="menu.children && menu.children.length > 0"
                 class="submenu-dropdown"
@@ -69,14 +81,39 @@
                   :key="sub.id"
                   :item="sub"
                   :parent-id="menu.id"
+                  :depth="1"
                   :active-id="activeSubMenu?.id"
                   :active-path="activePath"
                   :reorderable="reorderable"
                   :reorder="menuReorder"
                   @select="(item) => handleSelectSubmenu(menu, item)"
+                  @create-category="handleCreateCategory"
                 />
+
+                <button
+                  v-if="reorderable"
+                  class="submenu-add-trigger"
+                  @click="handleCreateCategory(menu.id)"
+                >
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M12 5v14M5 12h14" />
+                  </svg>
+                  新建子分类
+                </button>
               </div>
             </div>
+
+            <button
+              v-if="reorderable"
+              class="menu-trigger menu-add-trigger"
+              aria-label="新建根分类"
+              v-tooltip="'新建根分类'"
+              @click="handleCreateCategory(null)"
+            >
+              <svg class="menu-add-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M12 5v14M5 12h14" />
+              </svg>
+            </button>
           </div>
         </div>
       </div>
@@ -179,7 +216,7 @@ const props = defineProps({
   }
 })
 
-const emit = defineEmits(['select-menu', 'select-submenu', 'toggle-style', 'open-settings', 'logout', 'reorder-categories'])
+const emit = defineEmits(['select-menu', 'select-submenu', 'toggle-style', 'open-settings', 'logout', 'reorder-categories', 'create-category'])
 
 const { isAuthenticated, username, logout, validateAuthState } = useAuth()
 const { warning: warningToast } = useToast()
@@ -250,6 +287,10 @@ const hideSubMenu = (menuId) => {
       hoveredMenuId.value = null
     }
   }, 200)
+}
+
+const handleCreateCategory = (parentId = null) => {
+  emit('create-category', parentId)
 }
 
 const handleRootDragStart = (event, menu) => {
@@ -456,6 +497,87 @@ defineExpose({
   opacity: 1;
 }
 
+.menu-add-trigger {
+  padding: 0.45rem 0.7rem;
+  color: var(--nav-text-secondary);
+  opacity: 0.7;
+}
+
+.menu-add-trigger:hover {
+  background: color-mix(in srgb, var(--nav-primary) 12%, transparent);
+  color: var(--nav-primary);
+  opacity: 1;
+}
+
+.menu-add-icon {
+  width: 14px;
+  height: 14px;
+}
+
+.menu-leaf-add {
+  position: absolute;
+  right: 2px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  padding: 0;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--nav-text-secondary);
+  opacity: 0;
+  cursor: pointer;
+  transition: opacity 0.15s ease, color 0.15s ease, background-color 0.15s ease;
+  z-index: 2;
+}
+
+.menu-trigger:hover ~ .menu-leaf-add { opacity: 0.7; }
+
+.menu-leaf-add:hover {
+  opacity: 1;
+  color: var(--nav-primary);
+  background: color-mix(in srgb, var(--nav-primary) 12%, transparent);
+}
+
+.menu-leaf-add svg {
+  width: 11px;
+  height: 11px;
+}
+
+.submenu-add-trigger {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  margin-top: 4px;
+  padding: 0.45rem 0.8rem 0.45rem 1rem;
+  border: none;
+  border-top: 1px solid var(--nav-border);
+  border-radius: 0 0 6px 6px;
+  background: transparent;
+  color: var(--nav-text-secondary);
+  font-size: 0.8125rem;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.submenu-add-trigger:hover {
+  background: color-mix(in srgb, var(--nav-primary) 12%, transparent);
+  color: var(--nav-primary);
+}
+
+.submenu-add-trigger svg {
+  width: 13px;
+  height: 13px;
+  flex-shrink: 0;
+}
+
 .menu-text {
   overflow: hidden;
   text-overflow: ellipsis;
@@ -584,6 +706,7 @@ defineExpose({
 
 @media (hover: none) {
   .drag-grip { display: none; }
+  .menu-leaf-add { display: none; }
 }
 
 .chevron-icon {

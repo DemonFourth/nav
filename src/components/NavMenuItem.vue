@@ -58,13 +58,38 @@
         :key="child.id"
         :item="child"
         :parent-id="item.id"
+        :depth="depth + 1"
         :active-id="activeId"
         :active-path="activePath"
         :reorderable="reorderable"
         :reorder="reorder"
         @select="$emit('select', $event)"
+        @create-category="$emit('create-category', $event)"
       />
+
+      <button
+        v-if="canAddChild"
+        class="submenu-add-trigger"
+        @click.stop="$emit('create-category', item.id)"
+      >
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M12 5v14M5 12h14" />
+        </svg>
+        新建子分类
+      </button>
     </div>
+
+    <button
+      v-if="showLeafAdd"
+      class="submenu-add-child"
+      aria-label="新建子分类"
+      v-tooltip="'新建子分类'"
+      @click.stop="$emit('create-category', item.id)"
+    >
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M12 5v14M5 12h14" />
+      </svg>
+    </button>
   </div>
 </template>
 
@@ -85,6 +110,10 @@ const props = defineProps({
     type: [String, Number],
     default: null
   },
+  depth: {
+    type: Number,
+    default: 1
+  },
   activeId: {
     type: [String, Number],
     default: null
@@ -103,7 +132,7 @@ const props = defineProps({
   }
 })
 
-const emit = defineEmits(['select'])
+const emit = defineEmits(['select', 'create-category'])
 
 const isHovered = ref(false)
 let hoverTimeout = null
@@ -122,6 +151,10 @@ const dragClasses = computed(() => {
 })
 
 const dropCue = computed(() => props.reorder?.dropCue?.(props.item.id) || null)
+
+const hasChildren = computed(() => (props.item.children?.length || 0) > 0)
+const canAddChild = computed(() => props.reorderable && props.depth < 5)
+const showLeafAdd = computed(() => canAddChild.value && !hasChildren.value)
 
 const MARK_STRENGTH = ['100%', '55%', '35%', '22%', '15%']
 
@@ -216,7 +249,7 @@ const handleDragEnd = () => {
   align-items: center;
   justify-content: space-between;
   width: 100%;
-  padding: 0.5rem 0.8rem 0.5rem 1rem;
+  padding: 0.5rem 1rem;
   background: transparent;
   border: none;
   border-radius: 6px;
@@ -348,8 +381,73 @@ const handleDragEnd = () => {
 .submenu-drop-cue.before { top: -9px; }
 .submenu-drop-cue.after { bottom: -9px; }
 
+.submenu-add-trigger {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  margin-top: 4px;
+  padding: 0.45rem 1rem;
+  border: none;
+  border-top: 1px solid var(--nav-border);
+  border-radius: 0 0 6px 6px;
+  background: transparent;
+  color: var(--nav-text-secondary);
+  font-size: 0.8125rem;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.submenu-add-trigger:hover {
+  background: color-mix(in srgb, var(--nav-primary) 12%, transparent);
+  color: var(--nav-primary);
+}
+
+.submenu-add-trigger svg {
+  width: 13px;
+  height: 13px;
+  flex-shrink: 0;
+}
+
+.submenu-add-child {
+  position: absolute;
+  right: 2px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  padding: 0;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--nav-text-secondary);
+  opacity: 0;
+  cursor: pointer;
+  transition: opacity 0.15s ease, color 0.15s ease, background-color 0.15s ease;
+  z-index: 2;
+}
+
+.submenu-trigger:hover ~ .submenu-add-child { opacity: 0.7; }
+
+.submenu-add-child:hover {
+  opacity: 1;
+  color: var(--nav-primary);
+  background: color-mix(in srgb, var(--nav-primary) 12%, transparent);
+}
+
+.submenu-add-child svg {
+  width: 11px;
+  height: 11px;
+}
+
 @media (hover: none) {
   .drag-grip { display: none; }
+  .submenu-add-child { display: none; }
 }
 
 .submenu-text {

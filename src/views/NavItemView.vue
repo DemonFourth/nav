@@ -10,6 +10,7 @@
       @select-menu="handleSelectMenu"
       @select-submenu="handleSelectSubMenu"
       @reorder-categories="handleMenuReorder"
+      @create-category="handleCreateCategory"
       @toggle-style="handleToggleStyle"
       @open-settings="handleOpenSettings"
       @logout="handleLogout"
@@ -74,6 +75,7 @@
     <ImportExportDialog ref="importExportDialog" />
     <BackupDialog ref="backupDialog" />
     <ConfirmDialog ref="confirmDialog" />
+    <PromptDialog ref="createCategoryPrompt" />
   </div>
 </template>
 
@@ -87,6 +89,7 @@ import NavBookmarkEditModal from '../components/NavBookmarkEditModal.vue'
 import ImportExportDialog from '../components/ImportExportDialog.vue'
 import BackupDialog from '../components/BackupDialog.vue'
 import ConfirmDialog from '../components/ConfirmDialog.vue'
+import PromptDialog from '../components/PromptDialog.vue'
 import { useBookmarks } from '../composables/useBookmarks'
 import { useSettings } from '../composables/useSettings'
 import { useAuth } from '../composables/useAuth'
@@ -94,7 +97,7 @@ import { useToast } from '../composables/useToast'
 import { useAuthGuard } from '../composables/useAuthGuard'
 import { buildCategoryTree } from '../utils/categoryTree'
 
-const { categories, bookmarks, fetchData, searchTags, updateBookmark, deleteBookmark, allTags, getEmptyCategories, cleanupEmptyCategories, reorderItems } = useBookmarks()
+const { categories, bookmarks, fetchData, searchTags, updateBookmark, deleteBookmark, addCategory, allTags, getEmptyCategories, cleanupEmptyCategories, reorderItems } = useBookmarks()
 const { isAuthenticated, logout } = useAuth()
 const { customTitle, navWallpaper, showSearch, randomWallpaper, wallpaperApi, applyWallpaper } = useSettings()
 const { success: toastSuccess, error: errorToast } = useToast()
@@ -111,6 +114,7 @@ const showDetailModal = ref(false)
 const showNavSettings = ref(false)
 const navBookmarkEditModalRef = ref(null)
 const confirmDialog = ref(null)
+const createCategoryPrompt = ref(null)
 const navSettingsRef = ref(null)
 const importExportDialog = ref(null)
 const backupDialog = ref(null)
@@ -414,6 +418,26 @@ const handleMenuReorder = async ({ parentId, ids }) => {
         : category
     ))
     errorToast(result.error || '菜单排序保存失败')
+  }
+}
+
+const handleCreateCategory = async (parentId = null) => {
+  if (!isAuthenticated.value) return
+
+  const name = await createCategoryPrompt.value.open('新建分类', '', '输入分类名称')
+  if (name === null) return
+
+  const trimmedName = name.trim()
+  if (!trimmedName) {
+    errorToast('分类名称不能为空')
+    return
+  }
+
+  const result = await addCategory(trimmedName, parentId)
+  if (result.success) {
+    toastSuccess('分类已创建')
+  } else {
+    errorToast(result.error || '创建失败')
   }
 }
 
