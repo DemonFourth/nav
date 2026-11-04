@@ -1252,6 +1252,10 @@ async function init() {
 
   const tokenExpired = appSettings.tokenExpiry > 0 && Date.now() > appSettings.tokenExpiry;
   if (tokenExpired && !appSettings.autoRenew) {
+    // 清掉已过期 token，避免后续请求带着它撞 401
+    await storageRemove('local', ['authToken', 'tokenExpiry']);
+    appSettings.authToken = '';
+    appSettings.tokenExpiry = 0;
     showSection('auth-section');
     renderConnection({ mode: 'offline', label: '登录已过期' });
     return;
@@ -1480,6 +1484,8 @@ chrome.storage.onChanged.addListener((changes, area) => {
 
   // 换服务器地址需要重建整个弹窗状态（含缓存隔离）
   if (changes.serverUrl) {
+    pingSupported = true;
+    requestTimings.length = 0;
     init();
     return;
   }
