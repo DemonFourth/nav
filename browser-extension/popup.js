@@ -1,10 +1,20 @@
-const TOKEN_TTL = 15 * 60 * 1000;
-const TOKEN_RENEW_THRESHOLD = 5 * 60 * 1000; // 剩余5分钟时自动续期
-const CACHE_TTL = 5 * 60 * 1000; // 分类和标签缓存5分钟
-let settings = {};
+const appSettings = {
+  serverUrl: '',
+  authToken: '',
+  tokenExpiry: 0,
+  autoRenew: false
+}
+
 let categories = [];
 let tagItems = [];
 let allTags = [];
+let categoriesLoaded = false;
+let formDirty = false;
+let prefetchCacheRecord = null;
+let cacheTimestamp = 0;
+let renewingPromise = null;
+const inFlight = { categories: null, tags: null, bootstrap: null };
+const requestTimings = [];
 
 function storageGet(area, keys) {
   return new Promise(resolve => chrome.storage[area].get(keys, resolve));
@@ -18,11 +28,12 @@ function storageRemove(area, keys) {
   return new Promise(resolve => chrome.storage[area].remove(keys, resolve));
 }
 
-async function savePrefetchCache() {
+async function writeCache() {
   const cacheData = {
     categories,
     tags: allTags,
-    timestamp: Date.now()
+    timestamp: Date.now(),
+    serverUrl: appSettings.serverUrl
   };
   // Chromium: 写入 session 存储（内存级）
   if (chrome.storage.session) {
@@ -30,6 +41,22 @@ async function savePrefetchCache() {
   }
   // Firefox fallback: 写入 local 存储
   await storageSet('local', { prefetchCache: cacheData });
+
+  prefetchCacheRecord = cacheData;
+  cacheTimestamp = cacheData.timestamp;
+}
+
+async function clearPrefetchCache() {
+  prefetchCacheRecord = null;
+  cacheTimestamp = 0;
+  if (chrome.storage.session) {
+    await chrome.storage.session.remove('prefetchCache');
+  }
+  await storageRemove('local', 'prefetchCache');
+}
+
+function readCache() {
+  return prefetchCacheRecord;
 }
 
 async function loadPrefetchCache() {
@@ -47,23 +74,19 @@ async function loadPrefetchCache() {
     cache = result.prefetchCache;
   }
 
-  if (cache && Date.now() - cache.timestamp < CACHE_TTL) {
-    categories = cache.categories || [];
-    allTags = cache.tags || [];
-    return true;
-  }
-  return false;
-}
+  if (!cache) return null;
 
-function parseTokenExpiry(token) {
-  try {
-    const [timestamp] = token.split('.');
-    const issuedAt = Number(timestamp);
-    if (Number.isNaN(issuedAt)) return null;
-    return issuedAt + TOKEN_TTL;
-  } catch (error) {
+  // 换过服务器地址后，旧分类不能复用，否则会保存到不存在的 category_id
+  if (cache.serverUrl && cache.serverUrl !== appSettings.serverUrl) {
+    await clearPrefetchCache();
     return null;
   }
+
+  prefetchCacheRecord = cache;
+  cacheTimestamp = cache.timestamp || 0;
+  categories = Array.isArray(cache.categories) ? cache.categories : [];
+  allTags = Array.isArray(cache.tags) ? cache.tags : [];
+  return cache;
 }
 
 // 密码解密函数（与 options.js 保持一致）
@@ -112,13 +135,6 @@ async function decryptPassword(encryptedPassword) {
   }
 }
 
-// 检查 token 是否需要续期
-function shouldRenewToken(tokenExpiry) {
-  if (!tokenExpiry) return false;
-  const remaining = tokenExpiry - Date.now();
-  return remaining > 0 && remaining < TOKEN_RENEW_THRESHOLD;
-}
-
 // 自动续期 token
 async function autoRenewToken() {
   const { serverUrl = '', username = '', encryptedPassword = '', autoRenew = false } = await storageGet('local', ['serverUrl', 'username', 'encryptedPassword', 'autoRenew']);
@@ -153,15 +169,14 @@ async function autoRenewToken() {
       return false;
     }
 
-    const expiry = parseTokenExpiry(result.token);
+    const expiry = BMExt.parseTokenExpiry(result.token);
     await storageSet('local', {
       authToken: result.token,
       tokenExpiry: expiry
     });
 
-    // 更新 settings 对象
-    settings.authToken = result.token;
-    settings.tokenExpiry = expiry;
+    appSettings.authToken = result.token;
+    appSettings.tokenExpiry = expiry;
 
     return true;
   } catch (error) {
@@ -170,62 +185,41 @@ async function autoRenewToken() {
   }
 }
 
-// 确保 token 有效（检查并自动续期）
+// 确保 token 有效：过期或临近过期时续期，并保证并发请求只触发一次续期
 async function ensureTokenValid() {
-  if (!settings.authToken || !settings.tokenExpiry) {
+  if (!appSettings.authToken || !appSettings.tokenExpiry) {
     return false;
   }
 
   const now = Date.now();
-  if (now > settings.tokenExpiry) {
-    // Token 已过期，尝试自动续期
-    return await autoRenewToken();
+  const expired = now > appSettings.tokenExpiry;
+  if (!expired && !BMExt.shouldRenewToken(appSettings.tokenExpiry, now)) {
+    return true;
   }
 
-  if (shouldRenewToken(settings.tokenExpiry)) {
-    // Token 即将过期，自动续期
-    return await autoRenewToken();
+  if (!appSettings.autoRenew) {
+    return false;
   }
 
-  return true;
+  if (!renewingPromise) {
+    renewingPromise = autoRenewToken().finally(() => {
+      renewingPromise = null;
+    });
+  }
+
+  return renewingPromise;
 }
 
 async function loadSettings() {
   const result = await storageGet('local', ['serverUrl', 'authToken', 'tokenExpiry', 'autoRenew']);
-  let { serverUrl = '', authToken = '', tokenExpiry = 0, autoRenew = false } = result;
+  const { serverUrl = '', authToken = '', tokenExpiry = 0, autoRenew = false } = result;
 
-  if (authToken) {
-    const expiry = tokenExpiry || parseTokenExpiry(authToken);
-    if (!expiry || Date.now() > expiry) {
-      // Token 已过期，如果启用了自动续期，尝试续期
-      if (autoRenew) {
-        const renewed = await autoRenewToken();
-        if (renewed) {
-          // 重新获取续期后的 token
-          const { authToken: newToken, tokenExpiry: newExpiry } = await storageGet('local', ['authToken', 'tokenExpiry']);
-          if (newToken && newExpiry && Date.now() < newExpiry) {
-            authToken = newToken;
-            tokenExpiry = newExpiry;
-          } else {
-            await storageRemove('local', ['authToken', 'tokenExpiry']);
-            authToken = '';
-            tokenExpiry = 0;
-          }
-        } else {
-          await storageRemove('local', ['authToken', 'tokenExpiry']);
-          authToken = '';
-          tokenExpiry = 0;
-        }
-      } else {
-        await storageRemove('local', ['authToken', 'tokenExpiry']);
-        authToken = '';
-        tokenExpiry = 0;
-      }
-    }
-  }
+  appSettings.serverUrl = serverUrl;
+  appSettings.authToken = authToken;
+  appSettings.tokenExpiry = tokenExpiry || BMExt.parseTokenExpiry(authToken) || 0;
+  appSettings.autoRenew = autoRenew === true;
 
-  settings = { serverUrl, authToken, tokenExpiry, autoRenew };
-  return settings;
+  return appSettings;
 }
 
 function showSection(sectionId) {
@@ -233,6 +227,175 @@ function showSection(sectionId) {
   document.getElementById('form-section').classList.add('hidden');
   document.getElementById('loading-section').classList.add('hidden');
   document.getElementById(sectionId).classList.remove('hidden');
+}
+
+let toastTimer = null;
+
+function showToast(message, type = 'info') {
+  const toastEl = document.getElementById('toast');
+  if (!toastEl) return;
+
+  clearTimeout(toastTimer);
+  toastEl.textContent = message;
+  toastEl.className = `toast toast-${type}`;
+  toastTimer = setTimeout(() => {
+    toastEl.classList.add('hidden');
+  }, 3000);
+}
+
+function markFormDirty() {
+  formDirty = true;
+}
+
+function recordTiming(label, ms, ok) {
+  requestTimings.push({ label, ms: Math.round(ms), ok, at: Date.now() });
+  if (requestTimings.length > 20) requestTimings.shift();
+}
+
+async function handleUnauthorized() {
+  appSettings.authToken = '';
+  appSettings.tokenExpiry = 0;
+  await storageRemove('local', ['authToken', 'tokenExpiry']);
+  showSection('auth-section');
+  showToast('登录已过期，请重新登录', 'error');
+}
+
+async function apiFetch(path, options = {}) {
+  const { method = 'GET', body = null, timeout = 8000, label = '请求', auth = true } = options;
+
+  if (auth) {
+    await ensureTokenValid();
+  }
+
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeout);
+  const start = performance.now();
+
+  try {
+    const headers = { 'Content-Type': 'application/json' };
+    if (auth && appSettings.authToken) {
+      headers.Authorization = `Bearer ${appSettings.authToken}`;
+    }
+
+    const response = await fetch(`${appSettings.serverUrl}${path}`, {
+      method,
+      headers,
+      signal: controller.signal,
+      body: body === null ? undefined : JSON.stringify(body)
+    });
+
+    recordTiming(label, performance.now() - start, response.ok);
+
+    if (response.status === 401 && auth) {
+      await handleUnauthorized();
+      const unauthorizedError = new Error('Unauthorized');
+      unauthorizedError.kind = 'unauthorized';
+      throw unauthorizedError;
+    }
+
+    return response;
+  } catch (error) {
+    if (error.kind === 'unauthorized') throw error;
+
+    recordTiming(label, performance.now() - start, false);
+    const isTimeout = error.name === 'AbortError';
+    const requestError = new Error(isTimeout ? 'Request timeout' : 'Network error');
+    requestError.kind = isTimeout ? 'timeout' : 'network';
+    throw requestError;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+function setCategoryLoading(loading) {
+  categoriesLoaded = !loading;
+
+  const input = document.getElementById('category-input');
+  const saveBtn = document.getElementById('save-btn');
+
+  if (loading) {
+    if (input) {
+      input.disabled = true;
+      input.placeholder = '正在加载分类…';
+    }
+    if (saveBtn) saveBtn.disabled = true;
+    renderConnection({ mode: 'loading', label: '正在加载分类…' });
+    return;
+  }
+
+  if (input) {
+    input.disabled = false;
+    input.placeholder = '选择分类...';
+  }
+  if (saveBtn) saveBtn.disabled = false;
+}
+
+function renderConnection(state = {}) {
+  const bar = document.getElementById('connection-bar');
+  const dot = document.getElementById('connection-dot');
+  const text = document.getElementById('connection-text');
+  const main = document.getElementById('connection-main');
+  if (!bar || !dot || !text) return;
+
+  const { mode = 'idle', ms = null, stale = false, label = '', retry = null } = state;
+
+  bar.classList.remove('hidden');
+  dot.className = 'connection-dot';
+  if (main) {
+    main.disabled = false;
+    main.onclick = null;
+  }
+
+  if (mode === 'offline') {
+    text.textContent = label || '未连接';
+    dot.classList.add('is-error');
+    return;
+  }
+
+  if (mode === 'loading') {
+    text.textContent = label || '正在连接…';
+    return;
+  }
+
+  if (mode === 'error') {
+    text.textContent = label || '请求失败';
+    dot.classList.add('is-error');
+    if (main && typeof retry === 'function') {
+      main.disabled = false;
+      main.onclick = () => {
+        main.disabled = true;
+        retry();
+      };
+    } else if (main) {
+      main.disabled = true;
+    }
+    return;
+  }
+
+  if (mode === 'idle') {
+    text.textContent = label || '已连接';
+    return;
+  }
+
+  text.textContent = BMExt.formatLatency(ms) + (stale ? ' · 数据较旧' : '');
+  dot.classList.add(`is-${BMExt.latencyLevel(ms)}`);
+}
+
+function renderConnectionFromTimings() {
+  const last = requestTimings[requestTimings.length - 1];
+  const stale = BMExt.cacheState(cacheTimestamp) === 'old';
+
+  if (!last) {
+    renderConnection({ mode: 'idle', label: '已连接' });
+    return;
+  }
+
+  if (!last.ok) {
+    renderConnection({ mode: 'error', label: `${last.label}失败`, retry: null });
+    return;
+  }
+
+  renderConnection({ mode: 'ok', ms: last.ms, stale });
 }
 
 let statusHideTimer = null;
@@ -283,18 +446,18 @@ async function checkDuplicateUrl(url) {
     await ensureTokenValid();
     if (seq !== duplicateCheckSeq) return;
 
-    if (!settings.serverUrl || !settings.authToken) {
+    if (!appSettings.serverUrl || !appSettings.authToken) {
       clearPersistentStatus();
       return;
     }
 
     const response = await fetch(
-      `${settings.serverUrl}/api/bookmarks?url=${encodeURIComponent(targetUrl)}`,
+      `${appSettings.serverUrl}/api/bookmarks?url=${encodeURIComponent(targetUrl)}`,
       {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${settings.authToken}`
+          'Authorization': `Bearer ${appSettings.authToken}`
         }
       }
     );
@@ -621,111 +784,110 @@ function initSelectDropdown() {
   });
 }
 
-async function loadCategories() {
-  try {
-    await ensureTokenValid();
-    
-    const headers = new Headers();
-    headers.set('Content-Type', 'application/json');
-    if (settings.authToken) {
-      headers.set('Authorization', `Bearer ${settings.authToken}`);
+function buildCategoriesFromRows(rawCategories) {
+  const categoryMap = new Map();
+  rawCategories.forEach(cat => {
+    categoryMap.set(cat.id, { ...cat });
+  });
+
+  const withPaths = rawCategories.map(cat => {
+    const base = categoryMap.get(cat.id);
+    const segments = [];
+    const visited = new Set();
+    let current = base;
+
+    while (current) {
+      if (visited.has(current.id)) {
+        console.warn('Circular reference detected in category:', cat.id);
+        break;
+      }
+      visited.add(current.id);
+      segments.unshift(current.name || '未命名');
+      if (!current.parent_id) {
+        break;
+      }
+      current = categoryMap.get(current.parent_id);
     }
 
-    const response = await fetch(`${settings.serverUrl}/api/categories`, {
-      method: 'GET',
-      headers
-    });
-    
-    if (!response.ok) {
-      if (response.status === 401) {
-        await storageRemove('local', ['authToken', 'tokenExpiry']);
-        settings.authToken = '';
-      }
-      throw new Error('Failed to load categories');
-    }
-    
-    const result = await response.json();
-    const rawCategories = result.data || [];
+    return {
+      ...base,
+      path: segments.join(' / ')
+    };
+  });
 
-    const categoryMap = new Map();
-    rawCategories.forEach(cat => {
-      categoryMap.set(cat.id, { ...cat });
-    });
-
-    categories = rawCategories.map(cat => {
-      const base = categoryMap.get(cat.id);
-      const segments = [];
-      const visited = new Set();
-      let current = base;
-
-      while (current) {
-        if (visited.has(current.id)) {
-          console.warn('Circular reference detected in category:', cat.id);
-          break;
-        }
-        visited.add(current.id);
-        segments.unshift(current.name || '未命名');
-        if (!current.parent_id) {
-          break;
-        }
-        current = categoryMap.get(current.parent_id);
-      }
-
-      return {
-        ...base,
-        path: segments.join(' / ')
-      };
-    });
-    
-    categories = sortCategories(categories);
-    
-    return true;
-  } catch (error) {
-    console.error('Failed to load categories:', error);
-    return false;
-  }
+  return sortCategories(withPaths);
 }
 
-async function loadTags() {
-  try {
-    await ensureTokenValid();
-    
-    const headers = new Headers();
-    headers.set('Content-Type', 'application/json');
-    if (settings.authToken) {
-      headers.set('Authorization', `Bearer ${settings.authToken}`);
-    }
+async function refreshCategories() {
+  if (inFlight.categories) return inFlight.categories;
 
-    const response = await fetch(`${settings.serverUrl}/api/bookmarks?limit=1000`, {
-      method: 'GET',
-      headers
-    });
-    
-    if (!response.ok) {
-      return false;
-    }
-    
-    const result = await response.json();
-    const bookmarks = result.data || [];
-    
-    const tagSet = new Set();
-    bookmarks.forEach(bm => {
-      if (bm.tags) {
-        bm.tags.split(',').forEach(tag => {
-          const trimmed = tag.trim();
-          if (trimmed) {
-            tagSet.add(trimmed);
-          }
-        });
+  inFlight.categories = (async () => {
+    try {
+      const response = await apiFetch('/api/categories', { label: '分类' });
+      if (!response.ok) {
+        throw new Error(`Failed to load categories (${response.status})`);
       }
-    });
-    
-    allTags = Array.from(tagSet).sort();
-    return true;
-  } catch (error) {
-    console.error('Failed to load tags:', error);
-    return false;
-  }
+
+      const result = await response.json();
+      categories = buildCategoriesFromRows(result.data || []);
+      setCategoryLoading(false);
+      await writeCache();
+      renderConnectionFromTimings();
+      return true;
+    } catch (error) {
+      if (error.kind !== 'unauthorized') {
+        console.error('Failed to load categories:', error);
+        renderConnection({ mode: 'error', label: '分类加载失败', retry: refreshCategories });
+      }
+      return false;
+    } finally {
+      inFlight.categories = null;
+    }
+  })();
+
+  return inFlight.categories;
+}
+
+async function refreshTags() {
+  if (inFlight.tags) return inFlight.tags;
+
+  inFlight.tags = (async () => {
+    try {
+      const response = await apiFetch('/api/bookmarks?limit=1000', { label: '标签' });
+      if (!response.ok) {
+        return false;
+      }
+
+      const result = await response.json();
+      const bookmarks = result.data || [];
+
+      const tagSet = new Set();
+      bookmarks.forEach(bm => {
+        if (bm.tags) {
+          bm.tags.split(',').forEach(tag => {
+            const trimmed = tag.trim();
+            if (trimmed) {
+              tagSet.add(trimmed);
+            }
+          });
+        }
+      });
+
+      allTags = Array.from(tagSet).sort((a, b) => a.localeCompare(b, 'zh-CN'));
+      await writeCache();
+      renderConnectionFromTimings();
+      return true;
+    } catch (error) {
+      if (error.kind !== 'unauthorized') {
+        console.error('Failed to load tags:', error);
+      }
+      return false;
+    } finally {
+      inFlight.tags = null;
+    }
+  })();
+
+  return inFlight.tags;
 }
 
 async function getCurrentTab() {
@@ -768,11 +930,11 @@ async function generateDescription() {
     const pageMeta = await fetchPageMetadata(urlEl.value)
     const descriptionToSend = pageMeta ? (pageMeta.metaDescription || pageMeta.ogDescription) : descEl.value
 
-    const response = await fetch(`${settings.serverUrl}/api/ai/generate-description`, {
+    const response = await fetch(`${appSettings.serverUrl}/api/ai/generate-description`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${settings.authToken}`
+        'Authorization': `Bearer ${appSettings.authToken}`
       },
       body: JSON.stringify({
         name: titleEl.value,
@@ -824,11 +986,11 @@ async function suggestCategory() {
     const pageMeta = await fetchPageMetadata(urlEl.value)
     const descriptionToSend = pageMeta ? (pageMeta.metaDescription || pageMeta.ogDescription) : descEl.value
 
-    const response = await fetch(`${settings.serverUrl}/api/ai/suggest-category`, {
+    const response = await fetch(`${appSettings.serverUrl}/api/ai/suggest-category`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${settings.authToken}`
+        'Authorization': `Bearer ${appSettings.authToken}`
       },
       body: JSON.stringify({
         name: titleEl.value,
@@ -893,11 +1055,11 @@ async function saveBookmark(event) {
   saveText.textContent = '保存中...';
   
   try {
-    const response = await fetch(`${settings.serverUrl}/api/bookmarks`, {
+    const response = await fetch(`${appSettings.serverUrl}/api/bookmarks`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${settings.authToken}`
+        'Authorization': `Bearer ${appSettings.authToken}`
       },
       body: JSON.stringify({
         name: title,
@@ -944,43 +1106,50 @@ async function saveBookmark(event) {
 
 async function init() {
   await loadSettings();
-  
-  if (!settings.serverUrl || !settings.authToken) {
+
+  if (!appSettings.serverUrl || !appSettings.authToken) {
     showSection('auth-section');
+    renderConnection({ mode: 'offline' });
     return;
   }
-  
-  const cacheLoaded = await loadPrefetchCache();
-  
-  if (cacheLoaded) {
-    showSection('form-section');
-    getTabInfo();
-    // 后台异步刷新保持最新
-    Promise.all([loadCategories(), loadTags()]).then(() => {
-      savePrefetchCache();
-    });
-  } else {
-    showSection('loading-section');
-    const [categoriesLoaded] = await Promise.all([loadCategories(), loadTags()]);
-    if (!categoriesLoaded) {
-      showSection('auth-section');
-      return;
-    }
-    savePrefetchCache();
-    getTabInfo();
-    showSection('form-section');
+
+  const tokenExpired = appSettings.tokenExpiry > 0 && Date.now() > appSettings.tokenExpiry;
+  if (tokenExpired && !appSettings.autoRenew) {
+    showSection('auth-section');
+    renderConnection({ mode: 'offline', label: '登录已过期' });
+    return;
   }
+
+  const cache = await loadPrefetchCache();
+
+  showSection('form-section');
+  setCategoryLoading(categories.length === 0);
+
+  if (!cache || BMExt.cacheState(cacheTimestamp) !== 'fresh') {
+    // 后台刷新，不阻塞表单渲染
+    Promise.all([refreshCategories(), refreshTags()]);
+  } else {
+    renderConnectionFromTimings();
+  }
+
+  getTabInfo();
 }
 
 async function getTabInfo() {
+  if (formDirty) return;
+
   const contextInfo = await maybeUseContextInfo();
   const tab = contextInfo || await getCurrentTab();
-  if (tab) {
-    const titleEl = document.getElementById('title');
-    if (titleEl && !titleEl.value) {
-      titleEl.value = tab.title || '';
-    }
-    document.getElementById('url').value = tab.url || '';
+  if (!tab || formDirty) return;
+
+  const titleEl = document.getElementById('title');
+  if (titleEl && !titleEl.value) {
+    titleEl.value = tab.title || '';
+  }
+
+  const urlEl = document.getElementById('url');
+  if (urlEl && !urlEl.value) {
+    urlEl.value = tab.url || '';
   }
 
   checkDuplicateUrl(document.getElementById('url')?.value || '')
@@ -988,7 +1157,7 @@ async function getTabInfo() {
   // 抓取页面元数据自动填充描述（不覆盖用户已输入的内容）
   fetchPageMetadata(tab?.url).then(pageMeta => {
     const descEl = document.getElementById('description')
-    if (!descEl || descEl.value.trim()) return
+    if (!descEl || formDirty || descEl.value.trim()) return
 
     if (pageMeta && (pageMeta.metaDescription || pageMeta.ogDescription)) {
       descEl.value = pageMeta.metaDescription || pageMeta.ogDescription
@@ -1130,6 +1299,14 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     categoryInput.focus();
   });
+
+  ['title', 'url', 'description', 'category-input', 'tags-input'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener('input', markFormDirty);
+  });
+
+  const privateInput = document.getElementById('is-private');
+  if (privateInput) privateInput.addEventListener('change', markFormDirty);
 });
 
 document.addEventListener('mousedown', (e) => {
@@ -1147,7 +1324,17 @@ document.addEventListener('mousedown', (e) => {
 });
 
 chrome.storage.onChanged.addListener((changes, area) => {
-  if (area === 'local' && (changes.serverUrl || changes.authToken)) {
+  if (area !== 'local') return;
+
+  // 换服务器地址需要重建整个弹窗状态（含缓存隔离）
+  if (changes.serverUrl) {
     init();
+    return;
+  }
+
+  // options 页登录成功后同步 token，不必重建
+  if (changes.authToken && changes.authToken.newValue) {
+    appSettings.authToken = changes.authToken.newValue;
+    appSettings.tokenExpiry = BMExt.parseTokenExpiry(changes.authToken.newValue) || appSettings.tokenExpiry;
   }
 });
