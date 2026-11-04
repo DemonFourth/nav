@@ -17,6 +17,14 @@ let pendingRetry = null;
 const inFlight = { categories: null, tags: null, bootstrap: null };
 const requestTimings = [];
 
+// 连接延迟：优先用 ping 的纯连接耗时，其次才是某次真实请求
+let lastPingMs = null;
+let lastPingAt = 0;
+// 后端缺少 /api/bootstrap 时置位，供详情面板提示
+let backendFallback = false;
+// 最近一次查重的结果，供详情面板展示（便于区分"没保存过"和"查重失败"）
+let duplicateCheckInfo = null;
+
 function storageGet(area, keys) {
   return new Promise(resolve => chrome.storage[area].get(keys, resolve));
 }
@@ -427,25 +435,28 @@ function renderConnectionFromTimings() {
   const last = requestTimings[requestTimings.length - 1];
   const stale = BMExt.cacheState(cacheTimestamp) === 'old';
 
-  if (!last) {
-    renderConnection({ mode: 'idle', label: '已连接' });
-    return;
-  }
-
-  if (!last.ok) {
+  // 最近一次请求失败，且此后没有更新的 ping 成功：优先暴露失败
+  if (last && !last.ok && last.at > lastPingAt) {
     renderConnection({ mode: 'error', label: `${last.label}失败`, retry: pendingRetry });
     return;
   }
 
-  pendingRetry = null;
+  // 有 ping 结果时优先用 ping：它是纯连接耗时，不受某个接口数据量影响
+  if (pingSupported && lastPingMs !== null) {
+    pendingRetry = null;
+    renderConnection({ mode: 'ok', ms: lastPingMs, stale });
+    return;
+  }
 
-  // 后端还没有 /api/ping 时，用最近一次真实请求的耗时代替 ping 数字
-  if (!pingSupported) {
+  // 后端还没有 /api/ping 时，退回最近一次真实请求的耗时
+  if (last && last.ok) {
+    pendingRetry = null;
     renderConnection({ mode: 'ok', ms: last.ms, stale });
     return;
   }
 
-  renderConnection({ mode: 'ok', ms: last.ms, stale });
+  // 还没有任何可信数据时不要谎报"已连接"
+  renderConnection({ mode: 'loading', label: '连接中…' });
 }
 
 let pingSupported = true;
@@ -466,12 +477,15 @@ async function pingServer() {
     // 老版本后端没有该路由（或中间件要求 token）：静默降级，不再反复探测
     if (response.status === 404 || response.status === 405 || response.status === 401 || response.status === 403) {
       pingSupported = false;
+      lastPingMs = null;
       return null;
     }
 
     if (!response.ok) return null;
 
-    return performance.now() - start;
+    lastPingMs = Math.round(performance.now() - start);
+    lastPingAt = Date.now();
+    return lastPingMs;
   } catch (error) {
     return null;
   } finally {
@@ -513,6 +527,20 @@ function renderConnectionPanel() {
     staleRow.className = 'connection-row connection-row-note';
     staleRow.textContent = '分类与标签来自本地缓存，可能较旧';
     panel.appendChild(staleRow);
+  }
+
+  if (duplicateCheckInfo) {
+    const dupRow = document.createElement('div');
+    dupRow.className = 'connection-row connection-row-note';
+    dupRow.textContent = duplicateCheckInfo.text;
+    panel.appendChild(dupRow);
+  }
+
+  if (backendFallback) {
+    const fallbackRow = document.createElement('div');
+    fallbackRow.className = 'connection-row connection-row-note';
+    fallbackRow.textContent = '后端缺少 /api/bootstrap，已回退旧接口';
+    panel.appendChild(fallbackRow);
   }
 
   const actions = document.createElement('div');
@@ -569,19 +597,16 @@ function toggleConnectionPanel() {
 
 function schedulePingIfIdle() {
   setTimeout(async () => {
-    const recent = requestTimings.some(timing => Date.now() - timing.at < 300);
-    const busy = inFlight.bootstrap || inFlight.categories || inFlight.tags;
-    if (recent || busy) {
+    // 10 秒内刚测过就不重复发请求
+    if (lastPingMs !== null && Date.now() - lastPingAt < 10000) {
       renderConnectionFromTimings();
       return;
     }
 
-    const ms = await pingServer();
-    if (ms === null) {
-      renderConnectionFromTimings();
-    } else {
-      renderConnection({ mode: 'ok', ms, stale: BMExt.cacheState(cacheTimestamp) === 'old' });
-    }
+    // 先亮出"连接中…"，避免停留在上一个语义不明的状态
+    renderConnection({ mode: 'loading', label: '连接中…' });
+    await pingServer();
+    renderConnectionFromTimings();
   }, 300);
 }
 
@@ -615,10 +640,28 @@ function setDuplicateHint(bookmark) {
   hint.classList.remove('hidden');
 }
 
+// 旧版 /api/bookmarks 会忽略 url 参数返回全量列表，用本地归一化比较兜底
+function normalizeUrlForCompare(value) {
+  const raw = String(value || '').trim();
+  if (!raw) return '';
+  try {
+    const parsed = new URL(raw);
+    const path = parsed.pathname.replace(/\/+$/, '') || '/';
+    return `${parsed.protocol}//${parsed.host}${path}${parsed.search}${parsed.hash}`;
+  } catch (error) {
+    return raw.replace(/\/+$/, '');
+  }
+}
+
+function setDuplicateCheckInfo(text) {
+  duplicateCheckInfo = text ? { text, at: Date.now() } : null;
+}
+
 async function checkDuplicateUrl(url) {
   const targetUrl = (url || '').trim();
   if (!targetUrl) {
     setDuplicateHint(null);
+    setDuplicateCheckInfo(null);
     return;
   }
 
@@ -627,6 +670,7 @@ async function checkDuplicateUrl(url) {
   try {
     if (!appSettings.serverUrl || !appSettings.authToken) {
       setDuplicateHint(null);
+      setDuplicateCheckInfo('查重：未登录，已跳过');
       return;
     }
 
@@ -638,28 +682,35 @@ async function checkDuplicateUrl(url) {
     if (seq !== duplicateCheckSeq) return;
     if (!response.ok) {
       setDuplicateHint(null);
+      setDuplicateCheckInfo(`查重：请求失败（HTTP ${response.status}）`);
       return;
     }
 
     const result = await response.json();
     if (seq !== duplicateCheckSeq) return;
 
-    // 旧版后端会忽略 url 参数并返回全量列表，此时不能据此判断重复
-    if (result.exactUrl !== true) {
-      setDuplicateHint(null);
-      return;
-    }
+    const list = Array.isArray(result.data) ? result.data : [];
 
-    const existing = (result.data || [])[0];
+    // 旧版后端没有 exactUrl 标记：改为本地逐条比对，避免误判
+    const usingLegacy = result.exactUrl !== true;
+    const existing = usingLegacy
+      ? list.find(item => normalizeUrlForCompare(item.url) === normalizeUrlForCompare(targetUrl)) || null
+      : list[0] || null;
+
     if (!existing) {
       setDuplicateHint(null);
+      setDuplicateCheckInfo(
+        usingLegacy ? '查重：后端未返回 exactUrl，本地比对未找到' : '查重：未找到匹配'
+      );
       return;
     }
 
     setDuplicateHint(existing);
+    setDuplicateCheckInfo(`查重：已存在（${existing.category_name || '未分类'}）`);
   } catch (error) {
     if (seq === duplicateCheckSeq) {
       setDuplicateHint(null);
+      setDuplicateCheckInfo('查重：请求失败');
     }
   }
 }
@@ -1088,6 +1139,7 @@ async function refreshBootstrap() {
 
       // 老版本后端还没有该路由：回退到两次请求
       if (response.status === 404 || response.status === 405) {
+        backendFallback = true;
         return refreshLegacyData();
       }
 
@@ -1100,11 +1152,13 @@ async function refreshBootstrap() {
       try {
         payload = await response.json();
       } catch (parseError) {
+        backendFallback = true;
         return refreshLegacyData();
       }
 
       if (epoch !== sessionEpoch) return false;
 
+      backendFallback = false;
       applyBootstrap(payload);
       return true;
     } catch (error) {
@@ -1346,6 +1400,8 @@ async function init() {
 
   showSection('form-section');
   setCategoryLoading(categories.length === 0);
+  // 先给出明确的"连接中…"，避免标题行空白或显示语义不明的状态
+  renderConnectionFromTimings();
 
   // 缓存里没有分类时（哪怕是 fresh）也要刷新，否则会一直停在"正在加载分类"
   if (!cache || categories.length === 0 || BMExt.cacheState(cacheTimestamp) !== 'fresh') {
@@ -1467,11 +1523,17 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('bookmark-form').addEventListener('submit', saveBookmark);
 
   const urlInput = document.getElementById('url');
+  let duplicateTimer = null;
   urlInput.addEventListener('input', () => {
     duplicateCheckSeq++;
     setDuplicateHint(null);
+    setDuplicateCheckInfo(null);
+    clearTimeout(duplicateTimer);
+    // 停止输入后再查重，避免每敲一个字符就发一次请求
+    duplicateTimer = setTimeout(() => checkDuplicateUrl(urlInput.value), 600);
   });
   urlInput.addEventListener('blur', () => {
+    clearTimeout(duplicateTimer);
     checkDuplicateUrl(urlInput.value);
   });
   
