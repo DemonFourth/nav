@@ -53,7 +53,8 @@ const PUBLIC_READ_PATHS = new Set([
   '/api/fetch-metadata',
   '/api/icon-proxy',
   '/api/settings',
-  '/api/ai/status'
+  '/api/ai/status',
+  '/api/ping'
 ]);
 
 // JWT验证中间件
