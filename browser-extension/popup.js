@@ -278,14 +278,6 @@ function showToast(message, type = 'info') {
   clearTimeout(toastTimer);
   toastEl.textContent = message;
   toastEl.className = `toast toast-${type}`;
-
-  // 贴在粘性头部（标题 + 连接条）下方，避免盖住连接状态
-  const sticky = document.querySelector('.sticky-top');
-  if (sticky) {
-    const bottom = sticky.getBoundingClientRect().bottom;
-    toastEl.style.top = `${Math.round(bottom + 6)}px`;
-  }
-
   toastTimer = setTimeout(() => {
     toastEl.classList.add('hidden');
   }, 3000);
@@ -374,7 +366,7 @@ function setCategoryLoading(loading) {
       input.placeholder = '正在加载分类…';
     }
     if (saveBtn) saveBtn.disabled = true;
-    renderConnection({ mode: 'loading', label: '正在加载分类…' });
+    renderConnection({ mode: 'loading', label: '连接中…' });
     return;
   }
 
@@ -386,20 +378,16 @@ function setCategoryLoading(loading) {
 }
 
 function renderConnection(state = {}) {
-  const bar = document.getElementById('connection-bar');
+  const main = document.getElementById('connection-main');
   const dot = document.getElementById('connection-dot');
   const text = document.getElementById('connection-text');
-  const main = document.getElementById('connection-main');
-  if (!bar || !dot || !text) return;
+  if (!main || !dot || !text) return;
 
   const { mode = 'idle', ms = null, stale = false, label = '', retry = null } = state;
 
-  bar.classList.remove('hidden');
+  main.classList.remove('hidden');
   dot.className = 'connection-dot';
-  if (main) {
-    main.disabled = false;
-    main.onclick = null;
-  }
+  main.dataset.tip = '点击查看连接详情';
 
   if (mode === 'offline') {
     text.textContent = label || '未连接';
@@ -408,22 +396,16 @@ function renderConnection(state = {}) {
   }
 
   if (mode === 'loading') {
-    text.textContent = label || '正在连接…';
+    text.textContent = label || '连接中…';
     return;
   }
 
   if (mode === 'error') {
     text.textContent = label || '请求失败';
     dot.classList.add('is-error');
-    if (main && typeof retry === 'function') {
+    if (typeof retry === 'function') {
       pendingRetry = retry;
-      main.disabled = false;
-      main.onclick = () => {
-        main.disabled = true;
-        retry();
-      };
-    } else if (main) {
-      main.disabled = true;
+      main.dataset.tip = '请求失败，点击查看并重试';
     }
     return;
   }
@@ -433,8 +415,12 @@ function renderConnection(state = {}) {
     return;
   }
 
-  text.textContent = (label ? `${label} ` : '') + BMExt.formatLatency(ms) + (stale ? ' · 数据较旧' : '');
+  // 标题行只放数值，具体是哪个请求的耗时在详情面板里看
+  text.textContent = BMExt.formatLatency(ms) + (stale ? ' · 旧' : '');
   dot.classList.add(`is-${BMExt.latencyLevel(ms)}`);
+  if (stale) {
+    main.dataset.tip = '点击查看连接详情（数据较旧）';
+  }
 }
 
 function renderConnectionFromTimings() {
@@ -455,7 +441,7 @@ function renderConnectionFromTimings() {
 
   // 后端还没有 /api/ping 时，用最近一次真实请求的耗时代替 ping 数字
   if (!pingSupported) {
-    renderConnection({ mode: 'ok', ms: last.ms, stale, label: last.label });
+    renderConnection({ mode: 'ok', ms: last.ms, stale });
     return;
   }
 
@@ -522,8 +508,28 @@ function renderConnectionPanel() {
     });
   }
 
+  if (BMExt.cacheState(cacheTimestamp) === 'old') {
+    const staleRow = document.createElement('div');
+    staleRow.className = 'connection-row connection-row-note';
+    staleRow.textContent = '分类与标签来自本地缓存，可能较旧';
+    panel.appendChild(staleRow);
+  }
+
   const actions = document.createElement('div');
   actions.className = 'connection-panel-actions';
+
+  if (typeof pendingRetry === 'function') {
+    const retryAction = document.createElement('button');
+    retryAction.type = 'button';
+    retryAction.textContent = '重试';
+    retryAction.addEventListener('click', () => {
+      const fn = pendingRetry;
+      pendingRetry = null;
+      panel.classList.add('hidden');
+      if (typeof fn === 'function') fn();
+    });
+    actions.appendChild(retryAction);
+  }
 
   const retryBtn = document.createElement('button');
   retryBtn.type = 'button';
@@ -1524,9 +1530,9 @@ document.addEventListener('DOMContentLoaded', () => {
   const privateInput = document.getElementById('is-private');
   if (privateInput) privateInput.addEventListener('change', markFormDirty);
 
-  const detailBtn = document.getElementById('connection-detail-btn');
-  if (detailBtn) {
-    detailBtn.addEventListener('click', (event) => {
+  const connectionMain = document.getElementById('connection-main');
+  if (connectionMain) {
+    connectionMain.addEventListener('click', (event) => {
       event.stopPropagation();
       toggleConnectionPanel();
     });
@@ -1535,9 +1541,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
 document.addEventListener('click', (event) => {
   const panel = document.getElementById('connection-panel');
-  const bar = document.getElementById('connection-bar');
+  const main = document.getElementById('connection-main');
   if (!panel || panel.classList.contains('hidden')) return;
-  if (panel.contains(event.target) || (bar && bar.contains(event.target))) return;
+  if (panel.contains(event.target) || (main && main.contains(event.target))) return;
   panel.classList.add('hidden');
 });
 

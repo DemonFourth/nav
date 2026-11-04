@@ -33,7 +33,7 @@ body.dark {
   position: sticky;
   top: 0;
   z-index: 20;
-  margin: -16px -16px 12px;
+  margin: -16px -16px 8px;
   padding: 16px 16px 8px;
   background: #fff;
 }
@@ -42,32 +42,31 @@ body.dark .sticky-top {
   background: #141820;
 }
 
-/* 连接状态条 */
-.connection-bar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  height: 24px;
-  font-size: 12px;
-  color: var(--text-muted);
-}
-
-.connection-main {
+/* 连接延迟胶囊：显示在标题行右侧，只显示数值，点击展开详情 */
+.connection-pill {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 5px;
+  max-width: 104px;
+  padding: 3px 8px;
   border: none;
-  background: transparent;
-  padding: 0;
-  font: inherit;
-  color: inherit;
+  border-radius: 999px;
+  background: rgba(148, 163, 184, 0.14);
+  color: var(--text-muted);
+  font-size: 11px;
+  line-height: 1.4;
+  font-variant-numeric: tabular-nums;
   cursor: pointer;
-  max-width: calc(100% - 40px);
+  transition: background 0.15s ease;
 }
 
-.connection-main:disabled {
-  cursor: default;
+.connection-pill:hover {
+  background: rgba(148, 163, 184, 0.24);
+}
+
+body.dark .connection-pill {
+  background: rgba(148, 163, 184, 0.16);
+  color: #cbd5e1;
 }
 
 .connection-text {
@@ -89,24 +88,6 @@ body.dark .sticky-top {
 .connection-dot.is-medium { background: #d97706; }
 .connection-dot.is-slow { background: #dc2626; }
 .connection-dot.is-error { background: #94a3b8; }
-
-.connection-detail-btn {
-  border: none;
-  background: transparent;
-  padding: 0 2px;
-  font-size: 12px;
-  color: var(--primary);
-  cursor: pointer;
-  border-radius: 4px;
-}
-
-.connection-detail-btn:hover {
-  background: rgba(43, 108, 176, 0.1);
-}
-
-body.dark .connection-detail-btn {
-  color: #60a5fa;
-}
 
 /* 连接详情面板 */
 .connection-panel {
@@ -143,6 +124,16 @@ body.dark .connection-panel {
   white-space: nowrap;
 }
 
+.connection-row-note {
+  color: #b45309;
+  font-size: 11px;
+  line-height: 18px;
+}
+
+body.dark .connection-row-note {
+  color: #fbbf24;
+}
+
 .connection-panel-actions {
   display: flex;
   justify-content: flex-end;
@@ -163,20 +154,19 @@ body.dark .connection-panel-actions button {
   color: #60a5fa;
 }
 
-/* 操作提示 toast：固定在 header 下方，不随表单滚动、不遮挡 header */
+/* 操作提示 toast：随头部一起固定在顶部，出现时把表单往下挤，不遮挡任何字段 */
 .toast {
-  position: fixed;
-  top: 56px;
-  left: 12px;
-  right: 12px;
-  z-index: 40;
-  padding: 10px 12px;
+  width: fit-content;
+  max-width: 100%;
+  margin: 8px auto 0;
+  padding: 6px 12px;
   border-radius: 8px;
-  font-size: 13px;
-  line-height: 1.4;
-  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.18);
-  animation: toast-in 0.15s ease-out;
+  font-size: 12px;
+  line-height: 1.45;
+  text-align: center;
+  overflow-wrap: anywhere;
   pointer-events: none;
+  animation: toast-in 0.15s ease-out;
 }
 
 @keyframes toast-in {
@@ -234,13 +224,20 @@ body.dark .duplicate-hint {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 12px;
+  gap: 8px;
 }
 
 .header-title {
   display: flex;
   align-items: center;
   gap: 8px;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
 }
 
 .header-icon {
@@ -365,7 +362,8 @@ body.dark .ai-icon-btn:hover {
   background: rgba(148, 163, 184, 0.18);
 }
 
-.ai-icon-btn::after {
+.ai-icon-btn::after,
+.connection-pill::after {
   content: attr(data-tip);
   position: absolute;
   top: calc(100% + 6px);
@@ -386,7 +384,9 @@ body.dark .ai-icon-btn:hover {
 }
 
 .ai-icon-btn:hover::after,
-.ai-icon-btn:focus-visible::after {
+.ai-icon-btn:focus-visible::after,
+.connection-pill:hover::after,
+.connection-pill:focus-visible::after {
   opacity: 1;
   transform: translateY(0);
 }
