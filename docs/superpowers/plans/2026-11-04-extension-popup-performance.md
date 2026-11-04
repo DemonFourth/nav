@@ -20,6 +20,7 @@
 - 保存成功关窗延时固定 `300ms`；toast 自动消失 `3000ms`。
 - 版本号：`manifest.json` 与 `manifest.firefox.json` 同步升到 `1.7.0`。
 - 查重仍以 `GET /api/bookmarks?url=` 的 `exactUrl === true` 为准，不得改用缓存。
+- `/api/bootstrap` 响应 `Cache-Control: no-store`；`tags` 只回传字符串数组，不得夹带书签对象。
 - 所有新 UI 文案为简体中文，沿用现有风格。
 - 不修改 `bookmarks` 创建逻辑、不改弹窗宽度、不修暗色模式。
 
@@ -32,6 +33,7 @@
 | 后端尚未部署 `/api/ping` | 状态条不误报红色超时，只显示真实请求耗时 | Task 3 + Task 7 手动项 12 |
 | token 在请求途中刚好过期（服务端 401） | 清 token、回到登录区、提示一次，不无限重试 | Task 5 手动项 5 |
 | URL 已存在后又生成 AI 描述 | 内联查重警告不消失、不被 toast 覆盖 | Task 6 手动项 9/11 |
+| 书签数量较多（>500 条）时打开弹窗 | 传输体积保持几十 KB 级，不卡在加载 | Task 9 Step 3 体积对比 + 手动项 14 |
 
 ---
 
@@ -711,7 +713,161 @@ git commit -m "chore(extension): share serverUrl cache field, align token TTL an
 
 ---
 
-### Task 9: 构建、打包与整体验收
+### Task 9: 启动聚合接口 `/api/bootstrap`（消除全量书签传输）
+
+**Files:**
+- Create: `functions/api/bootstrap.js`
+- Modify: `functions/_middleware.js`（`PUBLIC_READ_PATHS`）
+- Modify: `browser-extension/popup.js`（新增 `refreshBootstrap` / `applyBootstrap`，保留旧路径作为回退）
+- Modify: `browser-extension/background.js`、`browser-extension/background.firefox.js`（预取优先用 bootstrap，404 回退旧逻辑）
+
+**Interfaces:**
+- Produces: `GET /api/bootstrap` → `200 { categories: Array<{ id, name, parent_id, depth, position, is_private, path }>, tags: string[], generatedAt: number }`
+- Produces（popup）：`async function refreshBootstrap(): Promise<boolean>`、`function applyBootstrap(payload): void`、`function refreshLegacyData(): Promise<boolean>`
+- Consumes: `apiFetch`、`writeCache`、`categoriesLoaded`、`renderConnectionFromTimings`（Task 5/7）
+
+- [ ] **Step 1: 实现端点**
+
+```js
+// functions/api/bootstrap.js
+export async function onRequestGet(context) {
+  const { env } = context
+  const json = (data) => new Response(JSON.stringify(data), {
+    status: 200,
+    headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }
+  })
+
+  try {
+    const isAuthenticated = context.data?.auth?.verified === true
+    const publicModeSetting = await env.DB.prepare('SELECT value FROM settings WHERE key = ?')
+      .bind('publicMode').first()
+    const publicMode = publicModeSetting?.value !== 'false'
+
+    if (!publicMode && !isAuthenticated) {
+      return json({ categories: [], tags: [], generatedAt: Date.now() })
+    }
+
+    const categorySql = 'SELECT * FROM categories'
+      + (isAuthenticated ? '' : ' WHERE is_private = 0')
+      + ' ORDER BY depth, position'
+    const tagSql = "SELECT tags FROM bookmarks WHERE tags IS NOT NULL AND tags != ''"
+      + (isAuthenticated ? '' : ' AND is_private = 0')
+
+    const [categoryRows, tagRows] = await Promise.all([
+      env.DB.prepare(categorySql).all(),
+      env.DB.prepare(tagSql).all()
+    ])
+
+    const rawCategories = categoryRows.results || []
+    const map = new Map(rawCategories.map(cat => [cat.id, cat]))
+
+    const categories = rawCategories.map(cat => {
+      const segments = []
+      const visited = new Set()
+      let current = map.get(cat.id)
+      while (current) {
+        if (visited.has(current.id)) break
+        visited.add(current.id)
+        segments.unshift(current.name || '未命名')
+        if (!current.parent_id) break
+        current = map.get(current.parent_id)
+      }
+      return { ...cat, path: segments.join(' / ') }
+    })
+
+    const tagSet = new Set()
+    for (const row of tagRows.results || []) {
+      String(row.tags || '').split(',').forEach(tag => {
+        const trimmed = tag.trim()
+        if (trimmed) tagSet.add(trimmed)
+      })
+    }
+    const tags = Array.from(tagSet).sort((a, b) => a.localeCompare(b, 'zh-CN'))
+
+    return json({ categories, tags, generatedAt: Date.now() })
+  } catch (error) {
+    return new Response(JSON.stringify({ error: 'Failed to load bootstrap data' }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' }
+    })
+  }
+}
+```
+
+- [ ] **Step 2: 中间件放行**
+
+`PUBLIC_READ_PATHS` 增加 `'/api/bootstrap'`（与 `'/api/categories'` 并列）。
+
+- [ ] **Step 3: 本地验证**
+
+```bash
+node --check functions/api/bootstrap.js
+npm run build
+npx wrangler pages dev dist --port 8787
+curl -s http://localhost:8787/api/bootstrap
+curl -s http://localhost:8787/api/bookmarks | wc -c
+```
+
+Expected：bootstrap 返回含 `categories`、`tags`、`generatedAt`；其字节数明显小于 `/api/bookmarks` 全量响应；不带 token 返回 200。
+
+- [ ] **Step 4: popup 接入**
+
+```js
+async function refreshLegacyData() {
+  const [categoriesOk] = await Promise.all([refreshCategories(), refreshTags()])
+  return categoriesOk
+}
+
+async function refreshBootstrap() {
+  if (inFlight.bootstrap) return inFlight.bootstrap
+  inFlight.bootstrap = (async () => {
+    try {
+      const response = await apiFetch('/api/bootstrap', { label: '分类标签' })
+      if (response.status === 404 || response.status === 405) return refreshLegacyData()
+      const payload = await response.json()
+      applyBootstrap(payload)
+      return true
+    } catch (error) {
+      renderConnection({ mode: 'error', label: '加载失败', retry: refreshBootstrap })
+      return false
+    } finally {
+      inFlight.bootstrap = null
+    }
+  })()
+  return inFlight.bootstrap
+}
+
+function applyBootstrap(payload) {
+  categories = sortCategories(payload.categories || [])
+  allTags = payload.tags || []
+  categoriesLoaded = true
+  setCategoryLoading(false)
+  writeCache()
+  renderConnectionFromTimings()
+}
+```
+
+Task 5 的 `init()` 第 5 步中，把"并行触发 `refreshCategories()`、`refreshTags()`"改为触发 `refreshBootstrap()`（其余仍并行）。
+
+- [ ] **Step 5: background 预取接入**
+
+两份 background 的 `prefetchBookmarkData()` 改为：先 `fetch(`${serverUrl}/api/bootstrap`, { headers })`；`response.ok` 时直接用 `{ categories, tags, timestamp: Date.now(), serverUrl }` 写入缓存；否则（404/405/异常）执行原有"categories + bookmarks"两请求逻辑，赋值给同一 `cacheData`。
+
+- [ ] **Step 6: 验证回退**
+
+临时把 `functions/api/bootstrap.js` 改名，重启 `wrangler pages dev`，打开弹窗。
+Expected：分类与标签仍能加载（走回退两请求），状态条出现「分类/标签」两条耗时记录；恢复文件名后重启，恢复为单请求。
+
+- [ ] **Step 7: 提交**
+
+```bash
+git add functions/api/bootstrap.js functions/_middleware.js browser-extension/popup.js browser-extension/background.js browser-extension/background.firefox.js
+git commit -m "feat(extension): add /api/bootstrap to replace full bookmark download"
+```
+
+---
+
+### Task 10: 构建、打包与整体验收
 
 **Files:**
 - 无源码改动（只验证；若发现缺陷回到对应任务修）
@@ -732,12 +888,12 @@ Expected: 两个 zip 生成；`dist/chromium` 与 `dist/firefox` 都包含 `shar
 
 - [ ] **Step 3: 执行设计文档 §10 手动清单**
 
-按 `docs/superpowers/specs/2026-11-04-extension-popup-performance-design.md` §10 的第 1–13 项逐条验证，重点：打开即渲染、内联查重不消失、ping 缺失不报红、换服务器不串台、保存 300ms 关窗。
+按 `docs/superpowers/specs/2026-11-04-extension-popup-performance-design.md` §10 的第 1–15 项逐条验证，重点：打开即渲染、内联查重不消失、ping 缺失不报红、换服务器不串台、保存 300ms 关窗、bootstrap 缺失可回退。
 
 - [ ] **Step 4: 全分支审查**
 
-Run: `git diff --stat HEAD~8..HEAD`
-Expected: 改动仅限 spec 列出的 10 个文件；无调试日志、无临时文件、无 `console.log` 残留（`console.error` 允许）。
+Run: `git diff --stat HEAD~10..HEAD`
+Expected: 改动仅限 spec 列出的 12 个文件；无调试日志、无临时文件、无 `console.log` 残留（`console.error` 允许）。
 
 - [ ] **Step 5: 提交（若有验证期间的修补）**
 
@@ -750,6 +906,7 @@ git commit -m "test(extension): verify popup performance and status UI changes"
 
 ## 自检记录
 
-- 覆盖：spec §7.1→Task 5，§7.2→Task 5，§7.3→Task 5，§7.4/7.4.1→Task 1/5/8，§7.5→Task 3/7，§7.6→Task 4/6，§7.7→Task 6，§7.8→Task 6，§7.9→已提交 spec + Task 8，§8 文件清单全部落在 Task 1–8。
-- 接口一致性：`apiFetch`、`showToast`、`setDuplicateHint`、`renderConnection`、`pingServer` 在创建任务与使用任务中签名一致。
+- 覆盖：spec §7.1→Task 5，§7.2→Task 5，§7.3→Task 5，§7.4/7.4.1→Task 1/5/8，§7.5→Task 3/7，§7.6→Task 4/6，§7.7→Task 6，§7.8→Task 6，**§7.9 bootstrap→Task 9**，§7.10→已提交 spec + Task 8，§8 文件清单全部落在 Task 1–9，§13 KV 明确不做。
+- 接口一致性：`apiFetch`、`showToast`、`setDuplicateHint`、`renderConnection`、`pingServer`、`refreshBootstrap`、`applyBootstrap` 在创建任务与使用任务中签名一致。
 - 无测试基础设施风险：只新增 `node --test`（Node 24 内置），未引入依赖。
+- 免费额度：仅新增 1 个只读端点，D1 行读与 `/api/bookmarks` 全量方案相同或更低，传输体积大幅下降；不新增 KV 写入。

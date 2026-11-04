@@ -227,7 +227,25 @@ Cache-Control: no-store
 - 不做本地缓存查重。
 - 命中后只显示提示，不自动修改表单。
 
-### 7.9 版本与文档
+### 7.9 启动聚合接口 `/api/bootstrap`（本轮新增）
+
+现状问题：`GET /api/bookmarks` **未处理 `limit` 参数**，扩展里的 `?limit=1000` 无效，每次打开都会返回全量书签。而扩展拿这份数据只为了提取标签——1000 条约 250KB，是国内网络下打开慢的主要体积来源，也会逼近 Workers 免费档 10ms CPU 限制。
+
+设计：
+
+```
+GET /api/bootstrap
+→ 200 { categories: Category[], tags: string[], generatedAt: number }
+```
+
+- `categories`：与 `/api/categories` 同字段（`SELECT *`，`ORDER BY depth, position`），未登录过滤 `is_private = 0`；`publicMode === 'false'` 且未登录时返回空数组。`path` 在服务端用与 popup 相同的向上遍历算法生成（含循环保护）。
+- `tags`：只查 `SELECT tags FROM bookmarks`（未登录加 `is_private = 0`），逗号拆分、trim、去重、排序后返回。不回传任何书签字段。
+- 响应头：`Content-Type: application/json`、`Cache-Control: no-store`（结果随登录态变化，不交给缓存）。
+- 中间件：加入 `PUBLIC_READ_PATHS`，与 `/api/categories` 一致允许匿名读。
+- 扩展侧：`refreshBootstrap()` 一次拿齐分类与标签；若返回 404/405（后端未升级），自动回退到原有的 `/api/categories` + `/api/bookmarks` 两请求路径。
+- 不引入 KV / Cache API：收益不足以抵消一致性与复杂度（触发条件见 §12）。
+
+### 7.10 版本与文档
 
 - `manifest.json` / `manifest.firefox.json`：`1.6.6` → `1.7.0`。
 - 若获同意，本文档迁入 `docs/superpowers/specs/2026-11-04-extension-popup-performance-design.md` 并提交。
@@ -243,7 +261,8 @@ Cache-Control: no-store
 | `browser-extension/background.firefox.js` | 同上 |
 | `browser-extension/options.js` | token TTL 修正（状态文案中的过期时间由类型决定） |
 | `functions/api/ping.js` | 新增极简端点 |
-| `functions/_middleware.js` | `PUBLIC_READ_PATHS` 增加 `/api/ping` |
+| `functions/api/bootstrap.js` | 新增启动聚合端点（分类 + 标签） |
+| `functions/_middleware.js` | `PUBLIC_READ_PATHS` 增加 `/api/ping`、`/api/bootstrap` |
 | `manifest.json` / `manifest.firefox.json` | 版本号 |
 
 ## 9. 错误与边界
@@ -258,6 +277,8 @@ Cache-Control: no-store
 | 后台续期写入 `authToken` | 只更新内存 settings，不重建表单、不覆盖用户输入 |
 | 连到没有 `/api/ping` 的后端 | 静默降级为被动计时，不显示红色错误 |
 | 弹出的表单已展示后再次触发 `init()` | 仅在 `serverUrl` 变化时重建；其余忽略 |
+| 后端未部署 `/api/bootstrap` | 扩展自动回退到分类 + 书签两请求，功能不降级 |
+| 分类树 path 计算与服务端不一致 | 以服务端返回的 `path` 为准；回退路径沿用原 popup 算法 |
 | 关闭弹窗前请求未完成 | 不处理，弹窗销毁即取消 |
 | 状态条点击 | 展开/收起请求耗时面板；"重新测速"仅触发 ping |
 
@@ -266,6 +287,7 @@ Cache-Control: no-store
 自动化：
 - `npm run build` 通过（确认主站未受影响）。
 - `npx wrangler pages dev dist --port 8787` 后 `curl http://localhost:8787/api/ping` 返回 `{"ok":true,...}` 且无 token 也可访问。
+- `curl http://localhost:8787/api/bootstrap` 返回 `categories` 与 `tags` 两个数组，体积远小于全量书签响应。
 - 打包脚本执行成功，两个 zip 均含最新 popup/styles。
 
 手动（需登录态浏览器，用户接管）：
@@ -281,7 +303,9 @@ Cache-Control: no-store
 10. 保存成功：toast 出现且 300ms 内关窗。
 11. AI 生成中/失败：toast 正常，不覆盖内联查重。
 12. 后端无 `/api/ping`（临时删掉路由或指向旧实例）：状态条不报红，仅显示真实请求耗时。
-13. Firefox 临时加载：上述 1–4 正常。
+13. 后端无 `/api/bootstrap`：弹窗仍能加载分类与标签（走回退两请求），状态条计时显示「分类/标签」两个请求。
+14. 书签数量较多时（>500 条）：打开弹窗的 `/api/bootstrap` 响应体积应在几十 KB 以内。
+15. Firefox 临时加载：上述 1–4 正常。
 
 ## 11. 风险
 
@@ -302,3 +326,15 @@ Cache-Control: no-store
 - 计时环形缓冲的具体实现（数组/Map）。
 - 加载骨架用文案还是骨架块（当前倾向文案）。
 - 是否顺手抽取 `browser-extension/common.js` 承载 storage/请求封装（当前倾向不抽，保持单文件便于打包）。
+
+## 13. 暂不做：KV / Cache API 缓存
+
+评估结论：免费额度在单用户规模下都不是瓶颈（KV 读 10 万/天、写 1000/天；D1 行读 500 万/天；Workers 10 万请求/天），真正的瓶颈是客户端到 Cloudflare 的网络往返与全量书签传输，KV 只能省下 Worker→D1 的几十毫秒，却引入最终一致与失效逻辑。
+
+仅当满足以下任一条时再排期：
+
+1. 状态条显示 `/api/bootstrap` 稳定 >300ms；
+2. D1 行读用量持续超过免费额度 30%；
+3. 扩展开始给多人使用。
+
+届时只缓存 categories（小、少变），不缓存书签与标签；使用独立 namespace，并做 `env.CACHE_KV` 缺失时回退 D1。
