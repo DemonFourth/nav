@@ -616,13 +616,83 @@ NavSettingsModal.vue 使用 non-scoped `<style>` 块 + 全局变量（`--text-te
 
 ## 浏览器扩展
 
-```bash
-# 构建 Chromium 版本
-npm run ext:build:chromium
+### 构建与打包
 
-# 构建 Firefox 版本
-npm run ext:build:firefox
+```bash
+# Windows（本机可用）
+npm run ext:build:win
+
+# Linux/macOS
+npm run ext:build
+
+# 共享逻辑单测（Node 内置 test runner，无需额外依赖）
+npm run test:ext
 ```
+
+- 产物固定输出到 `browser-extension/dist/`（已 gitignore）：`bookmark-manager-chromium.zip`、`bookmark-manager-firefox.zip`
+- **不要再往 `browser-extension/` 根目录放 zip**（历史遗留包已删除，`.gitignore` 已加 `browser-extension/*.zip` 兜底）
+- `package.ps1` 与 `package.sh` 各自维护文件白名单，**新增共享脚本（如 `shared.js`）必须同时加进两个脚本**，否则打包后会 `BMExt is not defined`
+
+### 共享逻辑 shared.js（BMExt）
+
+`browser-extension/shared.js` 用 IIFE 挂到 `globalThis.BMExt`，被 popup / options / background 三处共用；纯函数、不碰 DOM，可直接单测。
+
+| 成员 | 作用 |
+|------|------|
+| `parseTokenExpiry(token)` | 解析 `timestamp.type.hash`，返回过期时间戳 |
+| `shouldRenewToken(expiry, now)` | 是否进入续期提前量 |
+| `cacheState(ts, now)` | `fresh`(<60s) / `stale`(60s~7d) / `old`(>7d) |
+| `latencyLevel(ms)` | `fast`(≤500) / `medium`(≤1500) / `slow` |
+| `formatLatency(ms)` | `68ms` / `1.2s` |
+| `buildDuplicateHint(bookmark)` | 内联查重提示文案 |
+
+token TTL 必须与 `functions/_middleware.js` 的 `validateToken` 保持一致：`long` 30 天、`short` 30 分钟。
+
+### popup 首屏（stale-while-revalidate）
+
+`popup.js` 的 `init()` 顺序：
+
+1. 读 settings → 无 `serverUrl` / `authToken` 直接显示 `auth-section`
+2. token 已过期且未开自动续期 → 清 token，显示「登录已过期」
+3. 读 `prefetchCache` → **先渲染表单**（分类为空时才禁用输入框）
+4. 缓存非 fresh 或无分类 → 后台 `refreshBootstrap()`，不阻塞界面
+5. `getTabInfo()` 与 `schedulePingIfIdle()` 并行
+
+- `/api/bootstrap` 一次返回 `categories` + `tags`；遇 404/405/401/403 或返回非 JSON（被 SPA 重写成 HTML）时回退 `refreshLegacyData()` 的两个旧请求
+- `sessionEpoch` 在切换服务器 / 重新登录时递增，用于丢弃在途响应，避免分类串台
+
+### 连接延迟胶囊
+
+唯一的连接状态展示，位于标题行右侧（`#connection-main`），不再有独立状态栏：
+
+| 状态 | 文案 |
+|------|------|
+| 正常 | `68ms`；缓存超 7 天为 `68ms · 旧` |
+| 后端无 `/api/ping` | 最近一次真实请求耗时（请求名前缀只在详情里看） |
+| 加载中 | `连接中…` |
+| 失败 | `分类加载失败`（灰点） |
+| 未登录 / 过期 | `未连接` / `登录已过期` |
+
+- 点击胶囊 = 展开/收起详情面板：最近 5 次请求耗时、失败时的「重试」、`ping` 可用时的「重新测速」、缓存较旧说明
+- 计时来源优先级：真实请求（`recordTiming`）> 空闲 300ms 后主动 ping（`schedulePingIfIdle`）；有真实请求就不 ping
+- `renderConnection(state)` 只负责渲染；重试回调存 `pendingRetry`，由面板按钮触发，点击后自动收起面板
+
+### toast
+
+- 位于 `.sticky-top` 内，`width: fit-content`：出现时把表单轻微下推，**不遮挡字段、不超视口**
+- 保存成功：先 `showToast`，**1 秒后再 `window.close()`**；不要缩短，否则用户看不到提示
+
+### 弹窗高度
+
+- `body` 不要写 `min-height`：弹窗高度由内容决定，写死会在底部留白
+- 未登录页需要撑一点高度，用 `#auth-section:not(.hidden) { min-height: 200px; display: flex; ... }`
+- 必须带 `:not(.hidden)`，否则 ID 选择器优先级压过 `.hidden`，登录页会永远显示
+
+### 本地安装与验证
+
+- Chrome/Edge：`chrome://extensions` → 开发者模式 → 「加载已解压的扩展程序」指向 `browser-extension/`；**改代码后点 ↻ 重新加载即可，不需要重装**
+- Firefox：`about:debugging#/runtime/this-firefox` → 临时载入 `browser-extension/manifest.firefox.json`，改后点「重新载入」（Firefox 重启后临时扩展失效）
+- `/api/ping`、`/api/bootstrap` 是新端点，需随主站一起部署（`npm run deploy` 或 Git 自动部署），否则扩展走降级路径（功能正常，只是没有一次请求与 ping 数值）
 
 ## 故障排查：白屏问题
 

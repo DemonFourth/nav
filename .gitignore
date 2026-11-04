@@ -8,6 +8,7 @@ pnpm-lock.yaml
 dist/
 .output/
 browser-extension/dist/
+browser-extension/*.zip
 
 # Environment
 .env
