@@ -902,8 +902,8 @@ if (token.value && isTokenExpired(token.value)) {
 | token 格式 | 类型 | 有效期 |
 |-----------|------|--------|
 | `timestamp.type.hash`（3段） | `long` | 30 天 |
-| `timestamp.type.hash`（3段） | `short` | 15 分钟 |
-| `timestamp.hash`（2段，旧格式） | 默认为 `short` | 15 分钟 |
+| `timestamp.type.hash`（3段） | `short` | 30 分钟 |
+| `timestamp.hash`（2段，旧格式） | 默认为 `short` | 30 分钟 |
 | 其他格式 | - | 视为已过期 |
 
 ### 效果

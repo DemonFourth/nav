@@ -225,7 +225,7 @@ async function fetchLegacyCache(serverUrl, headers) {
 
     return {
       categories: processedCategories,
-      tags: Array.from(tagSet).sort(),
+      tags: Array.from(tagSet).sort((a, b) => a.localeCompare(b, 'zh-CN')),
       timestamp: Date.now(),
       serverUrl
     };
@@ -279,17 +279,16 @@ chrome.runtime.onInstalled.addListener(() => {
   prefetchBookmarkData();
 });
 
-// 监听存储变化，如果启用/禁用自动续期，重新启动/停止检查
-chrome.storage.onChanged.addListener((changes, area) => {
-  if (area === 'local') {
-    if (changes.autoRenew !== undefined || changes.authToken !== undefined) {
-      const { autoRenew = false, authToken = '' } = changes;
-      if (autoRenew?.newValue && authToken?.newValue) {
-        startTokenCheck();
-      } else if (!autoRenew?.newValue || !authToken?.newValue) {
-        stopTokenCheck();
-      }
-    }
+// 监听存储变化：按当前 authToken + autoRenew 决定启动/停止检查
+chrome.storage.onChanged.addListener(async (changes, area) => {
+  if (area !== 'local') return;
+  if (changes.autoRenew === undefined && changes.authToken === undefined) return;
+
+  const { autoRenew = false, authToken = '' } = await storageGet('local', ['autoRenew', 'authToken']);
+  if (autoRenew && authToken) {
+    startTokenCheck();
+  } else {
+    stopTokenCheck();
   }
 });
 

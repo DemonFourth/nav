@@ -8,11 +8,12 @@ const appSettings = {
 let categories = [];
 let tagItems = [];
 let allTags = [];
-let categoriesLoaded = false;
 let formDirty = false;
 let prefetchCacheRecord = null;
 let cacheTimestamp = 0;
 let renewingPromise = null;
+let sessionEpoch = 0;
+let pendingRetry = null;
 const inFlight = { categories: null, tags: null, bootstrap: null };
 const requestTimings = [];
 
@@ -35,15 +36,20 @@ async function writeCache() {
     timestamp: Date.now(),
     serverUrl: appSettings.serverUrl
   };
-  // Chromium: 写入 session 存储（内存级）
-  if (chrome.storage.session) {
-    await chrome.storage.session.set({ prefetchCache: cacheData });
-  }
-  // Firefox fallback: 写入 local 存储
-  await storageSet('local', { prefetchCache: cacheData });
 
-  prefetchCacheRecord = cacheData;
-  cacheTimestamp = cacheData.timestamp;
+  try {
+    // Chromium: 写入 session 存储（内存级）
+    if (chrome.storage.session) {
+      await chrome.storage.session.set({ prefetchCache: cacheData });
+    }
+    // Firefox fallback: 写入 local 存储
+    await storageSet('local', { prefetchCache: cacheData });
+
+    prefetchCacheRecord = cacheData;
+    cacheTimestamp = cacheData.timestamp;
+  } catch (error) {
+    console.error('Failed to write prefetch cache:', error);
+  }
 }
 
 async function clearPrefetchCache() {
@@ -55,8 +61,24 @@ async function clearPrefetchCache() {
   await storageRemove('local', 'prefetchCache');
 }
 
-function readCache() {
-  return prefetchCacheRecord;
+// 切换服务器后清空所有会话内状态，避免旧数据写入新会话
+function resetSessionState() {
+  sessionEpoch++;
+  categories = [];
+  allTags = [];
+  tagItems = [];
+  prefetchCacheRecord = null;
+  cacheTimestamp = 0;
+  inFlight.categories = null;
+  inFlight.tags = null;
+  inFlight.bootstrap = null;
+  renewingPromise = null;
+  duplicateCheckSeq++;
+  formDirty = false;
+  pendingRetry = null;
+  requestTimings.length = 0;
+  pingSupported = true;
+  setDuplicateHint(null);
 }
 
 async function loadPrefetchCache() {
@@ -86,6 +108,12 @@ async function loadPrefetchCache() {
   cacheTimestamp = cache.timestamp || 0;
   categories = Array.isArray(cache.categories) ? cache.categories : [];
   allTags = Array.isArray(cache.tags) ? cache.tags : [];
+
+  // 升级前写入的缓存没有 serverUrl，无法确认归属：先展示，但强制刷新补上来源
+  if (!cache.serverUrl) {
+    cacheTimestamp = 0;
+  }
+
   return cache;
 }
 
@@ -143,6 +171,10 @@ async function autoRenewToken() {
     return false;
   }
 
+  const epoch = sessionEpoch;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 8000);
+
   try {
     const password = await decryptPassword(encryptedPassword);
     if (!password) {
@@ -155,6 +187,7 @@ async function autoRenewToken() {
       headers: {
         'Content-Type': 'application/json'
       },
+      signal: controller.signal,
       body: JSON.stringify({ username, password })
     });
 
@@ -166,6 +199,11 @@ async function autoRenewToken() {
     const result = await response.json();
     if (!result.success || !result.token) {
       console.error('Auto renew token failed: Invalid response');
+      return false;
+    }
+
+    // 期间切换过服务器：丢弃这次续期结果
+    if (epoch !== sessionEpoch) {
       return false;
     }
 
@@ -182,6 +220,8 @@ async function autoRenewToken() {
   } catch (error) {
     console.error('Auto renew token error:', error);
     return false;
+  } finally {
+    clearTimeout(timer);
   }
 }
 
@@ -308,8 +348,6 @@ async function apiFetch(path, options = {}) {
 }
 
 function setCategoryLoading(loading) {
-  categoriesLoaded = !loading;
-
   const input = document.getElementById('category-input');
   const saveBtn = document.getElementById('save-btn');
 
@@ -361,6 +399,7 @@ function renderConnection(state = {}) {
     text.textContent = label || '请求失败';
     dot.classList.add('is-error');
     if (main && typeof retry === 'function') {
+      pendingRetry = retry;
       main.disabled = false;
       main.onclick = () => {
         main.disabled = true;
@@ -391,9 +430,11 @@ function renderConnectionFromTimings() {
   }
 
   if (!last.ok) {
-    renderConnection({ mode: 'error', label: `${last.label}失败`, retry: null });
+    renderConnection({ mode: 'error', label: `${last.label}失败`, retry: pendingRetry });
     return;
   }
+
+  pendingRetry = null;
 
   // 后端还没有 /api/ping 时，用最近一次真实请求的耗时代替 ping 数字
   if (!pingSupported) {
@@ -419,8 +460,8 @@ async function pingServer() {
       cache: 'no-store'
     });
 
-    // 老版本后端没有该路由：静默降级，不再反复探测
-    if (response.status === 404 || response.status === 405) {
+    // 老版本后端没有该路由（或中间件要求 token）：静默降级，不再反复探测
+    if (response.status === 404 || response.status === 405 || response.status === 401 || response.status === 403) {
       pingSupported = false;
       return null;
     }
@@ -506,7 +547,8 @@ function toggleConnectionPanel() {
 function schedulePingIfIdle() {
   setTimeout(async () => {
     const recent = requestTimings.some(timing => Date.now() - timing.at < 300);
-    if (recent) {
+    const busy = inFlight.bootstrap || inFlight.categories || inFlight.tags;
+    if (recent || busy) {
       renderConnectionFromTimings();
       return;
     }
@@ -920,6 +962,8 @@ function buildCategoriesFromRows(rawCategories) {
 async function refreshCategories() {
   if (inFlight.categories) return inFlight.categories;
 
+  const epoch = sessionEpoch;
+
   inFlight.categories = (async () => {
     try {
       const response = await apiFetch('/api/categories', { label: '分类' });
@@ -928,6 +972,8 @@ async function refreshCategories() {
       }
 
       const result = await response.json();
+      if (epoch !== sessionEpoch) return false;
+
       categories = buildCategoriesFromRows(result.data || []);
       setCategoryLoading(false);
       await writeCache();
@@ -936,7 +982,9 @@ async function refreshCategories() {
     } catch (error) {
       if (error.kind !== 'unauthorized') {
         console.error('Failed to load categories:', error);
-        renderConnection({ mode: 'error', label: '分类加载失败', retry: refreshCategories });
+        if (epoch === sessionEpoch) {
+          renderConnection({ mode: 'error', label: '分类加载失败', retry: refreshCategories });
+        }
       }
       return false;
     } finally {
@@ -950,6 +998,8 @@ async function refreshCategories() {
 async function refreshTags() {
   if (inFlight.tags) return inFlight.tags;
 
+  const epoch = sessionEpoch;
+
   inFlight.tags = (async () => {
     try {
       const response = await apiFetch('/api/bookmarks?limit=1000', { label: '标签' });
@@ -958,6 +1008,8 @@ async function refreshTags() {
       }
 
       const result = await response.json();
+      if (epoch !== sessionEpoch) return false;
+
       const bookmarks = result.data || [];
 
       const tagSet = new Set();
@@ -997,7 +1049,6 @@ async function refreshLegacyData() {
 function applyBootstrap(payload) {
   categories = sortCategories(payload.categories || []);
   allTags = payload.tags || [];
-  categoriesLoaded = true;
   setCategoryLoading(false);
   writeCache();
   renderConnectionFromTimings();
@@ -1005,6 +1056,8 @@ function applyBootstrap(payload) {
 
 async function refreshBootstrap() {
   if (inFlight.bootstrap) return inFlight.bootstrap;
+
+  const epoch = sessionEpoch;
 
   inFlight.bootstrap = (async () => {
     try {
@@ -1019,7 +1072,16 @@ async function refreshBootstrap() {
         throw new Error(`Failed to load bootstrap (${response.status})`);
       }
 
-      const payload = await response.json();
+      // 旧部署可能被 SPA 重写规则返回 200 + HTML，解析失败也要回退
+      let payload;
+      try {
+        payload = await response.json();
+      } catch (parseError) {
+        return refreshLegacyData();
+      }
+
+      if (epoch !== sessionEpoch) return false;
+
       applyBootstrap(payload);
       return true;
     } catch (error) {
@@ -1266,7 +1328,8 @@ async function init() {
   showSection('form-section');
   setCategoryLoading(categories.length === 0);
 
-  if (!cache || BMExt.cacheState(cacheTimestamp) !== 'fresh') {
+  // 缓存里没有分类时（哪怕是 fresh）也要刷新，否则会一直停在"正在加载分类"
+  if (!cache || categories.length === 0 || BMExt.cacheState(cacheTimestamp) !== 'fresh') {
     // 后台刷新，不阻塞表单渲染
     refreshBootstrap();
   }
@@ -1484,8 +1547,7 @@ chrome.storage.onChanged.addListener((changes, area) => {
 
   // 换服务器地址需要重建整个弹窗状态（含缓存隔离）
   if (changes.serverUrl) {
-    pingSupported = true;
-    requestTimings.length = 0;
+    resetSessionState();
     init();
     return;
   }
