@@ -1,4 +1,4 @@
-# Browser Extension Package Script (PowerShell)
+﻿# Browser Extension Package Script (PowerShell)
 # Creates distribution packages for Chrome and Firefox
 
 $ErrorActionPreference = "Stop"
@@ -18,7 +18,7 @@ Write-Host ""
 Write-Host "🌐 打包 Chrome/Edge/Brave 版本..." -ForegroundColor Yellow
 New-Item -ItemType Directory -Path "dist/chromium" -Force | Out-Null
 Copy-Item "manifest.json" "dist/chromium/"
-Copy-Item "popup.html", "popup.js" "dist/chromium/"
+Copy-Item "popup.html", "popup.js", "shared.js" "dist/chromium/"
 Copy-Item "content.js" "dist/chromium/"
 Copy-Item "options.html", "options.js" "dist/chromium/"
 Copy-Item "background.js" "dist/chromium/"
@@ -29,7 +29,7 @@ Copy-Item -Recurse "icons" "dist/chromium/"
 Add-Type -AssemblyName System.IO.Compression.FileSystem
 $zipPath = Join-Path $SCRIPT_DIR "dist/bookmark-manager-chromium.zip"
 if (Test-Path $zipPath) { Remove-Item $zipPath }
-[System.IO.Compression.ZipFile]::CreateFromDirectory("dist/chromium", $zipPath)
+[System.IO.Compression.ZipFile]::CreateFromDirectory((Join-Path $SCRIPT_DIR "dist/chromium"), $zipPath)
 Write-Host "✅ Chromium 版本打包完成: dist/bookmark-manager-chromium.zip" -ForegroundColor Green
 
 # Package for Firefox
@@ -37,7 +37,7 @@ Write-Host ""
 Write-Host "🦊 打包 Firefox 版本..." -ForegroundColor Yellow
 New-Item -ItemType Directory -Path "dist/firefox" -Force | Out-Null
 Copy-Item "manifest.firefox.json" "dist/firefox/manifest.json"
-Copy-Item "popup.html", "popup.js" "dist/firefox/"
+Copy-Item "popup.html", "popup.js", "shared.js" "dist/firefox/"
 Copy-Item "content.js" "dist/firefox/"
 Copy-Item "options.html", "options.js" "dist/firefox/"
 Copy-Item "background.firefox.js" "dist/firefox/background.js"
@@ -46,7 +46,7 @@ Copy-Item -Recurse "icons" "dist/firefox/"
 
 $zipPath = Join-Path $SCRIPT_DIR "dist/bookmark-manager-firefox.zip"
 if (Test-Path $zipPath) { Remove-Item $zipPath }
-[System.IO.Compression.ZipFile]::CreateFromDirectory("dist/firefox", $zipPath)
+[System.IO.Compression.ZipFile]::CreateFromDirectory((Join-Path $SCRIPT_DIR "dist/firefox"), $zipPath)
 Write-Host "✅ Firefox 版本打包完成: dist/bookmark-manager-firefox.zip" -ForegroundColor Green
 
 Write-Host ""

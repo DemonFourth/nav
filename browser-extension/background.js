@@ -1,3 +1,5 @@
+importScripts('shared.js')
+
 let contextInfo = null;
 let tokenCheckInterval = null;
 

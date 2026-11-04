@@ -24,7 +24,7 @@ echo ""
 echo "🌐 打包 Chrome/Edge/Brave 版本..."
 mkdir -p dist/chromium
 cp manifest.json dist/chromium/
-cp popup.html popup.js content.js dist/chromium/
+cp popup.html popup.js shared.js content.js dist/chromium/
 cp options.html options.js dist/chromium/
 cp background.js dist/chromium/
 cp styles.css dist/chromium/
@@ -39,7 +39,7 @@ echo ""
 echo "🦊 打包 Firefox 版本..."
 mkdir -p dist/firefox
 cp manifest.firefox.json dist/firefox/manifest.json
-cp popup.html popup.js dist/firefox/
+cp popup.html popup.js shared.js dist/firefox/
 cp content.js dist/firefox/
 cp options.html options.js dist/firefox/
 cp background.firefox.js dist/firefox/background.js
