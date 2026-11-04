@@ -16,7 +16,6 @@ body {
   background: var(--bg);
   color: var(--text);
   width: 320px;
-  min-height: 460px;
 }
 
 body.dark {
@@ -282,6 +281,20 @@ body.dark .icon-button:hover {
 
 body.dark .section {
   background: rgba(30, 41, 59, 0.85);
+}
+
+/* 未登录时也不需要撑满整屏，内容居中即可 */
+#auth-section:not(.hidden) {
+  min-height: 200px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+}
+
+#auth-section .info-text {
+  margin-bottom: 0;
 }
 
 .loading-section {
