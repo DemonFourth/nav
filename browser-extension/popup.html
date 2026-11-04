@@ -8,13 +8,26 @@
 </head>
 <body>
   <div class="container">
-    <div class="header">
-      <div class="header-title">
-        <img src="icons/icon-32.png" alt="书签" class="header-icon">
-        <h2>添加书签</h2>
+    <div class="sticky-top">
+      <div class="header">
+        <div class="header-title">
+          <img src="icons/icon-32.png" alt="书签" class="header-icon">
+          <h2>添加书签</h2>
+        </div>
+        <button type="button" id="settings-btn" class="settings-text-btn" title="设置">设置</button>
       </div>
-      <button type="button" id="settings-btn" class="settings-text-btn" title="设置">设置</button>
+
+      <div id="connection-bar" class="connection-bar hidden">
+        <button type="button" id="connection-main" class="connection-main">
+          <span id="connection-dot" class="connection-dot"></span>
+          <span id="connection-text" class="connection-text">未连接</span>
+        </button>
+        <button type="button" id="connection-detail-btn" class="connection-detail-btn">详情</button>
+      </div>
+      <div id="connection-panel" class="connection-panel hidden"></div>
     </div>
+
+    <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
 
     <div id="auth-section" class="section hidden">
       <p class="info-text">请先登录到书签管理系统</p>
@@ -31,6 +44,7 @@
         <div class="form-group">
           <label for="url">URL *</label>
           <input type="url" id="url" required placeholder="https://example.com">
+          <div id="duplicate-hint" class="duplicate-hint hidden"></div>
         </div>
 
         <div class="form-group">
