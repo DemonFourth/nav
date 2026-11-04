@@ -50,6 +50,7 @@ const expiryTime = tokenType === 'long'
 const PUBLIC_READ_PATHS = new Set([
   '/api/bookmarks',
   '/api/categories',
+  '/api/bootstrap',
   '/api/fetch-metadata',
   '/api/icon-proxy',
   '/api/settings',

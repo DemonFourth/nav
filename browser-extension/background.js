@@ -156,23 +156,38 @@ function stopTokenCheck() {
   }
 }
 
-// 预取书签数据（分类 + 标签）
-async function prefetchBookmarkData() {
-  const { serverUrl = '', authToken = '' } = await storageGet('local', ['serverUrl', 'authToken']);
-  if (!serverUrl || !authToken) return false;
-
+// 优先使用聚合接口：一次请求拿到分类（含 path）与标签
+async function fetchBootstrapCache(serverUrl, headers) {
   try {
-    const headers = {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${authToken}`
-    };
+    const response = await fetch(`${serverUrl}/api/bootstrap`, { headers });
 
+    // 老版本后端没有该路由时回退
+    if (response.status === 404 || response.status === 405) return null;
+    if (!response.ok) return null;
+
+    const payload = await response.json();
+    if (!Array.isArray(payload.categories) || !Array.isArray(payload.tags)) return null;
+
+    return {
+      categories: payload.categories,
+      tags: payload.tags,
+      timestamp: Date.now(),
+      serverUrl
+    };
+  } catch (error) {
+    return null;
+  }
+}
+
+// 旧后端回退：分类 + 全量书签两次请求
+async function fetchLegacyCache(serverUrl, headers) {
+  try {
     const [categoriesRes, bookmarksRes] = await Promise.all([
       fetch(`${serverUrl}/api/categories`, { headers }),
       fetch(`${serverUrl}/api/bookmarks?limit=1000`, { headers })
     ]);
 
-    if (!categoriesRes.ok || !bookmarksRes.ok) return false;
+    if (!categoriesRes.ok || !bookmarksRes.ok) return null;
 
     const categoriesData = await categoriesRes.json();
     const bookmarksData = await bookmarksRes.json();
@@ -208,12 +223,33 @@ async function prefetchBookmarkData() {
       }
     });
 
-    const cacheData = {
+    return {
       categories: processedCategories,
       tags: Array.from(tagSet).sort(),
       timestamp: Date.now(),
       serverUrl
     };
+  } catch (error) {
+    return null;
+  }
+}
+
+// 预取书签数据（分类 + 标签）
+async function prefetchBookmarkData() {
+  const { serverUrl = '', authToken = '' } = await storageGet('local', ['serverUrl', 'authToken']);
+  if (!serverUrl || !authToken) return false;
+
+  try {
+    const headers = {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${authToken}`
+    };
+
+    let cacheData = await fetchBootstrapCache(serverUrl, headers);
+    if (!cacheData) {
+      cacheData = await fetchLegacyCache(serverUrl, headers);
+    }
+    if (!cacheData) return false;
 
     // Chromium: 写入 session 存储（内存级，popup 读取极快）
     if (chrome.storage.session) {

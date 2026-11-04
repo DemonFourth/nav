@@ -989,6 +989,55 @@ async function refreshTags() {
   return inFlight.tags;
 }
 
+async function refreshLegacyData() {
+  const [categoriesOk] = await Promise.all([refreshCategories(), refreshTags()]);
+  return categoriesOk;
+}
+
+function applyBootstrap(payload) {
+  categories = sortCategories(payload.categories || []);
+  allTags = payload.tags || [];
+  categoriesLoaded = true;
+  setCategoryLoading(false);
+  writeCache();
+  renderConnectionFromTimings();
+}
+
+async function refreshBootstrap() {
+  if (inFlight.bootstrap) return inFlight.bootstrap;
+
+  inFlight.bootstrap = (async () => {
+    try {
+      const response = await apiFetch('/api/bootstrap', { label: '分类标签' });
+
+      // 老版本后端还没有该路由：回退到两次请求
+      if (response.status === 404 || response.status === 405) {
+        return refreshLegacyData();
+      }
+
+      if (!response.ok) {
+        throw new Error(`Failed to load bootstrap (${response.status})`);
+      }
+
+      const payload = await response.json();
+      applyBootstrap(payload);
+      return true;
+    } catch (error) {
+      if (error.kind === 'unauthorized') {
+        return false;
+      }
+
+      console.error('Failed to load bootstrap:', error);
+      renderConnection({ mode: 'error', label: '加载失败', retry: refreshBootstrap });
+      return false;
+    } finally {
+      inFlight.bootstrap = null;
+    }
+  })();
+
+  return inFlight.bootstrap;
+}
+
 async function getCurrentTab() {
   return new Promise(resolve => {
     chrome.tabs.query({ active: true, currentWindow: true }, tabs => {
@@ -1215,7 +1264,7 @@ async function init() {
 
   if (!cache || BMExt.cacheState(cacheTimestamp) !== 'fresh') {
     // 后台刷新，不阻塞表单渲染
-    Promise.all([refreshCategories(), refreshTags()]);
+    refreshBootstrap();
   }
 
   getTabInfo();
