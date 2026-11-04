@@ -278,6 +278,14 @@ function showToast(message, type = 'info') {
   clearTimeout(toastTimer);
   toastEl.textContent = message;
   toastEl.className = `toast toast-${type}`;
+
+  // 贴在粘性头部（标题 + 连接条）下方，避免盖住连接状态
+  const sticky = document.querySelector('.sticky-top');
+  if (sticky) {
+    const bottom = sticky.getBoundingClientRect().bottom;
+    toastEl.style.top = `${Math.round(bottom + 6)}px`;
+  }
+
   toastTimer = setTimeout(() => {
     toastEl.classList.add('hidden');
   }, 3000);
@@ -285,6 +293,15 @@ function showToast(message, type = 'info') {
 
 function markFormDirty() {
   formDirty = true;
+}
+
+// AI 图标按钮的忙碌态：图标 → 转圈，提示文案切换
+function setAiBusy(btn, busy, tip) {
+  if (!btn) return;
+  btn.disabled = busy;
+  btn.classList.toggle('is-loading', busy);
+  btn.setAttribute('aria-busy', busy ? 'true' : 'false');
+  if (tip) btn.dataset.tip = tip;
 }
 
 function recordTiming(label, ms, ok) {
@@ -1131,8 +1148,7 @@ async function generateDescription() {
     return;
   }
 
-  aiBtn.disabled = true;
-  aiBtn.innerHTML = '<span>⏳ 生成中...</span>';
+  setAiBusy(aiBtn, true, '正在生成描述…');
 
   try {
     const pageMeta = await fetchPageMetadata(urlEl.value)
@@ -1161,8 +1177,7 @@ async function generateDescription() {
       showToast(error.kind === 'timeout' ? 'AI生成超时，请重试' : 'AI功能暂时不可用', 'error');
     }
   } finally {
-    aiBtn.disabled = false;
-    aiBtn.innerHTML = '<span>🤖 AI生成描述</span>';
+    setAiBusy(aiBtn, false, 'AI 生成描述');
   }
 }
 
@@ -1182,8 +1197,7 @@ async function suggestCategory() {
     return;
   }
 
-  aiCategoryBtn.disabled = true;
-  aiCategoryBtn.innerHTML = '<span>⏳ 推荐中...</span>';
+  setAiBusy(aiCategoryBtn, true, '正在推荐分类…');
 
   try {
     const pageMeta = await fetchPageMetadata(urlEl.value)
@@ -1228,8 +1242,7 @@ async function suggestCategory() {
       showToast(error.kind === 'timeout' ? 'AI推荐超时，请重试' : 'AI功能暂时不可用', 'error');
     }
   } finally {
-    aiCategoryBtn.disabled = false;
-    aiCategoryBtn.innerHTML = '<span>🏷️ AI推荐分类</span>';
+    setAiBusy(aiCategoryBtn, false, 'AI 推荐分类');
   }
 }
 

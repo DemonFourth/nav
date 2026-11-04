@@ -48,12 +48,24 @@
         </div>
 
         <div class="form-group">
-          <label for="description">描述</label>
+          <div class="form-label-row">
+            <label for="description">描述</label>
+            <button type="button" id="ai-btn" class="ai-icon-btn" data-tip="AI 生成描述" aria-label="AI 生成描述">
+              <span class="ai-icon" aria-hidden="true">🤖</span>
+              <span class="ai-spinner" aria-hidden="true"></span>
+            </button>
+          </div>
           <textarea id="description" rows="3" placeholder="可选的描述信息"></textarea>
         </div>
 
         <div class="form-group">
-          <label>分类 *</label>
+          <div class="form-label-row">
+            <label>分类 *</label>
+            <button type="button" id="ai-category-btn" class="ai-icon-btn" data-tip="AI 推荐分类" aria-label="AI 推荐分类">
+              <span class="ai-icon" aria-hidden="true">🏷️</span>
+              <span class="ai-spinner" aria-hidden="true"></span>
+            </button>
+          </div>
           <div class="category-input-container">
             <input type="text" id="category-input" class="category-input" placeholder="选择分类..." autocomplete="off">
             <div class="category-suggestions hidden" id="category-suggestions"></div>
@@ -79,15 +91,6 @@
         <div class="button-group">
           <button type="submit" class="button button-primary" id="save-btn">
             <span id="save-text">保存书签</span>
-          </button>
-        </div>
-
-        <div class="button-group">
-          <button type="button" class="button button-secondary" id="ai-btn">
-            <span>🤖 AI生成描述</span>
-          </button>
-          <button type="button" class="button button-secondary" id="ai-category-btn">
-            <span>🏷️ AI推荐分类</span>
           </button>
         </div>
       </form>
