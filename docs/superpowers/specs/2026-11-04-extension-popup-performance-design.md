@@ -17,7 +17,7 @@
 | 缓存未命中时，加载态阻塞等待 `/api/categories` + `/api/bookmarks?limit=1000` 两个请求 | `popup.js` `init()` |
 | 缓存 5 分钟硬过期，没有 stale-while-revalidate | `popup.js` `loadPrefetchCache()` / `CACHE_TTL` |
 | `loadSettings()` 内联执行 `/api/login` 自动续期，阻塞首屏 | `popup.js` |
-| 保存成功后固定 `setTimeout(1000)` 才关窗 | `popup.js` `saveBookmark()` |
+| 保存成功后固定 `setTimeout(1000)` 才关窗，而提示在底部看不到 → 这 1 秒被感知为纯等待 | `popup.js` `saveBookmark()` |
 | 创建书签服务端串行 3 次 D1 查询 | `functions/api/bookmarks/index.js` |
 | 状态条位于表单末尾，仍在 `form-section` 内 | `popup.html` |
 
@@ -28,7 +28,7 @@
 - G3：所有 API 请求有超时与失败提示，不再无限转圈。
 - G4：顶部常驻一条连接状态条，直观显示与 Cloudflare 的往返延迟与连接状态。
 - G5：状态提示分层：连接状态常驻、操作结果 toast、URL 已存在内联在 URL 输入框下方。
-- G6：保存成功 300ms 内关窗，消除固定 1 秒等待。
+- G6：保存成功后先显示成功提示，**保持约 1 秒**再关窗，确保用户能看见状态；不缩短关窗延时。
 - G7：期间不改变查重的判定语义（仍以服务端 `/api/bookmarks?url=` 为准）。
 
 ## 3. 非目标
@@ -215,7 +215,7 @@ Cache-Control: no-store
 3. 成功：
    - `showToast('已保存', 'success')`；
    - `chrome.runtime.sendMessage({ type: 'data-changed' })`；
-   - `setTimeout(() => window.close(), 300)`。
+   - `setTimeout(() => window.close(), 1000)`（保留 1 秒，让提示可见）。
 4. 409 重复：内联警告（复用 7.6 的 `#duplicate-hint`）+ 恢复按钮，**不关窗**。
 5. 超时/网络错误：toast "连接超时，请重试" + 恢复按钮，保留已填内容。
 
@@ -255,7 +255,7 @@ GET /api/bootstrap
 | 文件 | 改动 |
 |---|---|
 | `browser-extension/popup.html` | 新增 `#connection-bar`、`#toast`、`#duplicate-hint`；移除底部 `#status-message` |
-| `browser-extension/popup.js` | 首屏状态机、缓存软过期、`apiFetch`、token 单飞、计时采集、ping、toast、内联查重、保存 300ms 关窗、storage 变更保护 |
+| `browser-extension/popup.js` | 首屏状态机、缓存软过期、`apiFetch`、token 单飞、计时采集、ping、toast、内联查重、保存后 1 秒关窗、storage 变更保护 |
 | `browser-extension/styles.css` | 状态条、toast、内联警告、加载骨架、sticky header 样式；清理与本次相关的旧状态条样式 |
 | `browser-extension/background.js` | 预取缓存增加 `serverUrl` 字段；token TTL 修正 |
 | `browser-extension/background.firefox.js` | 同上 |
@@ -300,7 +300,7 @@ GET /api/bootstrap
 7. 换服务器地址：旧缓存被识别并丢弃，分类不会串台。
 8. 打开后立刻在标题框输入：后台续期/预取回填不会覆盖已输入内容。
 9. URL 已存在：内联提示出现在 URL 下方，切换 URL 后消失，保存 409 时同样出现。
-10. 保存成功：toast 出现且 300ms 内关窗。
+10. 保存成功：顶部 toast 出现并清晰可读，约 1 秒后关窗。
 11. AI 生成中/失败：toast 正常，不覆盖内联查重。
 12. 后端无 `/api/ping`（临时删掉路由或指向旧实例）：状态条不报红，仅显示真实请求耗时。
 13. 后端无 `/api/bootstrap`：弹窗仍能加载分类与标签（走回退两请求），状态条计时显示「分类/标签」两个请求。

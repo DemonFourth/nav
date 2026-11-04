@@ -17,7 +17,7 @@
 - 超时：普通请求 8000ms，保存请求 10000ms，ping 5000ms。
 - 缓存年龄阈值：`< 60s` fresh，`60s ~ 7d` stale，`>= 7d` old，无时间戳 `none`。
 - 延迟分档：`<=500ms` fast，`<=1500ms` medium，`>1500ms` slow，无值/超时 error。
-- 保存成功关窗延时固定 `300ms`；toast 自动消失 `3000ms`。
+- 保存成功先显示 toast，**约 1 秒**后关窗（保留用户反应时间，不缩短）。toast 自动消失 `3000ms`。
 - 版本号：`manifest.json` 与 `manifest.firefox.json` 同步升到 `1.7.0`。
 - 查重仍以 `GET /api/bookmarks?url=` 的 `exactUrl === true` 为准，不得改用缓存。
 - `/api/bootstrap` 响应 `Cache-Control: no-store`；`tags` 只回传字符串数组，不得夹带书签对象。
@@ -506,7 +506,7 @@ git commit -m "feat(extension): render popup immediately with stale-while-revali
 
 ---
 
-### Task 6: 内联查重 + toast + 保存 300ms 关窗
+### Task 6: 内联查重 + toast + 保存 1 秒关窗
 
 **Files:**
 - Modify: `browser-extension/popup.js`（`showStatus`/`clearPersistentStatus`/`checkDuplicateUrl`/`saveBookmark`/`generateDescription`/`suggestCategory`）
@@ -544,7 +544,7 @@ function setDuplicateHint(bookmark) {
 
 - [ ] **Step 3: 改保存流程**
 
-- 成功：`showToast('已保存', 'success')` → `chrome.runtime.sendMessage({ type: 'data-changed' })` → `setTimeout(() => window.close(), 300)`，删除原 1000ms。
+- 成功：`showToast('已保存', 'success')` → `chrome.runtime.sendMessage({ type: 'data-changed' })` → `setTimeout(() => window.close(), 1000)`。**保留原 1000ms 延时**：本次改的是"提示从底部挪到顶部、用户看得见"，不是缩短等待。
 - 409：`setDuplicateHint(result.existingBookmark)` + 恢复按钮，不关窗。
 - `err.kind === 'timeout'` → `showToast('连接超时，请重试', 'error')`；`network` → `showToast('网络错误，请检查服务器地址', 'error')`。
 - 保存请求用 `apiFetch('/api/bookmarks', { method: 'POST', body: {...}, timeout: 10000, label: '保存' })`。
@@ -562,7 +562,7 @@ Expected: 无输出。
 1. 打开一个已存在的 URL → URL 下方出现内联提示与「打开」。
 2. 改 URL → 提示消失；blur 到另一个已存在 URL → 提示换成新的分类。
 3. 提示存在时点「AI生成描述」→ 提示仍在，toast 不覆盖它。
-4. 保存成功 → toast 可见，约 300ms 后关窗。
+4. 保存成功 → 顶部 toast 清晰可见，约 1 秒后关窗。
 5. 保存返回 409 → 内联提示出现、按钮恢复、不关窗。
 6. 断网保存 → toast「网络错误」，已填内容保留。
 
@@ -570,7 +570,7 @@ Expected: 无输出。
 
 ```bash
 git add browser-extension/popup.js
-git commit -m "feat(extension): inline duplicate hint, toast messages and 300ms close"
+git commit -m "feat(extension): inline duplicate hint, toast messages and 1s close"
 ```
 
 ---
@@ -888,7 +888,7 @@ Expected: 两个 zip 生成；`dist/chromium` 与 `dist/firefox` 都包含 `shar
 
 - [ ] **Step 3: 执行设计文档 §10 手动清单**
 
-按 `docs/superpowers/specs/2026-11-04-extension-popup-performance-design.md` §10 的第 1–15 项逐条验证，重点：打开即渲染、内联查重不消失、ping 缺失不报红、换服务器不串台、保存 300ms 关窗、bootstrap 缺失可回退。
+按 `docs/superpowers/specs/2026-11-04-extension-popup-performance-design.md` §10 的第 1–15 项逐条验证，重点：打开即渲染、内联查重不消失、ping 缺失不报红、换服务器不串台、保存后提示可见且约 1 秒关窗、bootstrap 缺失可回退。
 
 - [ ] **Step 4: 全分支审查**
 
