@@ -1,5 +1,3 @@
-const TOKEN_TTL = 15 * 60 * 1000;
-const TOKEN_RENEW_THRESHOLD = 5 * 60 * 1000; // 剩余5分钟时自动续期
 const runtimeApi = typeof browser !== 'undefined' ? browser : chrome;
 const permissionsApi = runtimeApi && runtimeApi.permissions ? runtimeApi.permissions : null;
 
@@ -29,17 +27,6 @@ function sanitizeUrl(value) {
     return parsed.origin;
   } catch (error) {
     return '';
-  }
-}
-
-function parseTokenExpiry(token) {
-  try {
-    const [timestamp] = token.split('.');
-    const issuedAt = Number(timestamp);
-    if (Number.isNaN(issuedAt)) return null;
-    return issuedAt + TOKEN_TTL;
-  } catch (error) {
-    return null;
   }
 }
 
@@ -150,13 +137,6 @@ async function decryptPassword(encryptedPassword) {
   }
 }
 
-// 检查 token 是否需要续期
-function shouldRenewToken(tokenExpiry) {
-  if (!tokenExpiry) return false;
-  const remaining = tokenExpiry - Date.now();
-  return remaining > 0 && remaining < TOKEN_RENEW_THRESHOLD;
-}
-
 // 自动续期 token
 async function autoRenewToken() {
   const { serverUrl = '', username = '', encryptedPassword = '', autoRenew = false } = await storageGet('local', ['serverUrl', 'username', 'encryptedPassword', 'autoRenew']);
@@ -191,7 +171,7 @@ async function autoRenewToken() {
       return false;
     }
 
-    const expiry = parseTokenExpiry(result.token);
+    const expiry = BMExt.parseTokenExpiry(result.token);
     await storageSet('local', {
       authToken: result.token,
       tokenExpiry: expiry
@@ -223,7 +203,7 @@ async function updateStatusView() {
   }
 
   if (authToken) {
-    const expiry = tokenExpiry || parseTokenExpiry(authToken);
+    const expiry = tokenExpiry || BMExt.parseTokenExpiry(authToken);
     if (!expiry || Date.now() > expiry) {
       // Token 已过期，如果启用了自动续期，尝试续期
       if (autoRenew) {
@@ -246,7 +226,7 @@ async function updateStatusView() {
     }
 
     // 检查是否需要自动续期
-    if (autoRenew && shouldRenewToken(expiry)) {
+    if (autoRenew && BMExt.shouldRenewToken(expiry)) {
       const renewed = await autoRenewToken();
       if (renewed) {
         const { tokenExpiry: newExpiry } = await storageGet('local', ['tokenExpiry']);
@@ -405,7 +385,7 @@ async function handleLogin(event) {
       throw new Error(result.error || '登录失败。');
     }
 
-    const expiry = parseTokenExpiry(result.token);
+    const expiry = BMExt.parseTokenExpiry(result.token);
     const storageData = {
       serverUrl,
       username,

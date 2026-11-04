@@ -1,8 +1,6 @@
 let contextInfo = null;
 let tokenCheckInterval = null;
 
-const TOKEN_TTL = 15 * 60 * 1000;
-const TOKEN_RENEW_THRESHOLD = 5 * 60 * 1000; // 剩余5分钟时自动续期
 const CHECK_INTERVAL = 5 * 60 * 1000; // 每5分钟检查一次
 
 const PREFETCH_CACHE_KEY = 'prefetchCache';
@@ -14,17 +12,6 @@ function storageGet(area, keys) {
 
 function storageSet(area, items) {
   return browser.storage[area].set(items);
-}
-
-function parseTokenExpiry(token) {
-  try {
-    const [timestamp] = token.split('.');
-    const issuedAt = Number(timestamp);
-    if (Number.isNaN(issuedAt)) return null;
-    return issuedAt + TOKEN_TTL;
-  } catch (error) {
-    return null;
-  }
 }
 
 // 密码解密函数（与 options.js 保持一致）
@@ -73,13 +60,6 @@ async function decryptPassword(encryptedPassword) {
   }
 }
 
-// 检查 token 是否需要续期
-function shouldRenewToken(tokenExpiry) {
-  if (!tokenExpiry) return false;
-  const remaining = tokenExpiry - Date.now();
-  return remaining > 0 && remaining < TOKEN_RENEW_THRESHOLD;
-}
-
 // 自动续期 token
 async function autoRenewToken() {
   const { serverUrl = '', username = '', encryptedPassword = '', autoRenew = false } = await storageGet('local', ['serverUrl', 'username', 'encryptedPassword', 'autoRenew']);
@@ -114,7 +94,7 @@ async function autoRenewToken() {
       return false;
     }
 
-    const expiry = parseTokenExpiry(result.token);
+    const expiry = BMExt.parseTokenExpiry(result.token);
     await storageSet('local', {
       authToken: result.token,
       tokenExpiry: expiry
@@ -136,13 +116,13 @@ async function checkAndRenewToken() {
       return;
     }
 
-    const expiry = tokenExpiry || parseTokenExpiry(authToken);
+    const expiry = tokenExpiry || BMExt.parseTokenExpiry(authToken);
     if (!expiry) {
       return;
     }
 
     // 如果 token 已过期或即将过期，自动续期
-    if (Date.now() >= expiry || shouldRenewToken(expiry)) {
+    if (Date.now() >= expiry || BMExt.shouldRenewToken(expiry)) {
       await autoRenewToken();
     }
   } catch (error) {
@@ -229,7 +209,8 @@ async function prefetchBookmarkData() {
     const cacheData = {
       categories: processedCategories,
       tags: Array.from(tagSet).sort(),
-      timestamp: Date.now()
+      timestamp: Date.now(),
+      serverUrl
     };
 
     // Firefox: 写入 local 存储
