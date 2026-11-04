@@ -377,7 +377,7 @@ function renderConnection(state = {}) {
     return;
   }
 
-  text.textContent = BMExt.formatLatency(ms) + (stale ? ' · 数据较旧' : '');
+  text.textContent = (label ? `${label} ` : '') + BMExt.formatLatency(ms) + (stale ? ' · 数据较旧' : '');
   dot.classList.add(`is-${BMExt.latencyLevel(ms)}`);
 }
 
@@ -395,76 +395,184 @@ function renderConnectionFromTimings() {
     return;
   }
 
+  // 后端还没有 /api/ping 时，用最近一次真实请求的耗时代替 ping 数字
+  if (!pingSupported) {
+    renderConnection({ mode: 'ok', ms: last.ms, stale, label: last.label });
+    return;
+  }
+
   renderConnection({ mode: 'ok', ms: last.ms, stale });
 }
 
-let statusHideTimer = null;
-let persistentStatusActive = false;
+let pingSupported = true;
 
-function showStatus(message, type = 'info', options = {}) {
-  const statusEl = document.getElementById('status-message');
-  if (!statusEl) return;
+async function pingServer() {
+  if (!pingSupported || !appSettings.serverUrl) return null;
 
-  clearTimeout(statusHideTimer);
-  persistentStatusActive = options.persistent === true;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 5000);
+  const start = performance.now();
 
-  statusEl.textContent = message;
-  statusEl.className = `status-message status-${type}`;
-  statusEl.classList.remove('hidden');
+  try {
+    const response = await fetch(`${appSettings.serverUrl}/api/ping`, {
+      signal: controller.signal,
+      cache: 'no-store'
+    });
 
-  if (!persistentStatusActive) {
-    statusHideTimer = setTimeout(() => {
-      statusEl.classList.add('hidden');
-    }, 4000);
+    // 老版本后端没有该路由：静默降级，不再反复探测
+    if (response.status === 404 || response.status === 405) {
+      pingSupported = false;
+      return null;
+    }
+
+    if (!response.ok) return null;
+
+    return performance.now() - start;
+  } catch (error) {
+    return null;
+  } finally {
+    clearTimeout(timer);
   }
 }
 
-function clearPersistentStatus() {
-  if (!persistentStatusActive) return;
+function renderConnectionPanel() {
+  const panel = document.getElementById('connection-panel');
+  if (!panel) return;
 
-  persistentStatusActive = false;
-  clearTimeout(statusHideTimer);
+  panel.innerHTML = '';
 
-  const statusEl = document.getElementById('status-message');
-  if (!statusEl) return;
-  statusEl.classList.add('hidden');
-  statusEl.textContent = '';
+  const entries = requestTimings.slice(-5).reverse();
+  if (entries.length === 0) {
+    const empty = document.createElement('div');
+    empty.className = 'connection-row';
+    empty.textContent = '暂无请求记录';
+    panel.appendChild(empty);
+  } else {
+    entries.forEach(entry => {
+      const row = document.createElement('div');
+      row.className = 'connection-row';
+
+      const label = document.createElement('span');
+      label.className = 'connection-row-label';
+      label.textContent = entry.ok ? entry.label : `${entry.label}（失败）`;
+
+      const value = document.createElement('span');
+      value.textContent = BMExt.formatLatency(entry.ms);
+
+      row.append(label, value);
+      panel.appendChild(row);
+    });
+  }
+
+  const actions = document.createElement('div');
+  actions.className = 'connection-panel-actions';
+
+  const retryBtn = document.createElement('button');
+  retryBtn.type = 'button';
+  retryBtn.textContent = '重新测速';
+  retryBtn.addEventListener('click', async () => {
+    retryBtn.disabled = true;
+    const ms = await pingServer();
+    retryBtn.disabled = false;
+
+    if (ms === null) {
+      renderConnectionFromTimings();
+    } else {
+      renderConnection({ mode: 'ok', ms, stale: BMExt.cacheState(cacheTimestamp) === 'old' });
+    }
+  });
+
+  if (!pingSupported) {
+    retryBtn.classList.add('hidden');
+  }
+
+  actions.appendChild(retryBtn);
+  panel.appendChild(actions);
+}
+
+function toggleConnectionPanel() {
+  const panel = document.getElementById('connection-panel');
+  if (!panel) return;
+
+  const willShow = panel.classList.contains('hidden');
+  if (willShow) {
+    renderConnectionPanel();
+    panel.classList.remove('hidden');
+  } else {
+    panel.classList.add('hidden');
+  }
+}
+
+function schedulePingIfIdle() {
+  setTimeout(async () => {
+    const recent = requestTimings.some(timing => Date.now() - timing.at < 300);
+    if (recent) {
+      renderConnectionFromTimings();
+      return;
+    }
+
+    const ms = await pingServer();
+    if (ms === null) {
+      renderConnectionFromTimings();
+    } else {
+      renderConnection({ mode: 'ok', ms, stale: BMExt.cacheState(cacheTimestamp) === 'old' });
+    }
+  }, 300);
 }
 
 let duplicateCheckSeq = 0;
 
+function setDuplicateHint(bookmark) {
+  const hint = document.getElementById('duplicate-hint');
+  if (!hint) return;
+
+  if (!bookmark) {
+    hint.classList.add('hidden');
+    hint.textContent = '';
+    return;
+  }
+
+  hint.textContent = '';
+
+  const text = document.createElement('span');
+  text.textContent = `${BMExt.buildDuplicateHint(bookmark)} · `;
+
+  const link = document.createElement('a');
+  link.href = bookmark.url;
+  link.textContent = '打开';
+  link.addEventListener('click', (event) => {
+    event.preventDefault();
+    chrome.tabs.create({ url: bookmark.url });
+    window.close();
+  });
+
+  hint.append(text, link);
+  hint.classList.remove('hidden');
+}
+
 async function checkDuplicateUrl(url) {
   const targetUrl = (url || '').trim();
   if (!targetUrl) {
-    clearPersistentStatus();
+    setDuplicateHint(null);
     return;
   }
 
   const seq = ++duplicateCheckSeq;
 
   try {
-    await ensureTokenValid();
-    if (seq !== duplicateCheckSeq) return;
-
     if (!appSettings.serverUrl || !appSettings.authToken) {
-      clearPersistentStatus();
+      setDuplicateHint(null);
       return;
     }
 
-    const response = await fetch(
-      `${appSettings.serverUrl}/api/bookmarks?url=${encodeURIComponent(targetUrl)}`,
-      {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${appSettings.authToken}`
-        }
-      }
+    const response = await apiFetch(
+      `/api/bookmarks?url=${encodeURIComponent(targetUrl)}`,
+      { label: '查重' }
     );
 
     if (seq !== duplicateCheckSeq) return;
     if (!response.ok) {
-      clearPersistentStatus();
+      setDuplicateHint(null);
       return;
     }
 
@@ -473,33 +581,24 @@ async function checkDuplicateUrl(url) {
 
     // 旧版后端会忽略 url 参数并返回全量列表，此时不能据此判断重复
     if (result.exactUrl !== true) {
-      clearPersistentStatus();
+      setDuplicateHint(null);
       return;
     }
 
     const existing = (result.data || [])[0];
     if (!existing) {
-      clearPersistentStatus();
+      setDuplicateHint(null);
       return;
     }
 
-    const categoryName = existing.category_name || '未分类';
-    const name = String(existing.name || '').trim();
-    const shortName = name && name.length <= 24 ? `「${name}」` : '';
-
-    showStatus(
-      shortName
-        ? `⚠️ 该 URL 已存在：${shortName} · 分类：${categoryName}`
-        : `⚠️ 该 URL 已存在 · 分类：${categoryName}`,
-      'warning',
-      { persistent: true }
-    );
+    setDuplicateHint(existing);
   } catch (error) {
     if (seq === duplicateCheckSeq) {
-      clearPersistentStatus();
+      setDuplicateHint(null);
     }
   }
 }
+
 
 function sortCategories(cats) {
   return cats.sort((a, b) => {
@@ -911,15 +1010,13 @@ async function maybeUseContextInfo() {
 }
 
 async function generateDescription() {
-  await ensureTokenValid();
-
   const titleEl = document.getElementById('title');
   const urlEl = document.getElementById('url');
   const descEl = document.getElementById('description');
   const aiBtn = document.getElementById('ai-btn');
 
   if (!titleEl.value || !urlEl.value) {
-    showStatus('请先填写标题和URL', 'error');
+    showToast('请先填写标题和URL', 'error');
     return;
   }
 
@@ -928,32 +1025,30 @@ async function generateDescription() {
 
   try {
     const pageMeta = await fetchPageMetadata(urlEl.value)
-    const descriptionToSend = pageMeta ? (pageMeta.metaDescription || pageMeta.ogDescription) : descEl.value
 
-    const response = await fetch(`${appSettings.serverUrl}/api/ai/generate-description`, {
+    const response = await apiFetch('/api/ai/generate-description', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${appSettings.authToken}`
-      },
-      body: JSON.stringify({
+      label: 'AI',
+      body: {
         name: titleEl.value,
         url: urlEl.value,
         pageMeta
-      })
+      }
     });
 
     const result = await response.json();
 
     if (result.success && result.description) {
       descEl.value = result.description
-      showStatus('✅ AI描述生成成功', 'success');
+      showToast('✅ AI描述生成成功', 'success');
     } else {
-      showStatus(result.error || 'AI描述生成失败', 'error');
+      showToast(result.error || 'AI描述生成失败', 'error');
     }
   } catch (error) {
     console.error('AI generate error:', error);
-    showStatus('AI功能暂时不可用', 'error');
+    if (error.kind !== 'unauthorized') {
+      showToast(error.kind === 'timeout' ? 'AI生成超时，请重试' : 'AI功能暂时不可用', 'error');
+    }
   } finally {
     aiBtn.disabled = false;
     aiBtn.innerHTML = '<span>🤖 AI生成描述</span>';
@@ -961,21 +1056,18 @@ async function generateDescription() {
 }
 
 async function suggestCategory() {
-  await ensureTokenValid();
-
   const titleEl = document.getElementById('title');
   const urlEl = document.getElementById('url');
   const descEl = document.getElementById('description');
-  const categoryEl = document.getElementById('category');
   const aiCategoryBtn = document.getElementById('ai-category-btn');
 
   if (!titleEl.value || !urlEl.value) {
-    showStatus('请先填写标题和URL', 'error');
+    showToast('请先填写标题和URL', 'error');
     return;
   }
 
   if (categories.length === 0) {
-    showStatus('没有可用的分类', 'error');
+    showToast('没有可用的分类', 'error');
     return;
   }
 
@@ -986,13 +1078,10 @@ async function suggestCategory() {
     const pageMeta = await fetchPageMetadata(urlEl.value)
     const descriptionToSend = pageMeta ? (pageMeta.metaDescription || pageMeta.ogDescription) : descEl.value
 
-    const response = await fetch(`${appSettings.serverUrl}/api/ai/suggest-category`, {
+    const response = await apiFetch('/api/ai/suggest-category', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${appSettings.authToken}`
-      },
-      body: JSON.stringify({
+      label: 'AI',
+      body: {
         name: titleEl.value,
         url: urlEl.value,
         description: descriptionToSend || '',
@@ -1003,7 +1092,7 @@ async function suggestCategory() {
         })),
         tags: tagItems.join(','),
         notes: document.getElementById('notes')?.value || ''
-      })
+      }
     });
 
     const result = await response.json();
@@ -1015,16 +1104,18 @@ async function suggestCategory() {
       if (matchedCategory) {
         selectCategory(matchedCategory.id, matchedCategory.path)
         const reason = result.reason ? `（${result.reason}）` : ''
-        showStatus(`✅ 推荐分类：${matchedCategory.path}${reason}`, 'success');
+        showToast(`✅ 推荐分类：${matchedCategory.path}${reason}`, 'success');
       } else {
-        showStatus('AI推荐的分类不存在，请刷新分类后重试', 'error');
+        showToast('AI推荐的分类不存在，请刷新分类后重试', 'error');
       }
     } else {
-      showStatus(result.error || 'AI推荐分类失败', 'error');
+      showToast(result.error || 'AI推荐分类失败', 'error');
     }
   } catch (error) {
     console.error('AI suggest category error:', error);
-    showStatus('AI功能暂时不可用', 'error');
+    if (error.kind !== 'unauthorized') {
+      showToast(error.kind === 'timeout' ? 'AI推荐超时，请重试' : 'AI功能暂时不可用', 'error');
+    }
   } finally {
     aiCategoryBtn.disabled = false;
     aiCategoryBtn.innerHTML = '<span>🏷️ AI推荐分类</span>';
@@ -1033,35 +1124,30 @@ async function suggestCategory() {
 
 async function saveBookmark(event) {
   event.preventDefault();
-  
-  // 确保 token 有效
-  await ensureTokenValid();
-  
+
   const title = document.getElementById('title').value.trim();
   const url = document.getElementById('url').value.trim();
   const description = document.getElementById('description').value.trim();
   const categoryInput = document.getElementById('category-input');
   const categoryId = categoryInput?.dataset?.selectedId || '';
   const isPrivate = document.getElementById('is-private').checked;
-  
+
   if (!title || !url || !categoryId) {
-    showStatus('请填写所有必填项', 'error');
+    showToast('请填写所有必填项', 'error');
     return;
   }
-  
+
   const saveBtn = document.getElementById('save-btn');
   const saveText = document.getElementById('save-text');
   saveBtn.disabled = true;
   saveText.textContent = '保存中...';
-  
+
   try {
-    const response = await fetch(`${appSettings.serverUrl}/api/bookmarks`, {
+    const response = await apiFetch('/api/bookmarks', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${appSettings.authToken}`
-      },
-      body: JSON.stringify({
+      timeout: 10000,
+      label: '保存',
+      body: {
         name: title,
         url: url,
         description: description || null,
@@ -1069,36 +1155,38 @@ async function saveBookmark(event) {
         category_id: parseInt(categoryId, 10),
         is_private: isPrivate,
         tags: tagItems.join(',')
-      })
+      }
     });
-    
+
     const result = await response.json();
-    
+
     if (result.success) {
-      showStatus('✅ 书签保存成功', 'success');
+      showToast('✅ 书签保存成功', 'success');
       // 通知 background 刷新预取缓存
       try {
         chrome.runtime.sendMessage({ type: 'data-changed' });
       } catch (e) {
         // background 不可用时忽略
       }
+      // 保留 1 秒，让用户看清成功提示
       setTimeout(() => {
         window.close();
       }, 1000);
     } else if (response.status === 409 && result.duplicate) {
-      // 处理重复 URL 的情况
-      const categoryName = result.existingBookmark?.category_name || '未知分类';
-      showStatus(`⚠️ 该 URL 已存在于"${categoryName}"分类中`, 'warning');
+      // 处理重复 URL 的情况：内联提示 + 恢复按钮，不关窗
+      setDuplicateHint(result.existingBookmark || { url });
       saveBtn.disabled = false;
       saveText.textContent = '保存书签';
     } else {
-      showStatus(result.error || '保存失败', 'error');
+      showToast(result.error || '保存失败', 'error');
       saveBtn.disabled = false;
       saveText.textContent = '保存书签';
     }
   } catch (error) {
-    console.error('Save error:', error);
-    showStatus('网络错误，请检查服务器地址', 'error');
+    if (error.kind !== 'unauthorized') {
+      console.error('Save error:', error);
+      showToast(error.kind === 'timeout' ? '连接超时，请重试' : '网络错误，请检查服务器地址', 'error');
+    }
     saveBtn.disabled = false;
     saveText.textContent = '保存书签';
   }
@@ -1128,11 +1216,10 @@ async function init() {
   if (!cache || BMExt.cacheState(cacheTimestamp) !== 'fresh') {
     // 后台刷新，不阻塞表单渲染
     Promise.all([refreshCategories(), refreshTags()]);
-  } else {
-    renderConnectionFromTimings();
   }
 
   getTabInfo();
+  schedulePingIfIdle();
 }
 
 async function getTabInfo() {
@@ -1247,7 +1334,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const urlInput = document.getElementById('url');
   urlInput.addEventListener('input', () => {
     duplicateCheckSeq++;
-    clearPersistentStatus();
+    setDuplicateHint(null);
   });
   urlInput.addEventListener('blur', () => {
     checkDuplicateUrl(urlInput.value);
@@ -1307,6 +1394,22 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const privateInput = document.getElementById('is-private');
   if (privateInput) privateInput.addEventListener('change', markFormDirty);
+
+  const detailBtn = document.getElementById('connection-detail-btn');
+  if (detailBtn) {
+    detailBtn.addEventListener('click', (event) => {
+      event.stopPropagation();
+      toggleConnectionPanel();
+    });
+  }
+});
+
+document.addEventListener('click', (event) => {
+  const panel = document.getElementById('connection-panel');
+  const bar = document.getElementById('connection-bar');
+  if (!panel || panel.classList.contains('hidden')) return;
+  if (panel.contains(event.target) || (bar && bar.contains(event.target))) return;
+  panel.classList.add('hidden');
 });
 
 document.addEventListener('mousedown', (e) => {
