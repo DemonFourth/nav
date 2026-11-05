@@ -173,6 +173,9 @@ const clearSearch = () => {
   emit('clear-results')
 }
 
+// 父组件（NavItemView）点标签时需要清空搜索框文本
+defineExpose({ clearSearch })
+
 const handleSearch = () => {
   if (!searchQuery.value.trim()) return
 
