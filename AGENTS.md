@@ -382,7 +382,7 @@ const clearSearchResults = () => {
 
 - 如果需要区分"搜索结果显示"和"分类浏览"的视觉样式，可以在 `NavCardGrid` 中通过 `searchResults.value !== null` 判断
 - 搜索结果的排序默认跟随书签的 `position` 字段，如需自定义排序可修改 `currentBookmarks` 中的逻辑
-- 标签筛选不再经过搜索框：`handleTagClick` 调用 `navSearchRef.value.clearSearch()` 只清空输入，再用 `activeTags` 驱动结果视图
+- 标签筛选不再经过搜索框：`handleTagClick` 调用 `navSearchRef.value?.clearSearch()` 只清空输入，再用 `activeTags` 驱动结果视图
 - **顺序约束**：`clearSearch()` 会同步 emit `clear-results` → `clearSearchResults()` 清空 `activeTags`，所以 `handleTagClick` 必须**先算出 next 再清搜索框**，否则多标签累加会被抹掉
 
 ## 导航站标签浏览
@@ -405,7 +405,7 @@ nav 模式支持按标签浏览书签，访客与登录用户均可用。标签�
 - 交互：点标签**累加**，再点同一标签**取消**（大小写忽略）。
 - 三个入口行为一致：标签行 / 全部标签弹窗 / 卡片上的标签。
 - 标签上的数字徽标保持**全站数量**，不随筛选联动。
-- 弹窗底部：`已选 N 个 · 当前命中 M 个书签`；`N=0` 时显示 `共 N 个标签 · 覆盖 M 个书签`。
+- 弹窗底部：`已选 N 个 · 当前命中 M 个书签`；未选标签时显示 `共 T 个标签 · 覆盖 B 个书签`（T/B 为全站统计，不是已选数量）。
 - 空态：单标签为 `没有带“A”标签的书签`；多标签为 `没有同时带「A、B」标签的书签`。
 
 ### 吸顶规则
@@ -434,7 +434,7 @@ nav 模式支持按标签浏览书签，访客与登录用户均可用。标签�
 | `src/components/TagOverviewDialog.vue` | 多选弹窗：emit `toggle`，不自动关闭；底部已选/命中摘要 + 「完成」 |
 | `src/components/NavCardGrid.vue` | `groups` / `emptyText` / `group-click`；分组态禁用拖拽 |
 | `src/views/NavItemView.vue` | 标签行、吸顶容器、`activeTags` / `tagGroups` / `tagMatchCount`、组头跳分类、菜单高亮开关 |
-| `tests/tag-browse.test.js` | 14 个 Node 单测，`npm run test:tags` |
+| `tests/tag-browse.test.js` | 15 个 Node 单测，`npm run test:tags` |
 
 ## 导航站卡片拖拽排序
 

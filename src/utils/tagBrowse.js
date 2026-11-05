@@ -52,6 +52,7 @@ export function countBookmarksWithTags(bookmarks = []) {
 /**
  * 归一化标签集合：string / string[] / null → string[]
  * 去空白、去空项、按小写去重、保留首次出现的写法，并保留传入顺序
+ * 注意：字符串按**单个标签**处理，不拆分逗号（书签的逗号串请先用 parseTags）
  * @param {string|string[]|null|undefined} input
  * @returns {string[]}
  */
@@ -114,6 +115,7 @@ export function pruneMissingTags(selected, stats = []) {
 /**
  * 按标签筛选书签并按分类分组（菜单顺序，未分类最后）
  * 多标签为 AND：书签必须同时包含全部标签
+ * 字符串入参按**单个标签**处理（不拆逗号）；空选择返回 `[]`
  * @param {Array} bookmarks
  * @param {Array} categories
  * @param {string|string[]|null} activeTags

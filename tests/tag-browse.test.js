@@ -120,6 +120,11 @@ test('filterAndSortTags searches case-insensitively and sorts by count or name',
   assert.deepEqual(tags.map(t => t.name), ['alpha', 'beta', 'gamma'])
 })
 
+test('toggleTagSelection handles null selections', () => {
+  assert.deepEqual(toggleTagSelection(null, 'AI'), ['AI'])
+  assert.deepEqual(toggleTagSelection(undefined, 'AI'), ['AI'])
+})
+
 test('normalizeTagList trims, dedupes case-insensitively and keeps first spelling', () => {
   assert.deepEqual(normalizeTagList('  AI  '), ['AI'])
   assert.deepEqual(normalizeTagList([' AI ', 'ai', ' 搜索 ']), ['AI', '搜索'])
@@ -149,6 +154,9 @@ test('matchesAllTags requires every tag (AND) and ignores case', () => {
   assert.equal(matchesAllTags({ tags: 'AI, AI' }, ['AI']), true)
   assert.equal(matchesAllTags({ tags: '' }, []), true)
   assert.equal(matchesAllTags({ tags: null }, ['AI']), false)
+  assert.equal(matchesAllTags({ tags: undefined }, ['AI']), false)
+  assert.equal(matchesAllTags({ tags: 'AI' }, null), true)
+  assert.equal(matchesAllTags({ tags: 'AI' }, undefined), true)
 })
 
 test('pruneMissingTags drops only the vanished tags', () => {
@@ -167,4 +175,9 @@ test('buildTagGroups filters by all active tags and stays backward compatible', 
   assert.deepEqual(single.map(g => g.leaf), ['搜索引擎', 'AI 对话', 'AI 编程', '未分类'])
   assert.deepEqual(buildTagGroups(bookmarks, categories, []), [])
   assert.deepEqual(buildTagGroups(bookmarks, categories, ['AI', '不存在']), [])
+  // 重复选中项（大小写差异）不应改变结果
+  assert.deepEqual(
+    buildTagGroups(bookmarks, categories, ['AI', 'ai']).map(g => g.leaf),
+    single.map(g => g.leaf)
+  )
 })
