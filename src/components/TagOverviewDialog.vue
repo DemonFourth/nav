@@ -172,10 +172,21 @@ watch(() => props.show, (visible) => {
 }
 .tag-overview-count {
   flex-shrink: 0;
-  font-size: 0.65rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: var(--nav-border);
+  font-size: 0.55rem;
+  font-weight: 600;
+  line-height: 1;
   color: var(--nav-text-secondary);
 }
 .tag-overview-item.active .tag-overview-count {
+  background: color-mix(in srgb, var(--nav-primary) 20%, transparent);
   color: var(--nav-primary);
 }
 .tag-overview-empty {
