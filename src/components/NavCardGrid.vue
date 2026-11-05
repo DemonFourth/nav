@@ -1,33 +1,65 @@
 <template>
   <div class="nav-card-grid">
-    <div v-if="bookmarks.length > 0" class="cards-container" :class="[animationClass, { 'grid-append': gridAppendActive }]" @dragover.prevent="handleGridDragOver" @drop="handleGridDrop">
-      <NavCard
-        v-for="(bookmark, index) in bookmarks"
-        :key="bookmark.id"
-        :bookmark="bookmark"
-        :isAuthenticated="isAuthenticated"
-        :reorderable="reorderable"
-        :style="getCardStyle(index)"
-        @tag-click="handleTagClick"
-        @show-detail="handleShowDetail"
-        @dragstart="handleDragStart"
-        @dragend="handleDragEnd"
-        @drop="handleCardDrop"
-      />
-      <div v-if="gridAppendActive" class="nav-grid-append-cue">移动到末尾</div>
+    <div v-if="totalCount > 0" :class="[isGrouped ? 'card-groups' : 'cards-container', animationClass, { 'grid-append': gridAppendActive }]" @dragover.prevent="handleGridDragOver" @drop="handleGridDrop">
+      <template v-for="group in displayGroups" :key="group.key">
+        <header
+          v-if="group.categoryId !== undefined"
+          class="card-group-header"
+          :class="{ 'is-clickable': group.categoryId !== null }"
+          @click="handleGroupClick(group)"
+        >
+          <span class="card-group-path">
+            <span v-if="group.parentText" class="card-group-parent">{{ group.parentText }} / </span>
+            <span class="card-group-leaf">{{ group.leaf }}</span>
+          </span>
+          <span class="card-group-count">{{ group.bookmarks.length }}</span>
+        </header>
+
+        <div v-if="isGrouped" class="cards-container">
+          <NavCard
+            v-for="(bookmark, index) in group.bookmarks"
+            :key="bookmark.id"
+            :bookmark="bookmark"
+            :isAuthenticated="isAuthenticated"
+            :reorderable="reorderable"
+            :style="getCardStyle(index)"
+            @tag-click="handleTagClick"
+            @show-detail="handleShowDetail"
+            @dragstart="handleDragStart"
+            @dragend="handleDragEnd"
+            @drop="handleCardDrop"
+          />
+        </div>
+        <template v-else>
+          <NavCard
+            v-for="(bookmark, index) in group.bookmarks"
+            :key="bookmark.id"
+            :bookmark="bookmark"
+            :isAuthenticated="isAuthenticated"
+            :reorderable="reorderable"
+            :style="getCardStyle(index)"
+            @tag-click="handleTagClick"
+            @show-detail="handleShowDetail"
+            @dragstart="handleDragStart"
+            @dragend="handleDragEnd"
+            @drop="handleCardDrop"
+          />
+          <div v-if="gridAppendActive" class="nav-grid-append-cue">移动到末尾</div>
+        </template>
+      </template>
     </div>
 
     <div v-else class="empty-state">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2">
         <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
       </svg>
-      <p>该分类下暂无书签</p>
+      <p>{{ emptyText }}</p>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, watch } from 'vue'
+import { ref, computed, watch } from 'vue'
 import NavCard from './NavCard.vue'
 import { useSettings } from '../composables/useSettings'
 import { useTheme } from '../composables/useTheme'
@@ -44,12 +76,30 @@ const props = defineProps({
   reorderable: {
     type: Boolean,
     default: false
+  },
+  groups: {
+    type: Array,
+    default: null
+  },
+  emptyText: {
+    type: String,
+    default: '该分类下暂无书签'
   }
 })
 
-const emit = defineEmits(['tag-click', 'show-detail', 'dragstart', 'dragend', 'reorder'])
+const emit = defineEmits(['tag-click', 'show-detail', 'dragstart', 'dragend', 'reorder', 'group-click'])
 
 const gridAppendActive = ref(false)
+
+const isGrouped = computed(() => props.groups !== null)
+const displayGroups = computed(() =>
+  isGrouped.value
+    ? props.groups
+    : [{ key: '__flat__', categoryId: undefined, bookmarks: props.bookmarks }]
+)
+const totalCount = computed(() =>
+  displayGroups.value.reduce((sum, group) => sum + group.bookmarks.length, 0)
+)
 
 const { navCardAnimation, navCardBlur, navCardOpacity } = useSettings()
 const { isDark } = useTheme()
@@ -88,8 +138,14 @@ const handleShowDetail = (payload) => {
   emit('show-detail', payload)
 }
 
+const handleGroupClick = (group) => {
+  if (!group || group.categoryId == null) return
+  emit('group-click', group)
+}
+
 // 排序拖拽：drop 时按 dropInfo 计算重排 items（仅当前分类内排序）
 const handleCardDrop = (dropInfo) => {
+  if (isGrouped.value) return
   if (!dropInfo || dropInfo.draggedId === dropInfo.targetId) {
     return
   }
@@ -118,13 +174,13 @@ const handleDragEnd = () => {
 
 // 拖到卡片网格空白区域：把拖拽卡片移动到末尾（底部）
 const handleGridDragOver = (e) => {
-  if (!props.reorderable) return
+  if (!props.reorderable || isGrouped.value) return
   const onCard = !!(e.target && e.target.closest && e.target.closest('.nav-card-horizontal'))
   gridAppendActive.value = !onCard
 }
 
 const handleGridDrop = (e) => {
-  if (!props.reorderable) return
+  if (!props.reorderable || isGrouped.value) return
   gridAppendActive.value = false
   const draggedId = e.dataTransfer?.getData('bookmarkId')
   if (!draggedId) return
@@ -152,6 +208,57 @@ const handleGridDrop = (e) => {
   justify-content: center;
   width: 100%;
   position: relative;
+}
+
+.card-groups {
+  width: 100%;
+}
+
+.card-group-header {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  width: 100%;
+  margin: 16px 0 9px;
+  padding: 0;
+  background: none;
+  border: 0;
+  font-family: inherit;
+  text-align: left;
+}
+
+.card-group-header:first-child {
+  margin-top: 12px;
+}
+
+.card-group-header .card-group-path {
+  font-size: 0.78rem;
+  color: var(--nav-text);
+}
+
+.card-group-header .card-group-parent {
+  color: var(--nav-text-secondary);
+}
+
+.card-group-header .card-group-leaf {
+  font-weight: 600;
+}
+
+.card-group-header .card-group-count {
+  font-size: 0.55rem;
+  font-weight: 600;
+  color: var(--nav-text-secondary);
+  background: var(--nav-border);
+  border-radius: 999px;
+  padding: 1px 6px;
+}
+
+.card-group-header.is-clickable {
+  cursor: pointer;
+}
+
+.card-group-header.is-clickable:hover .card-group-leaf {
+  color: var(--nav-primary);
 }
 
 .cards-container.grid-append {
