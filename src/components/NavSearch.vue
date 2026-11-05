@@ -126,15 +126,6 @@ const getCategoryDisplayPath = (categoryId) => {
   return path.map(c => c.name).join(' / ')
 }
 
-defineExpose({
-  openSearchWithTags: (tags) => {
-    if (tags && tags.length > 0) {
-      searchQuery.value = tags.join(',')
-      searchInSite(tags)
-    }
-  }
-})
-
 const searchEngines = [
   {
     name: 'google',
@@ -193,21 +184,11 @@ const handleSearch = () => {
   }
 }
 
-const searchInSite = (tags = null) => {
-  let results = []
+const searchInSite = () => {
+  const query = searchQuery.value.toLowerCase().trim()
+  if (!query) return
 
-  if (tags && tags.length > 0) {
-    const tagQueries = tags.map(t => t.toLowerCase().trim())
-    results = props.bookmarks.filter(bookmark => {
-      if (!bookmark.tags) return false
-      const bookmarkTags = bookmark.tags.split(',').map(t => t.trim().toLowerCase()).filter(Boolean)
-      return tagQueries.some(tag => bookmarkTags.includes(tag))
-    })
-  } else {
-    const query = searchQuery.value.toLowerCase().trim()
-    if (!query) return
-    results = searchBookmarks(props.bookmarks, searchQuery.value, { field: searchField.value })
-  }
+  const results = searchBookmarks(props.bookmarks, searchQuery.value, { field: searchField.value })
 
   searchResults.value = results
   emit('search-results', results)
