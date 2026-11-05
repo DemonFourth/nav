@@ -676,13 +676,15 @@ token TTL 必须与 `functions/_middleware.js` 的 `validateToken` 保持一致�
 - 点击胶囊 = 展开/收起详情面板：最近 5 次请求耗时、查重结论、后端能力提示、失败时的「重试」、`ping` 可用时的「重新测速」、缓存较旧说明
 - 计时来源优先级：**`/api/ping` 的纯连接耗时优先**，其次才是最近一次真实请求（`recordTiming`）。原因：bootstrap 这类批量接口要 1~2s，用它当"连接延迟"会让冷启动看起来像网络故障（曾出现「已连接(灰) → 1.9s(红)」的误导状态）
 - 打开 300ms 后主动测速；10 秒内复用上次结果，不重复请求
+- 「重新测速」点击后：按钮先变「测速中…」并禁用 → 结果写入 `requestTimings`（面板新增一行 `测速 124ms`）→ 胶囊数字同步更新；失败时按钮变「测速失败，再试一次」。**不要只改胶囊数字**，几毫秒的差异用户看不出来，会被当成"点了没反应"
 - `renderConnection(state)` 只负责渲染；重试回调存 `pendingRetry`，由面板按钮触发，点击后自动收起面板
 
 ### URL 查重（内联提示）
 
 - 触发：打开弹窗自动填 URL 后立即查、URL 输入停顿 600ms、`blur`、保存返回 409
 - 后端 `GET /api/bookmarks?url=` 正常返回 `{ data, exactUrl: true }`；**旧后端忽略 `url` 参数返回全量列表（无 `exactUrl`）时，改为本地逐条归一化比对**，不能直接判定重复
-- 结果同时记进 `duplicateCheckInfo`，详情面板显示「已存在（分类）/ 未找到匹配 / 旧后端无 exactUrl / 请求失败」——查重不生效时先看这行，能区分"确实没保存过"和"接口异常"
+- **等价规则（前后端必须一致）**：`functions/api/bookmarks/_shared.js` 的 `getUrlComparisonVariants` 生成变体集合，忽略三类差异 —— `http`/`https`、`www.`/非 `www.`、**任意路径**的尾部斜杠。变体对输入是对称的，所以只需用输入的变体去 `b.url IN (...)` 精确匹配即可（保留 `url` 索引）。客户端 `normalizeUrlForCompare` 用同一套规则（去掉协议与 `www`、去掉尾部斜杠）生成比对键
+- 结果同时记进 `duplicateCheckInfo`，详情面板显示「已存在（分类）/ 未找到匹配 / 旧后端无 exactUrl / 请求失败」；**未命中时附带比对键**（如 `比对 expreview.com/ketang`），用于对照存储值找出真正的差异（query、fragment、不同路径）
 - `/api/bootstrap` 回退旧接口时 `backendFallback` 置位，面板显示「后端缺少 /api/bootstrap，已回退旧接口」，用于识别扩展与后端版本不一致
 
 ### toast

@@ -564,14 +564,21 @@ function renderConnectionPanel() {
   retryBtn.textContent = '重新测速';
   retryBtn.addEventListener('click', async () => {
     retryBtn.disabled = true;
+    retryBtn.textContent = '测速中…';
     const ms = await pingServer();
-    retryBtn.disabled = false;
 
     if (ms === null) {
+      // 失败要留痕：按钮文字本身给出结论，同时回落到已有数据
+      retryBtn.disabled = false;
+      retryBtn.textContent = '测速失败，再试一次';
       renderConnectionFromTimings();
-    } else {
-      renderConnection({ mode: 'ok', ms, stale: BMExt.cacheState(cacheTimestamp) === 'old' });
+      return;
     }
+
+    // 让这次结果在面板里也留下一条，避免"数字动了几毫秒"等于没反应
+    recordTiming('测速', ms, true);
+    renderConnectionFromTimings();
+    renderConnectionPanel();
   });
 
   if (!pingSupported) {
@@ -640,14 +647,18 @@ function setDuplicateHint(bookmark) {
   hint.classList.remove('hidden');
 }
 
-// 旧版 /api/bookmarks 会忽略 url 参数返回全量列表，用本地归一化比较兜底
+// 旧版 /api/bookmarks 会忽略 url 参数返回全量列表，用本地归一化比较兜底。
+// 归一化规则与后端 getUrlComparisonVariants 对齐：忽略 http/https、www.、尾部斜杠
 function normalizeUrlForCompare(value) {
   const raw = String(value || '').trim();
   if (!raw) return '';
   try {
     const parsed = new URL(raw);
+    if (!['http:', 'https:'].includes(parsed.protocol)) return raw;
+    const host = parsed.hostname.replace(/^www\./, '');
+    const port = parsed.port ? `:${parsed.port}` : '';
     const path = parsed.pathname.replace(/\/+$/, '') || '/';
-    return `${parsed.protocol}//${parsed.host}${path}${parsed.search}${parsed.hash}`;
+    return `${host}${port}${path}${parsed.search}${parsed.hash}`;
   } catch (error) {
     return raw.replace(/\/+$/, '');
   }
@@ -698,9 +709,12 @@ async function checkDuplicateUrl(url) {
       : list[0] || null;
 
     if (!existing) {
+      const compared = normalizeUrlForCompare(targetUrl);
       setDuplicateHint(null);
       setDuplicateCheckInfo(
-        usingLegacy ? '查重：后端未返回 exactUrl，本地比对未找到' : '查重：未找到匹配'
+        usingLegacy
+          ? `查重：旧后端无 exactUrl，本地比对未找到（比对 ${compared}）`
+          : `查重：未找到匹配（比对 ${compared}）`
       );
       return;
     }

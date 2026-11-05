@@ -8,7 +8,7 @@ export async function onRequestGet(context) {
     // 中间件已验签，只读取可信结果
     const isAuthenticated = context.data?.auth?.verified === true;
 
-    // URL 查重（与 POST 创建时的判定条件一致，根路径忽略尾斜杠差异）
+    // URL 查重（与 POST 创建时的判定条件一致：忽略 http/https、www.、任意路径尾部斜杠）
     const exactUrl = new URL(request.url).searchParams.get('url');
     if (exactUrl !== null) {
       const variants = getUrlComparisonVariants(exactUrl);
@@ -111,7 +111,7 @@ export async function onRequestPost(context) {
       });
     }
     
-    // 检查 URL 是否已存在（根路径忽略尾斜杠差异）
+    // 检查 URL 是否已存在（忽略 http/https、www.、任意路径尾部斜杠）
     const urlVariants = getUrlComparisonVariants(trimmedUrl);
     const existingBookmark = await env.DB.prepare(
       `SELECT b.id, b.name, b.url, b.category_id, c.name as category_name 

@@ -127,6 +127,7 @@ body.dark .connection-panel {
   color: #b45309;
   font-size: 11px;
   line-height: 18px;
+  overflow-wrap: anywhere;
 }
 
 body.dark .connection-row-note {
@@ -137,6 +138,11 @@ body.dark .connection-row-note {
   display: flex;
   justify-content: flex-end;
   margin-top: 4px;
+}
+
+.connection-panel-actions button:disabled {
+  opacity: 0.55;
+  cursor: default;
 }
 
 .connection-panel-actions button {
