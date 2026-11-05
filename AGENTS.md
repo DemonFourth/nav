@@ -310,8 +310,8 @@ const toggleDisplayMode = () => {
 | 触发方式 | 组件/位置 | 行为 |
 |----------|-----------|------|
 | 搜索框输入 + 回车 | `NavSearch.vue` → `searchInSite()` | 在 content-section 显示匹配书签 |
-| 点击卡片上的标签 | `NavCardGrid.vue` → `@tag-click` → `handleTagClick` | 通过 `openSearchWithTags([tag])` 触发标签搜索 |
-| 点击标签筛选栏的标签 | `NavItemView.vue` → `handleTagTabClick` | 同上，触发标签搜索 |
+| 点击卡片上的标签 | `NavCardGrid.vue` → `@tag-click` → `handleTagClick` | 进入**标签筛选视图**（见下方「导航站标签浏览」，不再写入搜索框） |
+| 点击标签行 / 全部标签弹窗 | `NavItemView.vue` → `handleTagClick` | 同上 |
 | 点击搜索框的 X 清除按钮 | `NavSearch.vue` → `clearSearch()` | 清除搜索结果显示，恢复分类浏览 |
 
 ### 释放搜索结果的时机
@@ -330,7 +330,7 @@ const toggleDisplayMode = () => {
 // 搜索组件不再管理弹窗状态，改为 emit 事件
 const emit = defineEmits(['search-results', 'clear-results'])
 
-const searchInSite = (tags = null) => {
+const searchInSite = () => {
   // ... 执行搜索 ...
   searchResults.value = results
   emit('search-results', results)  // 发送给父组件
@@ -341,15 +341,8 @@ const clearSearch = () => {
   emit('clear-results')  // 通知父组件清除搜索结果
 }
 
-// 暴露方法供外部调用（卡片标签点击、标签栏点击）
-defineExpose({
-  openSearchWithTags: (tags) => {
-    if (tags && tags.length > 0) {
-      searchQuery.value = tags.join(',')
-      searchInSite(tags)
-    }
-  }
-})
+// 父组件点标签时需要清空搜索框文本（clearSearch 不会触发标签筛选）
+defineExpose({ clearSearch })
 ```
 
 #### NavItemView.vue — 状态驱动
@@ -381,15 +374,47 @@ const clearSearchResults = () => {
 
 | 文件 | 作用 |
 |------|------|
-| `src/components/NavSearch.vue` | 搜索组件，emit `search-results` 和 `clear-results`，暴露 `openSearchWithTags` |
-| `src/views/NavItemView.vue` | 管理 `searchResults` 状态，`currentBookmarks` 根据搜索/分类返回不同数据 |
-| `src/components/NavCardGrid.vue` | 书签卡片网格，接收 `currentBookmarks` 并展示 |
+| `src/components/NavSearch.vue` | 搜索组件，emit `search-results` 和 `clear-results`，暴露 `clearSearch()` |
+| `src/views/NavItemView.vue` | 管理 `searchResults` / `activeTag` 状态，`currentBookmarks` 根据搜索/标签/分类返回不同数据 |
+| `src/components/NavCardGrid.vue` | 书签卡片网格，接收 `currentBookmarks` 并展示；`groups` prop 非 null 时按分类分组 |
 
 ### 后续开发提示
 
 - 如果需要区分"搜索结果显示"和"分类浏览"的视觉样式，可以在 `NavCardGrid` 中通过 `searchResults.value !== null` 判断
 - 搜索结果的排序默认跟随书签的 `position` 字段，如需自定义排序可修改 `currentBookmarks` 中的逻辑
-- `openSearchWithTags` 方法可被任何需要触发标签搜索的外部组件调用，只需通过 `ref` 访问 `navSearchRef.value.openSearchWithTags([tag])`
+- 标签筛选不再经过搜索框：父组件调用 `navSearchRef.value.clearSearch()` 只清空输入，然后用 `activeTag` 驱动结果视图
+
+## 导航站标签浏览
+
+nav 模式支持按标签浏览书签，访客与登录用户均可用。标签行固定在全站搜索框下方（`category-tabs` 位置），不改变 nav 布局。
+
+### 界面结构
+
+| 位置 | 内容 |
+|------|------|
+| 标签行 | 全站最热 10 个标签（按数量降序）+ 末尾虚线胶囊「全部标签 N ›」；选中态实心 |
+| 全部标签弹窗 | 居中弹窗（复用 `BaseDialog`），搜索 + 数量/名称排序 + 每个标签计数 + 「共 N 个标签 · 覆盖 M 个书签」；点标签关闭弹窗并筛选 |
+| 标签结果上下文栏 | 标签胶囊（×）+ 命中数 + 涉及分类数 + 「清除筛选」 |
+| 标签结果卡片 | 按**菜单顺序**分组，组头为 `父路径 / 分类名 + 数量`；组内按 `position`，未分类最后 |
+
+### 关键规则
+
+- 标签匹配、统计、排序全部**忽略大小写**；展示用首次出现的写法（上下文栏也用规范写法）
+- 同一书签内重复标签（含大小写差异）只计一次
+- 标签视图期间顶部菜单不高亮任何分类，但保留 `activeMenu` / `activeSubMenu`；清除筛选后恢复
+- 标签视图**禁用卡片拖拽**（`canReorder` 为 false，且 `NavCardGrid` 分组态有额外守卫）；`POST /api/reorder` 会把传入 id 的 `position` 全量重写
+- 状态互斥：标签 / 搜索 / 分类三者任意切换都会清掉另外两个；`handleTagClick` 先 `clearSearch()` 再设置 `activeTag`
+- 组头是原生 `<button>`，可键盘回车跳转；未分类组头 `disabled`
+
+### 相关文件
+
+| 文件 | 作用 |
+|------|------|
+| `src/utils/tagBrowse.js` | 纯函数：`parseTags` / `buildTagStats` / `countBookmarksWithTags` / `buildTagGroups` / `filterAndSortTags` |
+| `src/components/TagOverviewDialog.vue` | 全部标签弹窗（打开时重置排序与搜索并聚焦搜索框） |
+| `src/components/NavCardGrid.vue` | `groups` / `emptyText` / `group-click`；分组态禁用拖拽 |
+| `src/views/NavItemView.vue` | 标签行、上下文栏、`activeTag` / `tagGroups`、组头跳分类、菜单高亮开关 |
+| `tests/tag-browse.test.js` | 7 个 Node 单测，`npm run test:tags` |
 
 ## 导航站卡片拖拽排序
 

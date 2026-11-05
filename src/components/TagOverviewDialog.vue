@@ -8,6 +8,7 @@
             <path d="m21 21-4.35-4.35" />
           </svg>
           <input
+            ref="searchInputRef"
             v-model="query"
             type="text"
             placeholder="搜索标签…"
@@ -15,8 +16,8 @@
           />
         </div>
         <div class="tag-overview-sort">
-          <button :class="{ active: sortBy === 'count' }" @click="sortBy = 'count'">数量 ↓</button>
-          <button :class="{ active: sortBy === 'name' }" @click="sortBy = 'name'">名称</button>
+          <button :class="{ active: sortBy === 'count' }" :aria-pressed="sortBy === 'count'" @click="sortBy = 'count'">数量 ↓</button>
+          <button :class="{ active: sortBy === 'name' }" :aria-pressed="sortBy === 'name'" @click="sortBy = 'name'">名称</button>
         </div>
       </div>
 
@@ -45,7 +46,7 @@
 </template>
 
 <script setup>
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, nextTick } from 'vue'
 import BaseDialog from './BaseDialog.vue'
 import { filterAndSortTags } from '../utils/tagBrowse.js'
 
@@ -59,13 +60,18 @@ const emit = defineEmits(['close', 'select'])
 
 const query = ref('')
 const sortBy = ref('count')
+const searchInputRef = ref(null)
 
 const list = computed(() => filterAndSortTags(props.tags, query.value, sortBy.value))
 const isActive = (name) =>
   !!props.activeTag && name.toLowerCase() === props.activeTag.toLowerCase()
 
 watch(() => props.show, (visible) => {
-  if (visible) query.value = ''
+  if (!visible) return
+  // 每次打开重置为「数量」排序并清空搜索，便于键盘用户直接输入
+  query.value = ''
+  sortBy.value = 'count'
+  nextTick(() => searchInputRef.value?.focus())
 })
 </script>
 

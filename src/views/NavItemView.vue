@@ -47,7 +47,7 @@
 
     <div v-if="activeTag" class="tag-filter-bar">
       <span class="tag-filter-chip">
-        {{ activeTag }}
+        {{ activeTagLabel }}
         <span class="tag-filter-count">{{ getTagCount(activeTag) }}</span>
         <button class="tag-filter-remove" aria-label="清除标签筛选" @click="clearTagFilter">×</button>
       </span>
@@ -225,6 +225,14 @@ const getTagCount = (name) => tagCountMap.value.get(String(name).toLowerCase()) 
 const bookmarkCountWithTags = computed(() => countBookmarksWithTags(bookmarks.value))
 const isActiveTag = (name) =>
   !!activeTag.value && String(name).toLowerCase() === activeTag.value.toLowerCase()
+// 卡片标签可能是任意大小写写法，展示时统一用首次出现的规范写法
+const activeTagLabel = computed(() => {
+  if (!activeTag.value) return ''
+  const tag = tagStats.value.find(
+    item => item.name.toLowerCase() === activeTag.value.toLowerCase()
+  )
+  return tag ? tag.name : activeTag.value
+})
 
 // 标签结果优先；搜索结果其次；否则按当前分类
 const tagGroups = computed(() =>
@@ -258,7 +266,7 @@ const currentBookmarks = computed(() => {
 })
 
 const gridEmptyText = computed(() =>
-  activeTag.value ? `没有带“${activeTag.value}”标签的书签` : '该分类下暂无书签'
+  activeTag.value ? `没有带“${activeTagLabel.value}”标签的书签` : '该分类下暂无书签'
 )
 
 // 仅已登录 + 浏览某分类 + 非搜索结果 + 非标签筛选时允许排序
@@ -379,6 +387,7 @@ watch(tagStats, (list) => {
   const norm = activeTag.value.toLowerCase()
   if (!list.some(tag => tag.name.toLowerCase() === norm)) {
     activeTag.value = null
+    animationKey.value++
   }
 })
 
@@ -716,6 +725,8 @@ const handleLogout = async () => {
   display: inline-flex;
   align-items: center;
   gap: 5px;
+  min-width: 0;
+  overflow-wrap: anywhere;
   padding: 2px 8px;
   border: 1px solid color-mix(in srgb, var(--nav-primary) 30%, transparent);
   border-radius: 999px;

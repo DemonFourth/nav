@@ -2,10 +2,12 @@
   <div class="nav-card-grid">
     <div v-if="totalCount > 0" :class="[isGrouped ? 'card-groups' : 'cards-container', animationClass, { 'grid-append': gridAppendActive }]" @dragover.prevent="handleGridDragOver" @drop="handleGridDrop">
       <template v-for="group in displayGroups" :key="group.key">
-        <header
+        <button
           v-if="group.categoryId !== undefined"
+          type="button"
           class="card-group-header"
           :class="{ 'is-clickable': group.categoryId !== null }"
+          :disabled="group.categoryId === null"
           @click="handleGroupClick(group)"
         >
           <span class="card-group-path">
@@ -13,7 +15,7 @@
             <span class="card-group-leaf">{{ group.leaf }}</span>
           </span>
           <span class="card-group-count">{{ group.bookmarks.length }}</span>
-        </header>
+        </button>
 
         <div v-if="isGrouped" class="cards-container">
           <NavCard
@@ -231,9 +233,21 @@ const handleGridDrop = (e) => {
   margin-top: 12px;
 }
 
+.card-group-header:disabled {
+  cursor: default;
+}
+
+.card-group-header:focus-visible {
+  outline: 2px solid var(--nav-primary);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
 .card-group-header .card-group-path {
+  min-width: 0;
   font-size: 0.78rem;
   color: var(--nav-text);
+  overflow-wrap: anywhere;
 }
 
 .card-group-header .card-group-parent {
@@ -245,6 +259,7 @@ const handleGridDrop = (e) => {
 }
 
 .card-group-header .card-group-count {
+  flex-shrink: 0;
   font-size: 0.55rem;
   font-weight: 600;
   color: var(--nav-text-secondary);
