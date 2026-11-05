@@ -8,7 +8,8 @@ const appSettings = {
 let categories = [];
 let tagItems = [];
 let allTags = [];
-let formDirty = false;
+// 只有用户真正键入/粘贴过 URL 才置位；自动填充不会触发 keydown/paste
+let urlEditedByUser = false;
 let prefetchCacheRecord = null;
 let cacheTimestamp = 0;
 let renewingPromise = null;
@@ -82,7 +83,6 @@ function resetSessionState() {
   inFlight.bootstrap = null;
   renewingPromise = null;
   duplicateCheckSeq++;
-  formDirty = false;
   pendingRetry = null;
   requestTimings.length = 0;
   pingSupported = true;
@@ -289,10 +289,6 @@ function showToast(message, type = 'info') {
   toastTimer = setTimeout(() => {
     toastEl.classList.add('hidden');
   }, 3000);
-}
-
-function markFormDirty() {
-  formDirty = true;
 }
 
 // AI 图标按钮的忙碌态：图标 → 转圈，提示文案切换
@@ -1428,28 +1424,30 @@ async function init() {
 }
 
 async function getTabInfo() {
-  if (formDirty) return;
-
   const contextInfo = await maybeUseContextInfo();
   const tab = contextInfo || await getCurrentTab();
-  if (!tab || formDirty) return;
+  if (!tab) return;
 
   const titleEl = document.getElementById('title');
   if (titleEl && !titleEl.value) {
     titleEl.value = tab.title || '';
   }
 
+  // URL 是查重的依据，必须以当前标签页为准。
+  // 浏览器自动填充 / 表单恢复也会写入并触发 input，但它不产生 keydown/paste，
+  // 所以不能用「表单是否被改过」或「字段已有值」判断，否则旧 URL 会顶掉 tab.url，
+  // 查重就会去查一个用户根本没在看的地址（UI 优化后表单先渲染，暴露了这个竞态）。
   const urlEl = document.getElementById('url');
-  if (urlEl && !urlEl.value) {
+  if (urlEl && !urlEditedByUser) {
     urlEl.value = tab.url || '';
   }
 
-  checkDuplicateUrl(document.getElementById('url')?.value || '')
+  checkDuplicateUrl(urlEl?.value || '')
 
   // 抓取页面元数据自动填充描述（不覆盖用户已输入的内容）
   fetchPageMetadata(tab?.url).then(pageMeta => {
     const descEl = document.getElementById('description')
-    if (!descEl || formDirty || descEl.value.trim()) return
+    if (!descEl || descEl.value.trim()) return
 
     if (pageMeta && (pageMeta.metaDescription || pageMeta.ogDescription)) {
       descEl.value = pageMeta.metaDescription || pageMeta.ogDescription
@@ -1538,6 +1536,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const urlInput = document.getElementById('url');
   let duplicateTimer = null;
+  // 用户真的动手改过 URL（自动填充不算）
+  urlInput.addEventListener('keydown', () => {
+    urlEditedByUser = true;
+  });
+  urlInput.addEventListener('paste', () => {
+    urlEditedByUser = true;
+  });
   urlInput.addEventListener('input', () => {
     duplicateCheckSeq++;
     setDuplicateHint(null);
@@ -1597,14 +1602,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     categoryInput.focus();
   });
-
-  ['title', 'url', 'description', 'category-input', 'tags-input'].forEach(id => {
-    const el = document.getElementById(id);
-    if (el) el.addEventListener('input', markFormDirty);
-  });
-
-  const privateInput = document.getElementById('is-private');
-  if (privateInput) privateInput.addEventListener('change', markFormDirty);
 
   const connectionMain = document.getElementById('connection-main');
   if (connectionMain) {
