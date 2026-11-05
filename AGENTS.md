@@ -375,46 +375,66 @@ const clearSearchResults = () => {
 | 文件 | 作用 |
 |------|------|
 | `src/components/NavSearch.vue` | 搜索组件，emit `search-results` 和 `clear-results`，暴露 `clearSearch()` |
-| `src/views/NavItemView.vue` | 管理 `searchResults` / `activeTag` 状态，`currentBookmarks` 根据搜索/标签/分类返回不同数据 |
+| `src/views/NavItemView.vue` | 管理 `searchResults` / `activeTags` 状态，`currentBookmarks` 根据搜索/标签/分类返回不同数据 |
 | `src/components/NavCardGrid.vue` | 书签卡片网格，接收 `currentBookmarks` 并展示；`groups` prop 非 null 时按分类分组 |
 
 ### 后续开发提示
 
 - 如果需要区分"搜索结果显示"和"分类浏览"的视觉样式，可以在 `NavCardGrid` 中通过 `searchResults.value !== null` 判断
 - 搜索结果的排序默认跟随书签的 `position` 字段，如需自定义排序可修改 `currentBookmarks` 中的逻辑
-- 标签筛选不再经过搜索框：父组件调用 `navSearchRef.value.clearSearch()` 只清空输入，然后用 `activeTag` 驱动结果视图
+- 标签筛选不再经过搜索框：`handleTagClick` 调用 `navSearchRef.value.clearSearch()` 只清空输入，再用 `activeTags` 驱动结果视图
+- **顺序约束**：`clearSearch()` 会同步 emit `clear-results` → `clearSearchResults()` 清空 `activeTags`，所以 `handleTagClick` 必须**先算出 next 再清搜索框**，否则多标签累加会被抹掉
 
 ## 导航站标签浏览
 
-nav 模式支持按标签浏览书签，访客与登录用户均可用。标签行固定在全站搜索框下方（`category-tabs` 位置），不改变 nav 布局。
+nav 模式支持按标签浏览书签，访客与登录用户均可用。标签行固定在搜索框下方（`category-tabs` 位置），不改变 nav 结构。标签筛选支持**多标签同时满足（AND）**。
 
 ### 界面结构
 
 | 位置 | 内容 |
 |------|------|
-| 标签行 | 全站最热 10 个标签（按数量降序）+ 末尾虚线胶囊「全部标签 N ›」；选中态实心 |
-| 全部标签弹窗 | 居中弹窗（复用 `BaseDialog`），搜索 + 数量/名称排序 + 每个标签计数 + 「共 N 个标签 · 覆盖 M 个书签」；点标签关闭弹窗并筛选 |
-| 标签结果上下文栏 | 标签胶囊（×）+ 命中数 + 涉及分类数 + 「清除筛选」 |
+| 标签行 | 全站最热 10 个标签（按数量降序）+ 末尾虚线胶囊「全部标签 N ›」；可多个同时实心 |
+| 吸顶容器 | `.tag-filter-sticky` 包住标签行 + 上下文栏，**仅 `activeTags` 非空时**吸顶 |
+| 全部标签弹窗 | 居中弹窗（复用 `BaseDialog`），搜索 + 数量/名称排序 + 每个标签计数；点标签**切换选中且不关闭**，可连续选多个 |
+| 上下文栏 | 每个选中标签一个可 × 胶囊（带全站数量）+ 命中数 + 涉及分类数 + 「清除筛选」 |
 | 标签结果卡片 | 按**菜单顺序**分组，组头为 `父路径 / 分类名 + 数量`；组内按 `position`，未分类最后 |
+
+### 多标签 AND
+
+- 语义：书签的标签集合必须**包含全部选中标签**（不是任一）。
+- 交互：点标签**累加**，再点同一标签**取消**（大小写忽略）。
+- 三个入口行为一致：标签行 / 全部标签弹窗 / 卡片上的标签。
+- 标签上的数字徽标保持**全站数量**，不随筛选联动。
+- 弹窗底部：`已选 N 个 · 当前命中 M 个书签`；`N=0` 时显示 `共 N 个标签 · 覆盖 M 个书签`。
+- 空态：单标签为 `没有带“A”标签的书签`；多标签为 `没有同时带「A、B」标签的书签`。
+
+### 吸顶规则
+
+- `.tag-filter-sticky.is-pinned`：`position: sticky; top: var(--nav-bar-height, 56px); z-index: 60`。
+- 背景 `var(--nav-glass)` + `backdrop-filter: blur(20px) saturate(1.4)`，与 `NavBar` 一致；底部加 `1px` 边框和轻微阴影。
+- `z-index: 60` 必须低于 `NavBar`（100）与下拉（200/300）。
+- `≤640px` 吸顶时标签行改为 `flex-wrap: nowrap` + 横向滚动、左对齐，避免堆成多行压住卡片。
+- 普通浏览（无标签筛选）**不吸顶**，不占常驻空间。
 
 ### 关键规则
 
-- 标签匹配、统计、排序全部**忽略大小写**；展示用首次出现的写法（上下文栏也用规范写法）
-- 同一书签内重复标签（含大小写差异）只计一次
-- 标签视图期间顶部菜单不高亮任何分类，但保留 `activeMenu` / `activeSubMenu`；清除筛选后恢复
-- 标签视图**禁用卡片拖拽**（`canReorder` 为 false，且 `NavCardGrid` 分组态有额外守卫）；`POST /api/reorder` 会把传入 id 的 `position` 全量重写
-- 状态互斥：标签 / 搜索 / 分类三者任意切换都会清掉另外两个；`handleTagClick` 先 `clearSearch()` 再设置 `activeTag`
-- 组头是原生 `<button>`，可键盘回车跳转；未分类组头 `disabled`
+- 标签匹配、统计、排序全部**忽略大小写**；展示用首次出现的写法（上下文栏也用规范写法）。
+- 同一书签内重复标签（含大小写差异）只计一次。
+- 标签视图期间顶部菜单不高亮任何分类，但保留 `activeMenu` / `activeSubMenu`；清除筛选后恢复。
+- 标签视图**禁用卡片拖拽**（`canReorder` 为 false，且 `NavCardGrid` 分组态有额外守卫）；`POST /api/reorder` 会把传入 id 的 `position` 全量重写。
+- 状态互斥：标签 / 搜索 / 分类三者任意切换都会清掉另外两个；`handleTagClick` **先算 next 再 `clearSearch()`**（`clear-results` 会清空 `activeTags`）。
+- 标签失效：`pruneMissingTags` 只移除数据刷新后消失的标签，其余选择保留。
+- 组头是原生 `<button>`，可键盘回车跳转；未分类组头 `disabled`。
 
 ### 相关文件
 
 | 文件 | 作用 |
 |------|------|
-| `src/utils/tagBrowse.js` | 纯函数：`parseTags` / `buildTagStats` / `countBookmarksWithTags` / `buildTagGroups` / `filterAndSortTags` |
-| `src/components/TagOverviewDialog.vue` | 全部标签弹窗（打开时重置排序与搜索并聚焦搜索框） |
+| `src/utils/tagBrowse.js` | 纯函数：`parseTags` / `buildTagStats` / `countBookmarksWithTags` / `normalizeTagList` / `toggleTagSelection` / `matchesAllTags` / `pruneMissingTags` / `buildTagGroups`（AND）/ `filterAndSortTags` |
+| `src/components/TagOverviewDialog.vue` | 多选弹窗：emit `toggle`，不自动关闭；底部已选/命中摘要 + 「完成」 |
 | `src/components/NavCardGrid.vue` | `groups` / `emptyText` / `group-click`；分组态禁用拖拽 |
-| `src/views/NavItemView.vue` | 标签行、上下文栏、`activeTag` / `tagGroups`、组头跳分类、菜单高亮开关 |
-| `tests/tag-browse.test.js` | 7 个 Node 单测，`npm run test:tags` |
+| `src/views/NavItemView.vue` | 标签行、吸顶容器、`activeTags` / `tagGroups` / `tagMatchCount`、组头跳分类、菜单高亮开关 |
+| `tests/tag-browse.test.js` | 14 个 Node 单测，`npm run test:tags` |
 
 ## 导航站卡片拖拽排序
 
