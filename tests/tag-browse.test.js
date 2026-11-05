@@ -88,6 +88,22 @@ test('buildTagGroups keeps missing positions last and falls back to name', () =>
   assert.deepEqual(groups[0].bookmarks.map(b => b.id), [3, 1, 2])
 })
 
+test('buildTagGroups renders deep paths as A / B / C', () => {
+  const deepCategories = [
+    { id: 1, name: 'A', parent_id: null, position: 0 },
+    { id: 2, name: 'B', parent_id: 1, position: 0 },
+    { id: 3, name: 'C', parent_id: 2, position: 0 }
+  ]
+  const groups = buildTagGroups(
+    [{ id: 1, name: 'x', category_id: 3, tags: 'AI', position: 0 }],
+    deepCategories,
+    'AI'
+  )
+  assert.deepEqual(groups[0].path, ['A', 'B', 'C'])
+  assert.equal(groups[0].parentText, 'A / B')
+  assert.equal(groups[0].leaf, 'C')
+})
+
 test('filterAndSortTags searches case-insensitively and sorts by count or name', () => {
   const tags = [
     { name: 'alpha', count: 5 },
