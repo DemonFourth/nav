@@ -1,7 +1,7 @@
 # nav 模式粘性筛选栏 + 多标签 AND 筛选设计文档
 
 **日期**: 2026-11-05
-**状态**: 待批准
+**状态**: 已批准（2026-11-05，实现见 `docs/superpowers/plans/2026-11-05-nav-tag-multi-filter.md`）
 **范围**: nav 模式（`displayMode === 'nav-item'`）的标签行、标签筛选上下文栏、全部标签弹窗、标签结果视图
 **前置文档**: `docs/superpowers/specs/2026-11-05-nav-tag-browse-design.md`（v1 标签浏览，本文在其基础上增量修订）
 
