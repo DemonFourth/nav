@@ -5,7 +5,11 @@ import {
   buildTagStats,
   countBookmarksWithTags,
   buildTagGroups,
-  filterAndSortTags
+  filterAndSortTags,
+  normalizeTagList,
+  toggleTagSelection,
+  matchesAllTags,
+  pruneMissingTags
 } from '../src/utils/tagBrowse.js'
 
 const categories = [
@@ -114,4 +118,53 @@ test('filterAndSortTags searches case-insensitively and sorts by count or name',
   assert.deepEqual(filterAndSortTags(tags, 'B', 'count').map(t => t.name), ['beta'])
   assert.deepEqual(filterAndSortTags(tags, '', 'name').map(t => t.name), ['alpha', 'beta', 'gamma'])
   assert.deepEqual(tags.map(t => t.name), ['alpha', 'beta', 'gamma'])
+})
+
+test('normalizeTagList trims, dedupes case-insensitively and keeps first spelling', () => {
+  assert.deepEqual(normalizeTagList('  AI  '), ['AI'])
+  assert.deepEqual(normalizeTagList([' AI ', 'ai', ' 搜索 ']), ['AI', '搜索'])
+  assert.deepEqual(normalizeTagList(null), [])
+  assert.deepEqual(normalizeTagList(undefined), [])
+  assert.deepEqual(normalizeTagList([]), [])
+})
+
+test('toggleTagSelection adds, removes case-insensitively and keeps click order', () => {
+  assert.deepEqual(toggleTagSelection([], 'AI'), ['AI'])
+  assert.deepEqual(toggleTagSelection(['AI'], 'Cloudflare'), ['AI', 'Cloudflare'])
+  assert.deepEqual(toggleTagSelection(['AI', 'Cloudflare'], 'ai'), ['Cloudflare'])
+  assert.deepEqual(toggleTagSelection(['AI'], 'ai'), [])
+  assert.deepEqual(toggleTagSelection(['AI'], '   '), ['AI'])
+})
+
+test('toggleTagSelection does not mutate the input array', () => {
+  const original = ['AI']
+  const next = toggleTagSelection(original, 'Cloudflare')
+  assert.deepEqual(original, ['AI'])
+  assert.deepEqual(next, ['AI', 'Cloudflare'])
+})
+
+test('matchesAllTags requires every tag (AND) and ignores case', () => {
+  assert.equal(matchesAllTags({ tags: 'AI, 搜索' }, ['ai', '搜索']), true)
+  assert.equal(matchesAllTags({ tags: 'AI, 搜索' }, ['ai', 'IDE']), false)
+  assert.equal(matchesAllTags({ tags: 'AI, AI' }, ['AI']), true)
+  assert.equal(matchesAllTags({ tags: '' }, []), true)
+  assert.equal(matchesAllTags({ tags: null }, ['AI']), false)
+})
+
+test('pruneMissingTags drops only the vanished tags', () => {
+  const stats = buildTagStats([{ tags: 'AI' }, { tags: 'Cloudflare' }])
+  assert.deepEqual(pruneMissingTags(['AI', 'Gone', 'Cloudflare'], stats), ['AI', 'Cloudflare'])
+  assert.deepEqual(pruneMissingTags(['Gone'], stats), [])
+})
+
+test('buildTagGroups filters by all active tags and stays backward compatible', () => {
+  const and = buildTagGroups(bookmarks, categories, ['AI', '对话'])
+  assert.deepEqual(
+    and.map(g => [g.leaf, g.bookmarks.map(b => b.id)]),
+    [['AI 对话', [2]]]
+  )
+  const single = buildTagGroups(bookmarks, categories, 'AI')
+  assert.deepEqual(single.map(g => g.leaf), ['搜索引擎', 'AI 对话', 'AI 编程', '未分类'])
+  assert.deepEqual(buildTagGroups(bookmarks, categories, []), [])
+  assert.deepEqual(buildTagGroups(bookmarks, categories, ['AI', '不存在']), [])
 })

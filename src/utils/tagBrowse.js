@@ -50,18 +50,79 @@ export function countBookmarksWithTags(bookmarks = []) {
 }
 
 /**
+ * 归一化标签集合：string / string[] / null → string[]
+ * 去空白、去空项、按小写去重、保留首次出现的写法，并保留传入顺序
+ * @param {string|string[]|null|undefined} input
+ * @returns {string[]}
+ */
+export function normalizeTagList(input) {
+  const list = Array.isArray(input) ? input : input == null ? [] : [input]
+  const seen = new Set()
+  const result = []
+  for (const item of list) {
+    const tag = String(item ?? '').trim()
+    if (!tag) continue
+    const key = tag.toLowerCase()
+    if (seen.has(key)) continue
+    seen.add(key)
+    result.push(tag)
+  }
+  return result
+}
+
+/**
+ * 切换一个标签：已存在（忽略大小写）则移除，否则追加到末尾
+ * 不修改入参数组
+ * @param {string[]} selected
+ * @param {string} name
+ * @returns {string[]}
+ */
+export function toggleTagSelection(selected, name) {
+  const tag = String(name ?? '').trim()
+  const current = normalizeTagList(selected)
+  if (!tag) return current
+  const key = tag.toLowerCase()
+  const index = current.findIndex(item => item.toLowerCase() === key)
+  if (index === -1) return [...current, tag]
+  return current.filter((_, i) => i !== index)
+}
+
+/**
+ * 书签是否同时包含全部标签（AND）；标签列表为空时返回 true
+ * @param {{tags?: string}} bookmark
+ * @param {string|string[]|null} tags
+ * @returns {boolean}
+ */
+export function matchesAllTags(bookmark, tags) {
+  const wanted = normalizeTagList(tags)
+  if (!wanted.length) return true
+  const own = new Set(parseTags(bookmark?.tags).map(tag => tag.toLowerCase()))
+  return wanted.every(tag => own.has(tag.toLowerCase()))
+}
+
+/**
+ * 从当前选择中移除已经不存在于标签统计里的项，保留其余顺序
+ * @param {string[]} selected
+ * @param {Array<{name: string}>} stats
+ * @returns {string[]}
+ */
+export function pruneMissingTags(selected, stats = []) {
+  const valid = new Set(stats.map(tag => String(tag.name).toLowerCase()))
+  return normalizeTagList(selected).filter(tag => valid.has(tag.toLowerCase()))
+}
+
+/**
  * 按标签筛选书签并按分类分组（菜单顺序，未分类最后）
+ * 多标签为 AND：书签必须同时包含全部标签
  * @param {Array} bookmarks
  * @param {Array} categories
- * @param {string|null} activeTag
+ * @param {string|string[]|null} activeTags
  * @returns {Array<{key: number|'none', categoryId: number|null, path: string[], leaf: string, parentText: string, bookmarks: Array}>}
  */
-export function buildTagGroups(bookmarks = [], categories = [], activeTag = null) {
-  if (!activeTag) return []
-  const norm = String(activeTag).toLowerCase()
-  const matched = bookmarks.filter(bookmark =>
-    parseTags(bookmark.tags).some(tag => tag.toLowerCase() === norm)
-  )
+export function buildTagGroups(bookmarks = [], categories = [], activeTags = null) {
+  const wanted = normalizeTagList(activeTags)
+  if (!wanted.length) return []
+  const matched = bookmarks.filter(bookmark => matchesAllTags(bookmark, wanted))
 
   const { map, flatList } = buildCategoryTree(categories)
   const order = new Map(flatList.map((category, index) => [category.id, index]))
