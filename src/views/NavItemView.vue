@@ -2,8 +2,8 @@
   <div class="nav-item-view" :class="{ 'drag-reordering': dragReorderActive }" :style="backgroundStyle">
     <NavBar 
       :menus="menuTree"
-      :active-menu="activeTag ? null : activeMenu"
-      :active-sub-menu="activeTag ? null : activeSubMenu"
+      :active-menu="tagFilterActive ? null : activeMenu"
+      :active-sub-menu="tagFilterActive ? null : activeSubMenu"
       :custom-title="customTitle"
       :reorderable="isAuthenticated"
       :active-path="activePath"
@@ -27,34 +27,41 @@
       />
     </div>
 
-    <div v-if="tagStats.length" class="category-tabs">
-      <button
-        v-for="tag in topTags"
-        :key="tag.name"
-        class="cat-tab"
-        :class="{ active: isActiveTag(tag.name) }"
-        @click="handleTagClick(tag.name)"
-      >
-        {{ tag.name }}
-        <span class="cat-count">{{ tag.count }}</span>
-      </button>
-      <button class="cat-tab tag-all" @click="showTagOverview = true">
-        全部标签
-        <span class="cat-count">{{ tagStats.length }}</span>
-        ›
-      </button>
-    </div>
+    <div v-if="tagStats.length" class="tag-filter-sticky" :class="{ 'is-pinned': tagFilterActive }">
+      <div class="category-tabs">
+        <button
+          v-for="tag in topTags"
+          :key="tag.name"
+          class="cat-tab"
+          :class="{ active: isTagActive(tag.name) }"
+          :aria-pressed="isTagActive(tag.name)"
+          @click="handleTagClick(tag.name)"
+        >
+          {{ tag.name }}
+          <span class="cat-count">{{ tag.count }}</span>
+        </button>
+        <button class="cat-tab tag-all" @click="showTagOverview = true">
+          全部标签
+          <span class="cat-count">{{ tagStats.length }}</span>
+          ›
+        </button>
+      </div>
 
-    <div v-if="activeTag" class="tag-filter-bar">
-      <span class="tag-filter-chip">
-        {{ activeTagLabel }}
-        <span class="tag-filter-count">{{ getTagCount(activeTag) }}</span>
-        <button class="tag-filter-remove" aria-label="清除标签筛选" @click="clearTagFilter">×</button>
-      </span>
-      <span class="tag-filter-meta">
-        {{ getTagCount(activeTag) }} 个书签 · 来自 {{ tagGroups?.filter(g => g.categoryId !== null).length || 0 }} 个分类
-      </span>
-      <button class="tag-filter-clear" @click="clearTagFilter">清除筛选</button>
+      <div v-if="tagFilterActive" class="tag-filter-bar">
+        <span v-for="name in activeTagLabels" :key="name" class="tag-filter-chip">
+          {{ name }}
+          <span class="tag-filter-count">{{ getTagCount(name) }}</span>
+          <button
+            class="tag-filter-remove"
+            :aria-label="`移除标签 ${name}`"
+            @click="removeTag(name)"
+          >×</button>
+        </span>
+        <span class="tag-filter-meta">
+          {{ tagMatchCount }} 个书签 · 来自 {{ tagCategoryCount }} 个分类
+        </span>
+        <button class="tag-filter-clear" @click="clearTagFilter">清除筛选</button>
+      </div>
     </div>
 
     <div class="content-section">
@@ -107,10 +114,11 @@
     <TagOverviewDialog
       :show="showTagOverview"
       :tags="tagStats"
-      :active-tag="activeTag"
+      :active-tags="activeTags"
       :bookmark-count="bookmarkCountWithTags"
+      :match-count="tagMatchCount"
       @close="showTagOverview = false"
-      @select="handleTagSelectFromDialog"
+      @toggle="handleTagClick"
     />
   </div>
 </template>
@@ -133,7 +141,7 @@ import { useAuth } from '../composables/useAuth'
 import { useToast } from '../composables/useToast'
 import { useAuthGuard } from '../composables/useAuthGuard'
 import { buildCategoryTree } from '../utils/categoryTree'
-import { buildTagStats, countBookmarksWithTags, buildTagGroups } from '../utils/tagBrowse.js'
+import { buildTagStats, countBookmarksWithTags, buildTagGroups, toggleTagSelection, pruneMissingTags } from '../utils/tagBrowse.js'
 
 const { categories, bookmarks, fetchData, searchTags, updateBookmark, deleteBookmark, addCategory, allTags, getEmptyCategories, cleanupEmptyCategories, reorderItems } = useBookmarks()
 const { isAuthenticated, logout } = useAuth()
@@ -158,7 +166,7 @@ const categorySaving = ref(false)
 const navSettingsRef = ref(null)
 const importExportDialog = ref(null)
 const backupDialog = ref(null)
-const activeTag = ref(null)
+const activeTags = ref([])
 const showTagOverview = ref(false)
 const searchResults = ref(null)
 const dragReorderActive = ref(false)
@@ -197,7 +205,7 @@ const menuTree = computed(() => {
 // 从根到当前选中项的分类路径，用于逐级递减高亮祖先
 const activePath = computed(() => {
   // 标签结果视图期间不高亮任何分类（activeMenu/activeSubMenu 仅用于清除筛选后恢复）
-  if (activeTag.value) return []
+  if (tagFilterActive.value) return []
   const targetId = activeSubMenu.value?.id ?? activeMenu.value?.id
   if (!targetId) return []
   const search = (nodes, trail) => {
@@ -223,22 +231,34 @@ const tagCountMap = computed(() => new Map(
 ))
 const getTagCount = (name) => tagCountMap.value.get(String(name).toLowerCase()) ?? 0
 const bookmarkCountWithTags = computed(() => countBookmarksWithTags(bookmarks.value))
-const isActiveTag = (name) =>
-  !!activeTag.value && String(name).toLowerCase() === activeTag.value.toLowerCase()
+const tagFilterActive = computed(() => activeTags.value.length > 0)
+
+const isTagActive = (name) =>
+  activeTags.value.some(tag => tag.toLowerCase() === String(name).toLowerCase())
+
 // 卡片标签可能是任意大小写写法，展示时统一用首次出现的规范写法
-const activeTagLabel = computed(() => {
-  if (!activeTag.value) return ''
-  const tag = tagStats.value.find(
-    item => item.name.toLowerCase() === activeTag.value.toLowerCase()
-  )
-  return tag ? tag.name : activeTag.value
+const activeTagLabels = computed(() => {
+  const canonical = new Map(tagStats.value.map(tag => [tag.name.toLowerCase(), tag.name]))
+  return activeTags.value.map(name => canonical.get(name.toLowerCase()) ?? name)
 })
 
 // 标签结果优先；搜索结果其次；否则按当前分类
 const tagGroups = computed(() =>
-  activeTag.value
-    ? buildTagGroups(bookmarks.value, categories.value, activeTag.value)
+  tagFilterActive.value
+    ? buildTagGroups(bookmarks.value, categories.value, activeTags.value)
     : null
+)
+
+const tagMatchCount = computed(() =>
+  tagGroups.value
+    ? tagGroups.value.reduce((sum, group) => sum + group.bookmarks.length, 0)
+    : 0
+)
+
+const tagCategoryCount = computed(() =>
+  tagGroups.value
+    ? tagGroups.value.filter(group => group.categoryId !== null).length
+    : 0
 )
 
 const getCategoryCount = (categoryId) => {
@@ -265,13 +285,17 @@ const currentBookmarks = computed(() => {
     .sort((a, b) => a.position - b.position)
 })
 
-const gridEmptyText = computed(() =>
-  activeTag.value ? `没有带“${activeTagLabel.value}”标签的书签` : '该分类下暂无书签'
-)
+const gridEmptyText = computed(() => {
+  if (!tagFilterActive.value) return '该分类下暂无书签'
+  const names = activeTagLabels.value
+  return names.length === 1
+    ? `没有带“${names[0]}”标签的书签`
+    : `没有同时带「${names.join('、')}」标签的书签`
+})
 
 // 仅已登录 + 浏览某分类 + 非搜索结果 + 非标签筛选时允许排序
 const canReorder = computed(() => {
-  return isAuthenticated.value && !searchResults.value && !activeTag.value && !!activeMenu.value
+  return isAuthenticated.value && !searchResults.value && !tagFilterActive.value && !!activeMenu.value
 })
 
 // 拖拽期间隐藏固定顶部菜单，露出最顶部卡片
@@ -315,7 +339,7 @@ watch(menuTree, (newMenus) => {
 
 const clearSearchResults = () => {
   searchResults.value = null
-  activeTag.value = null
+  activeTags.value = []
 }
 
 const handleSelectMenu = (menu) => {
@@ -334,26 +358,28 @@ const handleSelectSubMenu = (menu, sub) => {
 
 const handleSearchResults = (results) => {
   searchResults.value = results
-  activeTag.value = null
+  activeTags.value = []
   animationKey.value++
 }
 
 const handleTagClick = (name) => {
-  // 先清空搜索框（clearSearch 会 emit clear-results，顺带清空 activeTag），再设置标签
+  // 顺序不可调换：clearSearch() 会同步 emit('clear-results') → clearSearchResults() 清空 activeTags。
+  // 必须先基于当前选择算出 next，再清搜索框，否则累加会被抹掉。
+  const next = toggleTagSelection(activeTags.value, name)
   navSearchRef.value?.clearSearch()
-  activeTag.value = name
+  activeTags.value = next
   searchResults.value = null
   animationKey.value++
 }
 
-const clearTagFilter = () => {
-  activeTag.value = null
+const removeTag = (name) => {
+  activeTags.value = toggleTagSelection(activeTags.value, name)
   animationKey.value++
 }
 
-const handleTagSelectFromDialog = (name) => {
-  showTagOverview.value = false
-  handleTagClick(name)
+const clearTagFilter = () => {
+  activeTags.value = []
+  animationKey.value++
 }
 
 const findCategoryInMenu = (id, nodes, root = null, trail = []) => {
@@ -373,7 +399,7 @@ const handleGroupClick = (group) => {
   if (group?.categoryId == null) return
   const found = findCategoryInMenu(group.categoryId, menuTree.value)
   if (!found) return
-  activeTag.value = null
+  activeTags.value = []
   activeMenu.value = found.root
   activeSubMenu.value = found.root === found.node ? null : found.node
   clearSearchResults()
@@ -381,12 +407,12 @@ const handleGroupClick = (group) => {
   window.scrollTo({ top: 0, behavior: 'smooth' })
 }
 
-// 标签在当前数据中消失（他端删除）时自动退出标签视图
+// 标签在当前数据中消失（他端删除）时自动移除该标签，其余选择保留
 watch(tagStats, (list) => {
-  if (!activeTag.value) return
-  const norm = activeTag.value.toLowerCase()
-  if (!list.some(tag => tag.name.toLowerCase() === norm)) {
-    activeTag.value = null
+  if (!activeTags.value.length) return
+  const next = pruneMissingTags(activeTags.value, list)
+  if (next.length !== activeTags.value.length) {
+    activeTags.value = next
     animationKey.value++
   }
 })
@@ -583,7 +609,7 @@ const handleLogout = async () => {
   activeMenu.value = null
   activeSubMenu.value = null
   searchResults.value = null
-  activeTag.value = null
+  activeTags.value = []
 
   await fetchData({ forceRefresh: true })
   if (menuTree.value.length > 0) {
@@ -640,6 +666,28 @@ const handleLogout = async () => {
 
 .nav-item-view.drag-reordering .search-section {
   padding-top: 1rem;
+}
+
+.tag-filter-sticky {
+  position: relative;
+  z-index: 2;
+}
+
+/* 仅在有标签筛选时吸顶，普通浏览不占常驻空间 */
+.tag-filter-sticky.is-pinned {
+  position: sticky;
+  top: var(--nav-bar-height, 56px);
+  z-index: 60;
+  background: var(--nav-glass);
+  backdrop-filter: blur(20px) saturate(1.4);
+  -webkit-backdrop-filter: blur(20px) saturate(1.4);
+  border-bottom: 1px solid var(--nav-border);
+  box-shadow: 0 8px 18px -16px rgba(0, 0, 0, 0.35);
+  padding-bottom: 6px;
+}
+
+.tag-filter-sticky.is-pinned .tag-filter-bar {
+  margin-bottom: 0;
 }
 
 .category-tabs {
@@ -709,6 +757,8 @@ const handleLogout = async () => {
 .tag-filter-bar {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
+  row-gap: 6px;
   gap: 8px;
   margin: 0 10% 10px;
   padding: 6px 10px;
@@ -791,6 +841,20 @@ const handleLogout = async () => {
   }
   .content-section {
     padding: 0 16px 2rem;
+  }
+}
+
+@media (max-width: 640px) {
+  .tag-filter-sticky.is-pinned .category-tabs {
+    flex-wrap: nowrap;
+    justify-content: flex-start;
+    overflow-x: auto;
+    padding-right: 16px;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+  .tag-filter-sticky.is-pinned .category-tabs::-webkit-scrollbar {
+    display: none;
   }
 }
 

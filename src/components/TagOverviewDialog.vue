@@ -27,7 +27,8 @@
           :key="tag.name"
           class="tag-overview-item"
           :class="{ active: isActive(tag.name) }"
-          @click="emit('select', tag.name)"
+          :aria-pressed="isActive(tag.name)"
+          @click="emit('toggle', tag.name)"
         >
           <span class="tag-overview-name">{{ tag.name }}</span>
           <span class="tag-overview-count">{{ tag.count }}</span>
@@ -38,8 +39,18 @@
 
     <template #footer>
       <div class="tag-overview-footer">
-        <span>共 {{ tags.length }} 个标签 · 覆盖 {{ bookmarkCount }} 个书签</span>
-        <span class="tag-overview-hint">点标签直接筛选 →</span>
+        <span>
+          <template v-if="activeTags.length">
+            已选 {{ activeTags.length }} 个 · 当前命中 {{ matchCount }} 个书签
+          </template>
+          <template v-else>
+            共 {{ tags.length }} 个标签 · 覆盖 {{ bookmarkCount }} 个书签
+          </template>
+        </span>
+        <span class="tag-overview-actions">
+          <span class="tag-overview-hint">点标签累加筛选 · 再点取消</span>
+          <button class="tag-overview-done" @click="emit('close')">完成</button>
+        </span>
       </div>
     </template>
   </BaseDialog>
@@ -53,10 +64,11 @@ import { filterAndSortTags } from '../utils/tagBrowse.js'
 const props = defineProps({
   show: { type: Boolean, default: false },
   tags: { type: Array, default: () => [] },
-  activeTag: { type: String, default: null },
-  bookmarkCount: { type: Number, default: 0 }
+  activeTags: { type: Array, default: () => [] },
+  bookmarkCount: { type: Number, default: 0 },
+  matchCount: { type: Number, default: 0 }
 })
-const emit = defineEmits(['close', 'select'])
+const emit = defineEmits(['close', 'toggle'])
 
 const query = ref('')
 const sortBy = ref('count')
@@ -64,7 +76,7 @@ const searchInputRef = ref(null)
 
 const list = computed(() => filterAndSortTags(props.tags, query.value, sortBy.value))
 const isActive = (name) =>
-  !!props.activeTag && name.toLowerCase() === props.activeTag.toLowerCase()
+  props.activeTags.some(tag => tag.toLowerCase() === name.toLowerCase())
 
 watch(() => props.show, (visible) => {
   if (!visible) return
@@ -181,12 +193,36 @@ watch(() => props.show, (visible) => {
   font-size: 0.72rem;
   color: var(--nav-text-secondary);
 }
+.tag-overview-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+.tag-overview-done {
+  padding: 4px 12px;
+  border: 1px solid color-mix(in srgb, var(--nav-primary) 35%, transparent);
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--nav-primary) 12%, transparent);
+  color: var(--nav-primary);
+  font-family: inherit;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.tag-overview-done:hover {
+  background: color-mix(in srgb, var(--nav-primary) 20%, transparent);
+}
 @media (max-width: 640px) {
   .tag-overview-list {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
   .tag-overview-footer {
     flex-wrap: wrap;
+  }
+  .tag-overview-actions {
+    width: 100%;
+    justify-content: space-between;
   }
 }
 </style>
