@@ -216,11 +216,6 @@ body.dark .toast-info {
   color: #b45309;
 }
 
-.duplicate-hint a {
-  color: inherit;
-  text-decoration: underline;
-}
-
 body.dark .duplicate-hint {
   color: #fbbf24;
 }

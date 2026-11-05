@@ -625,21 +625,8 @@ function setDuplicateHint(bookmark) {
     return;
   }
 
-  hint.textContent = '';
-
-  const text = document.createElement('span');
-  text.textContent = `${BMExt.buildDuplicateHint(bookmark)} · `;
-
-  const link = document.createElement('a');
-  link.href = bookmark.url;
-  link.textContent = '打开';
-  link.addEventListener('click', (event) => {
-    event.preventDefault();
-    chrome.tabs.create({ url: bookmark.url });
-    window.close();
-  });
-
-  hint.append(text, link);
+  // 只给结论，不带跳转：这里的作用是提醒"存过了"，不是入口
+  hint.textContent = BMExt.buildDuplicateHint(bookmark);
   hint.classList.remove('hidden');
 }
 
