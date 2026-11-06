@@ -181,6 +181,8 @@ Cache-Control: no-store
 - 300ms 内无请求（全缓存命中场景）→ 发一次 ping。
 - 状态条点击"测速"可手动再 ping 一次。
 
+> 实现后修订：第一条未按字面落地，改为「300ms 后先等在途请求结束（最多 1.2s）再 ping」，原因见 §14。
+
 **状态条表现**（header 正下方，常驻，24px 高）：
 
 | 状态 | 显示 | 颜色 |
@@ -338,3 +340,19 @@ GET /api/bootstrap
 3. 扩展开始给多人使用。
 
 届时只缓存 categories（小、少变），不缓存书签与标签；使用独立 namespace，并做 `env.CACHE_KV` 缺失时回退 D1。
+
+## 14. 实现后修订（2026-11-06）
+
+落地后对 §7.5、§10、§11 的补充与修正，**以本节为准**：
+
+| 原设计 | 实际实现 | 原因 |
+|---|---|---|
+| 300ms 内已有真实请求发出 → 不 ping | 300ms 后先 `waitForRequestsIdle()`（最多 1.2s）等在途请求结束，再 ping | 冷启动几乎必定有 `bootstrap`，照字面实现等于永远不 ping，只能退回拿 1~2s 的 bootstrap 当延迟——正是本设计要消除的误导。目标是"不和请求并发"，不是"不测" |
+| 状态条失败 → 红色 `超时` | 灰点 + `测速失败`（4 字，胶囊 `max-width: 104px`） | 红色留给"超过 1500ms"的慢，失败与慢是两回事；胶囊放不下更多字 |
+| 失败时保留原状态 | 失败写入一条 `测速（失败）` 记录；曾成功过则在面板补一行 `最近测速成功：X 分钟前（Nms）` | 否则网络已断仍挂着上一次的 68ms，要等 5s 超时且用户看不出 |
+| 200 即视为 ping 成功 | 只认 `Content-Type: application/json` + `{ok:true}`，否则判定为"后端无 `/api/ping`"并降级 | 让扩展指向**别的 CF 项目**时，`/api/ping` 常被 SPA 兜底或 Cloudflare Access 登录页接走（200 + HTML / 302 跳转），只看 `response.ok` 会把首页下载时间当连接延迟 |
+| — | 切换服务器（`resetSessionState`）清空 `lastPingMs / lastPingAt / lastPingFailAt` | 否则新服务器会显示旧服务器的延迟 |
+
+**知识点（可复用到其它项目）**：判断"连通性探测端点是否存在"不能只看 HTTP 200。Pages 的 SPA fallback、Access 的登录跳转都会给出 200，必须校验响应体形状（或 `Content-Type`），否则测到的是"首页/登录页的首字节时间"。
+
+实现位置：`browser-extension/popup.js` 的 `pingServer()` / `markPingFailure()` / `waitForRequestsIdle()` / `renderConnectionPanel()`，相对时间文案在 `browser-extension/shared.js` 的 `formatRelativeTime()`，单测在 `tests/extension-shared.test.js`。
