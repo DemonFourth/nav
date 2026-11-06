@@ -17,10 +17,13 @@ let sessionEpoch = 0;
 let pendingRetry = null;
 const inFlight = { categories: null, tags: null, bootstrap: null };
 const requestTimings = [];
+// 在途真实请求数：ping 前用它判断是否该等一下，避免并发把延迟测高
+let activeRequests = 0;
 
 // 连接延迟：优先用 ping 的纯连接耗时，其次才是某次真实请求
 let lastPingMs = null;
-let lastPingAt = 0;
+let lastPingAt = 0;        // 最近一次测速成功的时间
+let lastPingFailAt = 0;    // 最近一次测速失败的时间（用于补充"最近成功"）
 // 后端缺少 /api/bootstrap 时置位，供详情面板提示
 let backendFallback = false;
 // 最近一次查重的结果，供详情面板展示（便于区分"没保存过"和"查重失败"）
@@ -86,6 +89,9 @@ function resetSessionState() {
   pendingRetry = null;
   requestTimings.length = 0;
   pingSupported = true;
+  lastPingMs = null;
+  lastPingAt = 0;
+  lastPingFailAt = 0;
   setDuplicateHint(null);
 }
 
@@ -323,6 +329,7 @@ async function apiFetch(path, options = {}) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeout);
   const start = performance.now();
+  activeRequests++;
 
   try {
     const headers = { 'Content-Type': 'application/json' };
@@ -356,6 +363,7 @@ async function apiFetch(path, options = {}) {
     requestError.kind = isTimeout ? 'timeout' : 'network';
     throw requestError;
   } finally {
+    activeRequests--;
     clearTimeout(timer);
   }
 }
@@ -457,6 +465,12 @@ function renderConnectionFromTimings() {
 
 let pingSupported = true;
 
+// 失败也要留痕：面板里出现一条"测速（失败）"，胶囊才会显示失败而不是旧数字
+function markPingFailure(start) {
+  lastPingFailAt = Date.now();
+  recordTiming('测速', performance.now() - start, false);
+}
+
 async function pingServer() {
   if (!pingSupported || !appSettings.serverUrl) return null;
 
@@ -477,12 +491,38 @@ async function pingServer() {
       return null;
     }
 
-    if (!response.ok) return null;
+    if (!response.ok) {
+      markPingFailure(start);
+      return null;
+    }
+
+    // 200 不代表就是 ping：别的 CF 项目可能被 SPA 兜底或 Access 登录页接走，
+    // 返回的是 HTML。那种响应不能当延迟，否则会把首页下载时间算进来。
+    const contentType = response.headers.get('content-type') || '';
+    if (!contentType.includes('application/json')) {
+      pingSupported = false;
+      lastPingMs = null;
+      return null;
+    }
+
+    let payload = null;
+    try {
+      payload = await response.json();
+    } catch (parseError) {
+      payload = null;
+    }
+
+    if (!payload || payload.ok !== true) {
+      pingSupported = false;
+      lastPingMs = null;
+      return null;
+    }
 
     lastPingMs = Math.round(performance.now() - start);
     lastPingAt = Date.now();
     return lastPingMs;
   } catch (error) {
+    markPingFailure(start);
     return null;
   } finally {
     clearTimeout(timer);
@@ -523,6 +563,23 @@ function renderConnectionPanel() {
     staleRow.className = 'connection-row connection-row-note';
     staleRow.textContent = '分类与标签来自本地缓存，可能较旧';
     panel.appendChild(staleRow);
+  }
+
+  // 最新一次测速失败：补一行"上次成功于…"，避免胶囊只剩一个失败态、看不出断了多久
+  if (pingSupported && lastPingMs !== null && lastPingFailAt > lastPingAt) {
+    const lastOkRow = document.createElement('div');
+    lastOkRow.className = 'connection-row connection-row-note';
+    lastOkRow.textContent =
+      `最近测速成功：${BMExt.formatRelativeTime(lastPingAt)}（${BMExt.formatLatency(lastPingMs)}）`;
+    panel.appendChild(lastOkRow);
+  }
+
+  // 后端没有可用的 /api/ping（老版本 / SPA 兜底 / Access 登录页）：说明数字的来源
+  if (!pingSupported) {
+    const noPingRow = document.createElement('div');
+    noPingRow.className = 'connection-row connection-row-note';
+    noPingRow.textContent = '后端无 /api/ping，延迟取自最近一次请求';
+    panel.appendChild(noPingRow);
   }
 
   if (duplicateCheckInfo) {
@@ -598,6 +655,15 @@ function toggleConnectionPanel() {
   }
 }
 
+// 首个真实请求还在跑时先等一下：大响应体（bootstrap）会把 ping 数值一起拖高，
+// 让"连接延迟"看起来像服务端慢。最多等 1.2s，避免一直停在"连接中…"。
+async function waitForRequestsIdle(timeout = 1200) {
+  const deadline = Date.now() + timeout;
+  while (activeRequests > 0 && Date.now() < deadline) {
+    await new Promise(resolve => setTimeout(resolve, 100));
+  }
+}
+
 function schedulePingIfIdle() {
   setTimeout(async () => {
     // 10 秒内刚测过就不重复发请求
@@ -608,6 +674,7 @@ function schedulePingIfIdle() {
 
     // 先亮出"连接中…"，避免停留在上一个语义不明的状态
     renderConnection({ mode: 'loading', label: '连接中…' });
+    await waitForRequestsIdle();
     await pingServer();
     renderConnectionFromTimings();
   }, 300);

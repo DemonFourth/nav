@@ -52,6 +52,20 @@ test('getTokenType only treats explicit long as long', () => {
   assert.equal(B.getTokenType(''), 'short')
 })
 
+test('formatRelativeTime stays short and bounded', () => {
+  const now = Date.UTC(2026, 10, 6, 12, 0, 0)
+  assert.equal(B.formatRelativeTime(0, now), '')
+  assert.equal(B.formatRelativeTime(null, now), '')
+  assert.equal(B.formatRelativeTime(undefined, now), '')
+  assert.equal(B.formatRelativeTime(now - 2000, now), '刚刚')
+  assert.equal(B.formatRelativeTime(now - 30 * 1000, now), '30 秒前')
+  assert.equal(B.formatRelativeTime(now - 5 * MIN, now), '5 分钟前')
+  assert.equal(B.formatRelativeTime(now - 3 * 60 * MIN, now), '3 小时前')
+  assert.equal(B.formatRelativeTime(now - 2 * DAY, now), '2 天前')
+  // 时钟偏差导致的"未来时间"不显示成负数
+  assert.equal(B.formatRelativeTime(now + 5000, now), '刚刚')
+})
+
 test('boundary values stay on the documented side', () => {
   const now = Date.now()
   assert.equal(B.cacheState(now - 59999, now), 'fresh')

@@ -87,6 +87,25 @@
   }
 
   /**
+   * 相对时间文案（"最近成功于…"这类补充说明用）。
+   * 只输出短文本，避免挤占弹窗宽度。
+   * @param {number|null|undefined} timestamp
+   * @param {number} [now]
+   * @returns {string}
+   */
+  function formatRelativeTime(timestamp, now = Date.now()) {
+    const ts = Number(timestamp)
+    if (!ts || !Number.isFinite(ts)) return ''
+
+    const diff = now - ts
+    if (diff < 5000) return '刚刚'
+    if (diff < 60 * 1000) return `${Math.floor(diff / 1000)} 秒前`
+    if (diff < 60 * 60 * 1000) return `${Math.floor(diff / (60 * 1000))} 分钟前`
+    if (diff < 24 * 60 * 60 * 1000) return `${Math.floor(diff / (60 * 60 * 1000))} 小时前`
+    return `${Math.floor(diff / (24 * 60 * 60 * 1000))} 天前`
+  }
+
+  /**
    * URL 查重内联提示。
    * @param {{ category_name?: string }} bookmark
    * @returns {string}
@@ -106,6 +125,7 @@
     cacheState,
     latencyLevel,
     formatLatency,
+    formatRelativeTime,
     buildDuplicateHint
   }
 })(typeof globalThis !== 'undefined' ? globalThis : self)

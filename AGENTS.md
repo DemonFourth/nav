@@ -689,6 +689,7 @@ npm run test:ext
 | `cacheState(ts, now)` | `fresh`(<60s) / `stale`(60s~7d) / `old`(>7d) |
 | `latencyLevel(ms)` | `fast`(≤500) / `medium`(≤1500) / `slow` |
 | `formatLatency(ms)` | `68ms` / `1.2s` |
+| `formatRelativeTime(ts, now)` | `刚刚` / `30 秒前` / `5 分钟前`（胶囊面板用，保持短文本） |
 | `buildDuplicateHint(bookmark)` | 内联查重提示文案 |
 
 token TTL 必须与 `functions/_middleware.js` 的 `validateToken` 保持一致：`long` 30 天、`short` 30 分钟。
@@ -721,7 +722,12 @@ token TTL 必须与 `functions/_middleware.js` 的 `validateToken` 保持一致�
 - 点击胶囊 = 展开/收起详情面板：最近 5 次请求耗时、查重结论、后端能力提示、失败时的「重试」、`ping` 可用时的「重新测速」、缓存较旧说明
 - 计时来源优先级：**`/api/ping` 的纯连接耗时优先**，其次才是最近一次真实请求（`recordTiming`）。原因：bootstrap 这类批量接口要 1~2s，用它当"连接延迟"会让冷启动看起来像网络故障（曾出现「已连接(灰) → 1.9s(红)」的误导状态）
 - 打开 300ms 后主动测速；10 秒内复用上次结果，不重复请求
+- **测速前先等在途请求落地**：`apiFetch` 维护 `activeRequests`，`waitForRequestsIdle()` 最多等 1.2s。bootstrap 动辄 1~2s，与 ping 并发会把延迟一起拖高，看起来像服务端问题
+- **只认 JSON + `{ok:true}`**：200 不代表是 ping。别的 CF 项目可能被 SPA 兜底或 Cloudflare Access 登录页接走（返回 200 HTML）或 302 跳转；这类响应判定为「后端无 `/api/ping`」并降级，**不能把首页下载时间当延迟**。降级后面板补一行「后端无 /api/ping，延迟取自最近一次请求」
+- **失败要留痕**：ping 失败（超时/网络错误/非 2xx）写入一条 `测速（失败）` 记录，胶囊显示「测速失败」而不是继续挂着上一次的成功数字；若此前成功过，面板补一行「最近测速成功：X 分钟前（Nms）」
+- 胶囊 `max-width: 104px`（`styles.css`）：**只放数值或 4 字以内的状态**，相对时间、来源说明一律放详情面板，避免标题行被挤占
 - 「重新测速」点击后：按钮先变「测速中…」并禁用 → 结果写入 `requestTimings`（面板新增一行 `测速 124ms`）→ 胶囊数字同步更新；失败时按钮变「测速失败，再试一次」。**不要只改胶囊数字**，几毫秒的差异用户看不出来，会被当成"点了没反应"
+- 切换服务器（`resetSessionState`）必须清空 `lastPingMs` / `lastPingAt` / `lastPingFailAt`，否则会把旧服务器的延迟显示给新服务器
 - `renderConnection(state)` 只负责渲染；重试回调存 `pendingRetry`，由面板按钮触发，点击后自动收起面板
 
 ### URL 查重（内联提示）
