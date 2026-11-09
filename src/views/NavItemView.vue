@@ -2,8 +2,8 @@
   <div class="nav-item-view" :class="{ 'drag-reordering': dragReorderActive }" :style="backgroundStyle">
     <NavBar 
       :menus="menuTree"
-      :active-menu="tagFilterActive ? null : activeMenu"
-      :active-sub-menu="tagFilterActive ? null : activeSubMenu"
+      :active-menu="tagFilterActive || searchResults ? null : activeMenu"
+      :active-sub-menu="tagFilterActive || searchResults ? null : activeSubMenu"
       :custom-title="customTitle"
       :reorderable="isAuthenticated"
       :active-path="activePath"
@@ -26,6 +26,13 @@
         @search-results="handleSearchResults"
         @clear-results="clearSearchResults"
       />
+    </div>
+
+    <div v-if="!needsLogin && searchResults" class="search-summary-bar">
+      <span class="search-summary-text">
+        找到 <strong>{{ searchMatchCount }}</strong> 个书签 · 来自 {{ searchCategoryCount }} 个分类
+      </span>
+      <button class="search-summary-clear" @click="clearSearchFromSummary">清除搜索</button>
     </div>
 
     <div v-if="needsLogin" class="nav-login-guide">
@@ -78,7 +85,7 @@
       <NavCardGrid 
         :key="animationKey" 
         :bookmarks="currentBookmarks"
-        :groups="tagGroups"
+        :groups="resultGroups"
         :empty-text="gridEmptyText"
         :isAuthenticated="isAuthenticated"
         :reorderable="canReorder"
@@ -158,7 +165,7 @@ import { useAuth } from '../composables/useAuth'
 import { useToast } from '../composables/useToast'
 import { useAuthGuard } from '../composables/useAuthGuard'
 import { buildCategoryTree } from '../utils/categoryTree'
-import { buildTagStats, countBookmarksWithTags, buildTagGroups, toggleTagSelection, pruneMissingTags } from '../utils/tagBrowse.js'
+import { buildTagStats, countBookmarksWithTags, buildTagGroups, buildCategoryGroups, toggleTagSelection, pruneMissingTags } from '../utils/tagBrowse.js'
 
 const { categories, bookmarks, fetchData, searchTags, updateBookmark, addBookmark, deleteBookmark, addCategory, allTags, getEmptyCategories, cleanupEmptyCategories, reorderItems } = useBookmarks()
 const { isAuthenticated, logout } = useAuth()
@@ -256,8 +263,8 @@ const menuTree = computed(() => {
 
 // 从根到当前选中项的分类路径，用于逐级递减高亮祖先
 const activePath = computed(() => {
-  // 标签结果视图期间不高亮任何分类（activeMenu/activeSubMenu 仅用于清除筛选后恢复）
-  if (tagFilterActive.value) return []
+  // 标签/搜索视图期间不高亮任何分类（activeMenu/activeSubMenu 仅用于清除筛选后恢复）
+  if (tagFilterActive.value || searchResults.value) return []
   const targetId = activeSubMenu.value?.id ?? activeMenu.value?.id
   if (!targetId) return []
   const search = (nodes, trail) => {
@@ -313,6 +320,18 @@ const tagCategoryCount = computed(() =>
     : 0
 )
 
+// 搜索结果按分类分组（与标签视图共用渲染）
+const searchGroups = computed(() =>
+  searchResults.value ? buildCategoryGroups(searchResults.value, categories.value) : null
+)
+
+const searchMatchCount = computed(() => searchResults.value?.length ?? 0)
+const searchCategoryCount = computed(() => searchGroups.value?.length ?? 0)
+const searchQueryText = ref('')
+
+// 标签结果优先，其次搜索结果
+const resultGroups = computed(() => tagGroups.value || searchGroups.value)
+
 const getCategoryCount = (categoryId) => {
   return bookmarks.value.filter(b => b.category_id === categoryId).length
 }
@@ -338,6 +357,11 @@ const currentBookmarks = computed(() => {
 })
 
 const gridEmptyText = computed(() => {
+  if (searchResults.value) {
+    return searchQueryText.value
+      ? `没有找到匹配“${searchQueryText.value}”的书签`
+      : '没有找到匹配的书签'
+  }
   if (!tagFilterActive.value) return '该分类下暂无书签'
   const names = activeTagLabels.value
   return names.length === 1
@@ -402,7 +426,12 @@ watch(menuTree, (newMenus) => {
 
 const clearSearchResults = () => {
   searchResults.value = null
+  searchQueryText.value = ''
   activeTags.value = []
+}
+
+const clearSearchFromSummary = () => {
+  navSearchRef.value?.clearSearch()
 }
 
 const handleSelectMenu = (menu) => {
@@ -419,8 +448,9 @@ const handleSelectSubMenu = (menu, sub) => {
   animationKey.value++
 }
 
-const handleSearchResults = (results) => {
+const handleSearchResults = (results, query = '') => {
   searchResults.value = results
+  searchQueryText.value = query
   activeTags.value = []
   animationKey.value++
 }
@@ -744,6 +774,42 @@ const handleLogout = async () => {
   position: relative;
   z-index: 2;
   background: transparent;
+}
+
+/* 搜索结果摘要栏 */
+.search-summary-bar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  padding: 0.45rem 10% 0;
+  color: var(--nav-text-secondary);
+  font-size: 0.8rem;
+  position: relative;
+  z-index: 2;
+}
+
+.search-summary-text strong {
+  color: var(--nav-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+.search-summary-clear {
+  padding: 2px 10px;
+  border: 1px solid var(--nav-border);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--nav-text-secondary);
+  font-size: 0.75rem;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.search-summary-clear:hover {
+  color: var(--nav-primary);
+  border-color: var(--nav-primary);
+  background: color-mix(in srgb, var(--nav-primary) 10%, transparent);
 }
 
 /* 非公开模式未登录：锁屏引导 */

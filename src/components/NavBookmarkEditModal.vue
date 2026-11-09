@@ -36,6 +36,20 @@
                 <div class="input-with-btn">
                   <input v-model="form.url" type="text" class="detail-input" placeholder="https://..." />
                   <button
+                    type="button"
+                    class="fetch-meta-btn"
+                    :disabled="!form.url || fetchingMetadata"
+                    @click="fetchMetadata"
+                    title="抓取网页标题与描述，只填入空字段"
+                  >
+                    <div v-if="fetchingMetadata" class="mini-spinner"></div>
+                    <svg v-else viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/>
+                      <path d="M21 3v5h-5"/>
+                    </svg>
+                    {{ fetchingMetadata ? '获取中' : '自动获取' }}
+                  </button>
+                  <button
                     v-if="form.url"
                     type="button"
                     class="url-open-btn"
@@ -267,6 +281,7 @@ const selectSearchInput = ref(null)
 const headerIconError = ref(false)
 const generatingDesc = ref(false)
 const suggestingCategory = ref(false)
+const fetchingMetadata = ref(false)
 const aiSuggestion = ref('')
 const tagSuggestionsOpen = ref(false)
 const tagInputRef = ref(null)
@@ -347,6 +362,7 @@ const open = (bookmark, options = {}) => {
   aiSuggestion.value = ''
   generatingDesc.value = false
   suggestingCategory.value = false
+  fetchingMetadata.value = false
   tagSuggestionsOpen.value = false
   void checkAIAvailability().catch(() => {})
 }
@@ -358,6 +374,49 @@ const handleClose = () => {
 const openUrl = (url) => {
   if (!url) return
   window.open(url, '_blank', 'noopener,noreferrer')
+}
+
+// C6：抓取网页标题/描述，只填入当前为空的字段
+const fetchMetadata = async () => {
+  const url = form.url.trim()
+  if (!url) {
+    toastError('请先输入 URL')
+    return
+  }
+  try {
+    new URL(url)
+  } catch {
+    toastError('URL 格式不正确')
+    return
+  }
+
+  fetchingMetadata.value = true
+  try {
+    const response = await fetch(`/api/fetch-metadata?url=${encodeURIComponent(url)}`)
+    const data = await response.json()
+    if (data?.success) {
+      let changed = false
+      if (data.title && !form.name.trim()) {
+        form.name = data.title
+        changed = true
+      }
+      if (data.description && !form.description.trim()) {
+        form.description = data.description
+        changed = true
+      }
+      if (changed) {
+        toastSuccess('已自动填入标题和描述')
+      } else {
+        toastSuccess('没有可自动填入的空字段')
+      }
+    } else {
+      toastError(data?.error || '无法获取网页信息，请手动输入')
+    }
+  } catch {
+    toastError('网络错误，请手动输入')
+  } finally {
+    fetchingMetadata.value = false
+  }
 }
 
 const handleSave = () => {
@@ -1208,6 +1267,42 @@ defineExpose({ open })
   width: 16px;
   height: 16px;
   stroke-width: 2;
+}
+
+.fetch-meta-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 9px 12px;
+  background: var(--nav-card-bg);
+  border: 1px solid var(--nav-border);
+  border-radius: 10px;
+  color: var(--nav-text-secondary);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  font-family: inherit;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: all 0.2s;
+  flex-shrink: 0;
+}
+
+.fetch-meta-btn:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--nav-primary) 12%, transparent);
+  border-color: var(--nav-primary);
+  color: var(--nav-primary);
+  transform: translateY(-1px);
+}
+
+.fetch-meta-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.fetch-meta-btn svg {
+  width: 15px;
+  height: 15px;
 }
 
 .url-open-btn {

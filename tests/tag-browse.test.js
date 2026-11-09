@@ -5,6 +5,7 @@ import {
   buildTagStats,
   countBookmarksWithTags,
   buildTagGroups,
+  buildCategoryGroups,
   filterAndSortTags,
   normalizeTagList,
   toggleTagSelection,
@@ -180,4 +181,22 @@ test('buildTagGroups filters by all active tags and stays backward compatible', 
     buildTagGroups(bookmarks, categories, ['AI', 'ai']).map(g => g.leaf),
     single.map(g => g.leaf)
   )
+})
+
+test('buildCategoryGroups groups by menu order, sorts by position and keeps uncategorized last', () => {
+  const groups = buildCategoryGroups(bookmarks, categories)
+  assert.deepEqual(
+    groups.map(g => [g.leaf, g.bookmarks.map(b => b.id)]),
+    [
+      ['搜索引擎', [1, 7]],
+      ['AI 对话', [3, 2]],
+      ['AI 编程', [4]],
+      ['未分类', [6, 5]]
+    ]
+  )
+  assert.equal(groups[0].parentText, '')
+  assert.deepEqual(groups[1].path, ['AI', 'AI 对话'])
+  assert.equal(groups[1].parentText, 'AI')
+  assert.equal(groups[3].categoryId, null)
+  assert.deepEqual(buildCategoryGroups([], categories), [])
 })

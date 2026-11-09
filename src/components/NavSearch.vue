@@ -1,22 +1,43 @@
 <template>
   <div class="nav-search">
     <div class="search-box-wrapper">
-      <div class="search-engine-select">
-        <button 
-          v-for="engine in searchEngines" 
-          :key="engine.name"
-          :class="['engine-btn', { active: selectedEngine.name === engine.name }]"
-          @click="selectEngine(engine)"
-        >
-          {{ engine.label }}
-        </button>
-      </div>
-      
       <div class="search-container">
+        <div class="engine-select-wrap" ref="engineWrapRef">
+          <button
+            ref="engineBtnRef"
+            type="button"
+            class="engine-trigger"
+            :class="{ active: engineOpen }"
+            @click.stop="toggleEngineDropdown"
+            v-tooltip="'选择搜索引擎'"
+          >
+            <span class="engine-trigger-name">{{ selectedEngine.name }}</span>
+            <svg class="engine-trigger-arrow" :class="{ open: engineOpen }" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="6 9 12 15 18 9"/>
+            </svg>
+          </button>
+          <Teleport to="body">
+            <Transition name="dropdown">
+              <div v-if="engineOpen" ref="engineDropdownRef" class="engine-dropdown" :style="engineDropdownStyle">
+                <button
+                  v-for="engine in engineOptions"
+                  :key="engine.id"
+                  type="button"
+                  class="engine-option"
+                  :class="{ active: selectedEngineId === engine.id }"
+                  @click="selectEngine(engine.id)"
+                >
+                  {{ engine.name }}
+                </button>
+              </div>
+            </Transition>
+          </Teleport>
+        </div>
+
         <input 
           v-model="searchQuery" 
           type="text" 
-          :placeholder="selectedEngine.placeholder" 
+          :placeholder="searchPlaceholder" 
           class="search-input"
           @keyup.enter="handleSearch"
         />
@@ -25,7 +46,7 @@
             <path d="M18 6L6 18M6 6l12 12"/>
           </svg>
         </button>
-        <div v-if="selectedEngine.name === 'site'" class="search-field-wrap" ref="searchFieldRef">
+        <div v-if="selectedEngine.id === 'site'" class="search-field-wrap" ref="searchFieldRef">
           <button ref="searchFieldBtnRef" class="search-field-btn" :class="{ active: searchField !== 'all' }" @click="openFieldDropdown" v-tooltip="'搜索范围: ' + (SEARCH_FIELD_OPTIONS.find(o => o.value === searchField)?.label || '全部字段')">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M12 3v18M3 12h18"/>
@@ -63,9 +84,8 @@
 </template>
 
 <script setup>
-import { ref, computed, nextTick, onMounted, onUnmounted } from 'vue'
-import { useBookmarks } from '../composables/useBookmarks'
-import { buildCategoryTree, getCategoryPath } from '../utils/categoryTree'
+import { ref, computed, nextTick, watch, onMounted, onUnmounted } from 'vue'
+import { useSearchEngines } from '../composables/useSearchEngines'
 import { searchBookmarks, SEARCH_FIELD_OPTIONS } from '../utils/search'
 
 const props = defineProps({
@@ -77,10 +97,12 @@ const props = defineProps({
 
 const emit = defineEmits(['search-results', 'clear-results'])
 
-const { categories } = useBookmarks()
+const { enabledSearchEnginesPanel, getAvailableEngines, openSearchEngine } = useSearchEngines()
+
+const SITE_ENGINE = { id: 'site', name: '站内' }
 
 const searchQuery = ref('')
-const selectedEngine = ref(null)
+const selectedEngineId = ref('site')
 const searchResults = ref([])
 const searchField = ref('all')
 const searchFieldOpen = ref(false)
@@ -88,6 +110,35 @@ const searchFieldRef = ref(null)
 const searchFieldBtnRef = ref(null)
 const searchFieldDropdownRef = ref(null)
 const dropdownStyle = ref({})
+
+const engineOpen = ref(false)
+const engineWrapRef = ref(null)
+const engineBtnRef = ref(null)
+const engineDropdownRef = ref(null)
+const engineDropdownStyle = ref({})
+
+// 站内固定第一项；关闭「搜索引擎列表」后只剩站内
+const engineOptions = computed(() => {
+  if (!enabledSearchEnginesPanel.value) return [SITE_ENGINE]
+  return [
+    SITE_ENGINE,
+    ...getAvailableEngines().map(engine => ({ id: engine.id, name: engine.name }))
+  ]
+})
+
+const selectedEngine = computed(() =>
+  engineOptions.value.find(engine => engine.id === selectedEngineId.value) || SITE_ENGINE
+)
+
+const searchPlaceholder = computed(() =>
+  selectedEngine.value.id === 'site' ? '搜索站内书签...' : `${selectedEngine.value.name} 搜索...`
+)
+
+watch(engineOptions, (list) => {
+  if (!list.some(engine => engine.id === selectedEngineId.value)) {
+    selectedEngineId.value = 'site'
+  }
+})
 
 const openFieldDropdown = () => {
   searchFieldOpen.value = !searchFieldOpen.value
@@ -105,71 +156,54 @@ const openFieldDropdown = () => {
   })
 }
 
+const toggleEngineDropdown = () => {
+  engineOpen.value = !engineOpen.value
+  if (!engineOpen.value) return
+  nextTick(() => {
+    const rect = engineBtnRef.value?.getBoundingClientRect()
+    if (rect) {
+      engineDropdownStyle.value = {
+        position: 'fixed',
+        top: rect.bottom + 6 + 'px',
+        left: rect.left + 'px',
+        zIndex: 99999
+      }
+    }
+  })
+}
+
 const handleClickAway = (e) => {
-  if (searchFieldRef.value && !searchFieldRef.value.contains(e.target)) {
+  if (searchFieldOpen.value && searchFieldRef.value && !searchFieldRef.value.contains(e.target)) {
     if (searchFieldDropdownRef.value && searchFieldDropdownRef.value.contains(e.target)) return
     searchFieldOpen.value = false
+  }
+  if (engineOpen.value) {
+    if (engineDropdownRef.value && engineDropdownRef.value.contains(e.target)) return
+    if (engineWrapRef.value && engineWrapRef.value.contains(e.target)) return
+    engineOpen.value = false
   }
 }
 
 onMounted(() => document.addEventListener('click', handleClickAway))
 onUnmounted(() => document.removeEventListener('click', handleClickAway))
 
-const categoryMap = computed(() => {
-  const { map } = buildCategoryTree(categories.value)
-  return map
-})
+const selectEngine = (engineId) => {
+  engineOpen.value = false
+  if (selectedEngineId.value === engineId) return
+  selectedEngineId.value = engineId
 
-const getCategoryDisplayPath = (categoryId) => {
-  if (!categoryId || !categoryMap.value[categoryId]) return ''
-  const path = getCategoryPath(categoryId, categoryMap.value)
-  return path.map(c => c.name).join(' / ')
-}
-
-const searchEngines = [
-  {
-    name: 'google',
-    label: 'Google',
-    placeholder: 'Google 搜索...',
-    url: (q) => `https://www.google.com/search?q=${encodeURIComponent(q)}`
-  },
-  {
-    name: 'baidu',
-    label: '百度',
-    placeholder: '百度搜索...',
-    url: (q) => `https://www.baidu.com/s?wd=${encodeURIComponent(q)}`
-  },
-  {
-    name: 'bing',
-    label: 'Bing',
-    placeholder: 'Bing 搜索...',
-    url: (q) => `https://www.bing.com/search?q=${encodeURIComponent(q)}`
-  },
-  {
-    name: 'github',
-    label: 'GitHub',
-    placeholder: 'GitHub 搜索...',
-    url: (q) => `https://github.com/search?q=${encodeURIComponent(q)}&type=repositories`
-  },
-  {
-    name: 'site',
-    label: '站内',
-    placeholder: '站内搜索...',
-    url: () => ''
-  }
-]
-
-selectedEngine.value = searchEngines[0]
-
-const selectEngine = (engine) => {
-  selectedEngine.value = engine
-  if (searchQuery.value.trim()) {
-    handleSearch()
+  if (engineId === 'site') {
+    if (searchQuery.value.trim()) searchInSite()
+  } else {
+    // 切到外部引擎时清掉站内结果，等待回车直接打开搜索页
+    searchResults.value = []
+    emit('clear-results')
   }
 }
 
 const clearSearch = () => {
   searchQuery.value = ''
+  searchResults.value = []
   emit('clear-results')
 }
 
@@ -177,24 +211,24 @@ const clearSearch = () => {
 defineExpose({ clearSearch })
 
 const handleSearch = () => {
-  if (!searchQuery.value.trim()) return
+  const query = searchQuery.value.trim()
+  if (!query) return
 
-  if (selectedEngine.value.name === 'site') {
+  if (selectedEngine.value.id === 'site') {
     searchInSite()
   } else {
-    const url = selectedEngine.value.url(searchQuery.value)
-    window.open(url, '_blank')
+    openSearchEngine(selectedEngine.value.id, query)
   }
 }
 
 const searchInSite = () => {
-  const query = searchQuery.value.toLowerCase().trim()
+  const query = searchQuery.value.trim()
   if (!query) return
 
   const results = searchBookmarks(props.bookmarks, searchQuery.value, { field: searchField.value })
 
   searchResults.value = results
-  emit('search-results', results)
+  emit('search-results', results, query)
 }
 </script>
 
@@ -207,39 +241,7 @@ const searchInSite = () => {
 
 .search-box-wrapper {
   display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.4rem;
-}
-
-.search-engine-select {
-  display: flex;
-  flex-wrap: wrap;
   justify-content: center;
-  gap: 0.5rem;
-  position: relative;
-  z-index: 3;
-}
-
-.engine-btn {
-  border: none;
-  background: none;
-  color: var(--nav-text-secondary);
-  font-size: 0.8rem;
-  padding: 2px 10px;
-  border-radius: 4px;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.engine-btn:hover {
-  color: var(--nav-primary);
-  background: var(--nav-card-bg);
-}
-
-.engine-btn.active {
-  color: var(--nav-primary);
-  background: color-mix(in srgb, var(--nav-primary) 18%, transparent);
 }
 
 .search-container {
@@ -247,9 +249,9 @@ const searchInSite = () => {
   align-items: center;
   background: var(--nav-card-bg);
   border-radius: 999px;
-  padding: 3px 3px 3px 18px;
+  padding: 3px 3px 3px 6px;
   width: 100%;
-  max-width: 520px;
+  max-width: 560px;
   border: 1px solid var(--nav-border);
   transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 }
@@ -260,6 +262,91 @@ const searchInSite = () => {
   background: var(--nav-card-hover);
 }
 
+.engine-select-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  padding-right: 6px;
+  border-right: 1px solid var(--nav-border);
+}
+
+.engine-trigger {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  max-width: 120px;
+  padding: 6px 8px;
+  background: none;
+  border: none;
+  border-radius: 6px;
+  color: var(--nav-text-secondary);
+  font-family: inherit;
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.engine-trigger:hover,
+.engine-trigger.active {
+  color: var(--nav-primary);
+  background: color-mix(in srgb, var(--nav-primary) 12%, transparent);
+}
+
+.engine-trigger-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.engine-trigger-arrow {
+  width: 12px;
+  height: 12px;
+  flex-shrink: 0;
+  transition: transform 0.2s ease;
+}
+
+.engine-trigger-arrow.open {
+  transform: rotate(180deg);
+}
+
+.engine-dropdown {
+  background: var(--nav-card-bg);
+  border: 1px solid var(--nav-border);
+  border-radius: 10px;
+  padding: 6px;
+  min-width: 140px;
+  max-height: 280px;
+  overflow-y: auto;
+  box-shadow: 0 8px 30px rgba(0,0,0,0.15);
+}
+
+.engine-option {
+  display: block;
+  width: 100%;
+  padding: 8px 12px;
+  background: none;
+  border: none;
+  border-radius: 6px;
+  color: var(--nav-text);
+  font-family: inherit;
+  font-size: 0.85rem;
+  text-align: left;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.engine-option:hover {
+  background: color-mix(in srgb, var(--nav-primary) 10%, transparent);
+}
+
+.engine-option.active {
+  color: var(--nav-primary);
+  background: color-mix(in srgb, var(--nav-primary) 14%, transparent);
+  font-weight: 600;
+}
+
 .search-input {
   flex: 1;
   border: none;
@@ -268,6 +355,7 @@ const searchInSite = () => {
   font-size: 1rem;
   color: var(--nav-text);
   outline: none;
+  min-width: 0;
 }
 
 .search-input::placeholder {
@@ -283,6 +371,7 @@ const searchInSite = () => {
   display: flex;
   align-items: center;
   padding: 0;
+  flex-shrink: 0;
 }
 
 .search-btn {
@@ -312,6 +401,7 @@ const searchInSite = () => {
 .search-field-wrap {
   position: relative;
   margin-right: 0.2rem;
+  flex-shrink: 0;
 }
 
 .search-field-btn {

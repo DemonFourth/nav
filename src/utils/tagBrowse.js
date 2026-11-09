@@ -113,24 +113,17 @@ export function pruneMissingTags(selected, stats = []) {
 }
 
 /**
- * 按标签筛选书签并按分类分组（菜单顺序，未分类最后）
- * 多标签为 AND：书签必须同时包含全部标签
- * 字符串入参按**单个标签**处理（不拆逗号）；空选择返回 `[]`
+ * 按分类分组（菜单顺序，未分类最后）
  * @param {Array} bookmarks
  * @param {Array} categories
- * @param {string|string[]|null} activeTags
  * @returns {Array<{key: number|'none', categoryId: number|null, path: string[], leaf: string, parentText: string, bookmarks: Array}>}
  */
-export function buildTagGroups(bookmarks = [], categories = [], activeTags = null) {
-  const wanted = normalizeTagList(activeTags)
-  if (!wanted.length) return []
-  const matched = bookmarks.filter(bookmark => matchesAllTags(bookmark, wanted))
-
+export function buildCategoryGroups(bookmarks = [], categories = []) {
   const { map, flatList } = buildCategoryTree(categories)
   const order = new Map(flatList.map((category, index) => [category.id, index]))
   const buckets = new Map()
 
-  for (const bookmark of matched) {
+  for (const bookmark of bookmarks) {
     const key = bookmark.category_id != null && map[bookmark.category_id]
       ? bookmark.category_id
       : 'none'
@@ -164,6 +157,22 @@ export function buildTagGroups(bookmarks = [], categories = [], activeTags = nul
       return (order.get(a.categoryId) ?? Number.MAX_SAFE_INTEGER) -
         (order.get(b.categoryId) ?? Number.MAX_SAFE_INTEGER)
     })
+}
+
+/**
+ * 按标签筛选书签并按分类分组（菜单顺序，未分类最后）
+ * 多标签为 AND：书签必须同时包含全部标签
+ * 字符串入参按**单个标签**处理（不拆逗号）；空选择返回 `[]`
+ * @param {Array} bookmarks
+ * @param {Array} categories
+ * @param {string|string[]|null} activeTags
+ * @returns {Array<{key: number|'none', categoryId: number|null, path: string[], leaf: string, parentText: string, bookmarks: Array}>}
+ */
+export function buildTagGroups(bookmarks = [], categories = [], activeTags = null) {
+  const wanted = normalizeTagList(activeTags)
+  if (!wanted.length) return []
+  const matched = bookmarks.filter(bookmark => matchesAllTags(bookmark, wanted))
+  return buildCategoryGroups(matched, categories)
 }
 
 /**
