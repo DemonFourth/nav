@@ -157,6 +157,42 @@
                   </div>
                 </div>
 
+                <div v-if="showSearch" class="setting-card">
+                  <div class="card-label">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                      <circle cx="11" cy="11" r="7"/>
+                      <path d="M21 21l-4.3-4.3"/>
+                    </svg>
+                    搜索引擎
+                  </div>
+                  <div class="toggle-row">
+                    <div class="toggle-info">
+                      <div class="toggle-name">显示外部搜索引擎</div>
+                      <div class="toggle-desc">关闭后搜索框只保留「站内」</div>
+                    </div>
+                    <label class="toggle-switch">
+                      <input type="checkbox" :checked="enabledSearchEnginesPanel" @change="toggleSearchEnginesPanel" />
+                      <span class="toggle-slider"></span>
+                    </label>
+                  </div>
+                  <div v-if="enabledSearchEnginesPanel" class="engine-check-list">
+                    <label v-for="engine in SEARCH_ENGINES" :key="engine.id" class="engine-check-item">
+                      <input
+                        type="checkbox"
+                        :checked="enabledEngines.includes(engine.id)"
+                        @change="toggleEngine(engine.id)"
+                      />
+                      <img
+                        :src="engine.icon"
+                        alt=""
+                        class="engine-check-icon"
+                        @error="e => (e.target.style.visibility = 'hidden')"
+                      />
+                      <span>{{ engine.name }}</span>
+                    </label>
+                  </div>
+                </div>
+
                 <div class="setting-card">
                   <div class="card-label">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
@@ -1303,6 +1339,7 @@ import { useTheme } from '@/composables/useTheme'
 import { useAuth } from '@/composables/useAuth'
 import { useBookmarks } from '@/composables/useBookmarks'
 import { useAI } from '@/composables/useAI'
+import { useSearchEngines } from '@/composables/useSearchEngines'
 import { useToast } from '@/composables/useToast'
 import { useAuthGuard } from '@/composables/useAuthGuard'
 import { useCategoryEditor } from '@/composables/useCategoryEditor'
@@ -1343,6 +1380,13 @@ const {
 const { isDark, setThemeMode } = useTheme()
 const { isAuthenticated, validateAuthState } = useAuth()
 const { aiEnabled, aiSource, checkAIAvailability, saveAISettings, getAISettings, diagnoseConnection } = useAI()
+const {
+  SEARCH_ENGINES,
+  enabledEngines,
+  enabledSearchEnginesPanel,
+  toggleEngine,
+  toggleSearchEnginesPanel
+} = useSearchEngines()
 
 // Category editor (uses useBookmarks internally)
 const {
@@ -2921,6 +2965,52 @@ watch(selectedCategoryId, () => {
 .toggle-info { flex: 1; }
 .toggle-name { font-size: 0.8125rem; font-weight: 500; color: var(--text-primary); }
 .toggle-desc { font-size: 0.7rem; color: var(--text-secondary); margin-top: 1px; }
+
+/* ===== Search engines ===== */
+.engine-check-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px 10px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--row-divider);
+}
+
+.engine-check-item {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  padding: 5px 6px;
+  border-radius: 8px;
+  font-size: 0.78rem;
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.engine-check-item:hover {
+  background: var(--card-hover-bg);
+}
+
+.engine-check-item input {
+  margin: 0;
+  accent-color: var(--nav-primary);
+  flex-shrink: 0;
+}
+
+.engine-check-icon {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+  border-radius: 3px;
+}
+
+.engine-check-item span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 
 .toggle-switch {
   position: relative;
