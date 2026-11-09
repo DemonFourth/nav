@@ -141,7 +141,12 @@
 
 <div v-else class="nav-user-menu" v-click-outside="closeUserMenu">
             <button class="nav-avatar-btn" @click.stop="toggleUserMenu">
-              <span class="avatar-letter">{{ (username || 'U').charAt(0).toUpperCase() }}</span>
+              <img
+                class="nav-avatar-img"
+                :src="avatarError ? defaultAvatarIcon : (avatarUrl || defaultAvatarIcon)"
+                alt="用户头像"
+                @error="avatarError = true"
+              />
             </button>
 
           <Transition name="dropdown">
@@ -184,9 +189,10 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, watch, onMounted, onUnmounted } from 'vue'
 import { useAuth } from '../composables/useAuth'
 import { useToast } from '../composables/useToast'
+import { useSettings } from '../composables/useSettings'
 import LoginModal from './LoginModal.vue'
 import NavMenuItem from './NavMenuItem.vue'
 import { useMenuReorder, resolveDropPosition } from '../composables/useMenuReorder'
@@ -228,6 +234,13 @@ const emit = defineEmits(['select-menu', 'select-submenu', 'toggle-style', 'open
 const { isAuthenticated, username, logout, validateAuthState } = useAuth()
 const { warning: warningToast } = useToast()
 const { setLoginModalInstance } = useAuthGuard()
+const { avatarUrl } = useSettings()
+
+const avatarError = ref(false)
+watch(avatarUrl, () => { avatarError.value = false })
+
+// 内置默认头像：白色描边，适配主色渐变圆钮
+const defaultAvatarIcon = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="%23ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>'
 
 const menuReorder = useMenuReorder({
   menus: () => props.menus,
@@ -855,11 +868,11 @@ defineExpose({
 
 .nav-avatar-btn:active { transform: scale(0.95); }
 
-.avatar-letter {
-  color: white;
-  font-size: 0.8125rem;
-  font-weight: 700;
-  line-height: 1;
+.nav-avatar-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
 }
 
 .nav-dropdown {

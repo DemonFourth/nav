@@ -18,7 +18,7 @@
       ref="navBarRef"
     />
 
-    <div class="search-section">
+    <div v-if="!needsLogin" class="search-section">
       <NavSearch 
         v-show="showSearch"
         ref="navSearchRef"
@@ -28,7 +28,16 @@
       />
     </div>
 
-    <div v-if="tagStats.length" class="tag-filter-sticky" :class="{ 'is-pinned': tagFilterActive }">
+    <div v-if="needsLogin" class="nav-login-guide">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4">
+        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+      </svg>
+      <p class="nav-login-title">需要登录才能访问</p>
+      <p class="nav-login-hint">此书签站点处于非公开模式，请先登录</p>
+      <button class="nav-login-btn" @click="requireAuth()">立即登录</button>
+    </div>
+
+    <div v-if="!needsLogin && tagStats.length" class="tag-filter-sticky" :class="{ 'is-pinned': tagFilterActive }">
       <div class="category-tabs">
         <button
           v-for="tag in topTags"
@@ -65,7 +74,7 @@
       </div>
     </div>
 
-    <div class="content-section">
+    <div v-if="!needsLogin" class="content-section">
       <NavCardGrid 
         :key="animationKey" 
         :bookmarks="currentBookmarks"
@@ -85,6 +94,10 @@
       />
       <!-- columns prop removed: responsive breakpoints in NavCardGrid control column count -->
     </div>
+
+    <footer v-if="footerContent" class="nav-footer">
+      <div class="nav-footer-content" v-html="footerContent"></div>
+    </footer>
 
     <NavBookmarkEditModal
       :show="showDetailModal"
@@ -149,9 +162,12 @@ import { buildTagStats, countBookmarksWithTags, buildTagGroups, toggleTagSelecti
 
 const { categories, bookmarks, fetchData, searchTags, updateBookmark, addBookmark, deleteBookmark, addCategory, allTags, getEmptyCategories, cleanupEmptyCategories, reorderItems } = useBookmarks()
 const { isAuthenticated, logout } = useAuth()
-const { customTitle, navWallpaper, showSearch, hideEmptyCategories, randomWallpaper, wallpaperApi, applyWallpaper } = useSettings()
+const { customTitle, navWallpaper, showSearch, hideEmptyCategories, randomWallpaper, wallpaperApi, applyWallpaper, publicMode, footerContent } = useSettings()
 const { success: toastSuccess, error: errorToast } = useToast()
 const { requireAuth } = useAuthGuard()
+
+// 非公开模式且未登录：用锁屏引导替代浏览区域
+const needsLogin = computed(() => !publicMode.value && !isAuthenticated.value)
 
 const emit = defineEmits(['toggleStyle'])
 
@@ -728,6 +744,87 @@ const handleLogout = async () => {
   position: relative;
   z-index: 2;
   background: transparent;
+}
+
+/* 非公开模式未登录：锁屏引导 */
+.nav-login-guide {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: calc(var(--nav-bar-height, 56px) + 3rem) 1rem 4rem;
+  text-align: center;
+  color: var(--nav-text-secondary);
+}
+
+.nav-login-guide > svg {
+  width: 52px;
+  height: 52px;
+  opacity: 0.45;
+}
+
+.nav-login-title {
+  margin: 0.5rem 0 0;
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: var(--nav-text);
+}
+
+.nav-login-hint {
+  margin: 0;
+  font-size: 0.875rem;
+}
+
+.nav-login-btn {
+  margin-top: 0.75rem;
+  padding: 0.5rem 1.4rem;
+  border: none;
+  border-radius: 10px;
+  background: var(--nav-primary);
+  color: #fff;
+  font-size: 0.875rem;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.nav-login-btn:hover {
+  filter: brightness(1.06);
+  transform: translateY(-1px);
+}
+
+/* nav 页脚 */
+.nav-footer {
+  margin-top: auto;
+  padding: 1.5rem 10%;
+  background: var(--nav-glass);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-top: 1px solid var(--nav-border);
+  position: relative;
+  z-index: 1;
+}
+
+.nav-footer-content {
+  max-width: 1400px;
+  margin: 0 auto;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  color: var(--nav-text-secondary);
+  text-align: center;
+}
+
+.nav-footer-content :deep(a) {
+  color: var(--nav-primary);
+  text-decoration: none;
+  transition: opacity 0.2s ease;
+}
+
+.nav-footer-content :deep(a:hover) {
+  opacity: 0.8;
 }
 
 /* 拖拽排序期间：隐藏固定顶部菜单，内容上移露出最顶部卡片 */
