@@ -28,6 +28,7 @@
         </svg>
       </span>
       <span class="submenu-text" :title="item.description || ''">{{ item.name }}</span>
+      <span v-if="bookmarkCounts" class="submenu-count">{{ bookmarkCounts[item.id] ?? 0 }}</span>
       <svg 
         v-if="item.children && item.children.length > 0"
         class="submenu-arrow"
@@ -63,6 +64,7 @@
         :active-path="activePath"
         :reorderable="reorderable"
         :reorder="reorder"
+        :bookmark-counts="bookmarkCounts"
         @select="$emit('select', $event)"
         @create-category="$emit('create-category', $event)"
       />
@@ -129,6 +131,10 @@ const props = defineProps({
   reorder: {
     type: Object,
     default: null
+  },
+  bookmarkCounts: {
+    type: Object,
+    default: () => ({})
   }
 })
 
@@ -460,6 +466,14 @@ const handleDragEnd = () => {
   flex: 1;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.submenu-count {
+  font-size: 0.68rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--nav-text-secondary);
+  flex-shrink: 0;
+  margin: 0 4px 0 6px;
 }
 
 .submenu-arrow {

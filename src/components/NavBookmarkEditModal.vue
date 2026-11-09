@@ -316,7 +316,7 @@ const showAllTagSuggestions = () => {
   nextTick(() => tagInputRef.value?.focus())
 }
 
-const open = (bookmark) => {
+const open = (bookmark, options = {}) => {
   internalBookmark.value = bookmark
   if (bookmark) {
     form.name = bookmark.name || ''
@@ -331,7 +331,7 @@ const open = (bookmark) => {
   } else {
     form.name = ''
     form.url = ''
-    form.category_id = ''
+    form.category_id = options.categoryId ?? ''
     form.description = ''
     form.tags = ''
     form.notes = ''

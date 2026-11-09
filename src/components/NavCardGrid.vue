@@ -1,6 +1,6 @@
 <template>
   <div class="nav-card-grid">
-    <div v-if="totalCount > 0" :class="[isGrouped ? 'card-groups' : 'cards-container', animationClass, { 'grid-append': gridAppendActive }]" @dragover.prevent="handleGridDragOver" @drop="handleGridDrop">
+    <div v-if="totalCount > 0 || showAddCard" :class="[isGrouped ? 'card-groups' : 'cards-container', animationClass, { 'grid-append': gridAppendActive }]" @dragover.prevent="handleGridDragOver" @drop="handleGridDrop">
       <template v-for="group in displayGroups" :key="group.key">
         <button
           v-if="group.categoryId !== undefined"
@@ -46,6 +46,20 @@
             @dragend="handleDragEnd"
             @drop="handleCardDrop"
           />
+          <button
+            v-if="showAddCard && !isGrouped"
+            type="button"
+            class="nav-add-card"
+            @click="emit('add-bookmark')"
+          >
+            <span class="nav-add-card-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
+                <path d="M12 5v14M5 12h14"/>
+              </svg>
+            </span>
+            <span class="nav-add-card-title">新增书签</span>
+            <span v-if="addCardHint" class="nav-add-card-hint">{{ addCardHint }}</span>
+          </button>
           <div v-if="gridAppendActive" class="nav-grid-append-cue">移动到末尾</div>
         </template>
       </template>
@@ -86,10 +100,18 @@ const props = defineProps({
   emptyText: {
     type: String,
     default: '该分类下暂无书签'
+  },
+  showAddCard: {
+    type: Boolean,
+    default: false
+  },
+  addCardHint: {
+    type: String,
+    default: ''
   }
 })
 
-const emit = defineEmits(['tag-click', 'show-detail', 'dragstart', 'dragend', 'reorder', 'group-click'])
+const emit = defineEmits(['tag-click', 'show-detail', 'dragstart', 'dragend', 'reorder', 'group-click', 'add-bookmark'])
 
 const gridAppendActive = ref(false)
 
@@ -282,8 +304,57 @@ const handleGridDrop = (e) => {
   border-radius: 12px;
 }
 
-.nav-grid-append-cue {
-  position: fixed;
+.nav-add-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 100px;
+  max-width: 300px;
+  padding: 16px;
+  border-radius: 12px;
+  border: 1.5px dashed color-mix(in srgb, var(--nav-primary) 35%, var(--nav-border));
+  background: transparent;
+  color: var(--nav-text-secondary);
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.25s ease;
+}
+
+.nav-add-card:hover {
+  border-color: var(--nav-primary);
+  color: var(--nav-primary);
+  background: color-mix(in srgb, var(--nav-primary) 8%, transparent);
+}
+
+.nav-add-card-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: 1px solid currentColor;
+  opacity: 0.8;
+}
+
+.nav-add-card-icon svg {
+  width: 18px;
+  height: 18px;
+}
+
+.nav-add-card-title {
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.nav-add-card-hint {
+  font-size: 0.75rem;
+  opacity: 0.75;
+}
+
+.nav-grid-append-cue {  position: fixed;
   bottom: 40px;
   left: 50%;
   transform: translateX(-50%);

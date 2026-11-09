@@ -38,6 +38,7 @@
                   </svg>
                 </span>
                 <span class="menu-text" :title="menu.description || ''">{{ menu.name }}</span>
+                <span v-if="bookmarkCounts" class="menu-count">{{ bookmarkCounts[menu.id] ?? 0 }}</span>
                 <svg 
                   v-if="menu.children && menu.children.length > 0"
                   class="chevron-icon"
@@ -86,6 +87,7 @@
                   :active-path="activePath"
                   :reorderable="reorderable"
                   :reorder="menuReorder"
+                  :bookmark-counts="bookmarkCounts"
                   @select="(item) => handleSelectSubmenu(menu, item)"
                   @create-category="handleCreateCategory"
                 />
@@ -188,6 +190,7 @@ import { useToast } from '../composables/useToast'
 import LoginModal from './LoginModal.vue'
 import NavMenuItem from './NavMenuItem.vue'
 import { useMenuReorder, resolveDropPosition } from '../composables/useMenuReorder'
+import { useAuthGuard } from '../composables/useAuthGuard'
 
 const props = defineProps({
   menus: {
@@ -213,6 +216,10 @@ const props = defineProps({
   activePath: {
     type: Array,
     default: () => []
+  },
+  bookmarkCounts: {
+    type: Object,
+    default: () => ({})
   }
 })
 
@@ -220,6 +227,7 @@ const emit = defineEmits(['select-menu', 'select-submenu', 'toggle-style', 'open
 
 const { isAuthenticated, username, logout, validateAuthState } = useAuth()
 const { warning: warningToast } = useToast()
+const { setLoginModalInstance } = useAuthGuard()
 
 const menuReorder = useMenuReorder({
   menus: () => props.menus,
@@ -411,6 +419,11 @@ onMounted(() => {
     resizeObserver = new ResizeObserver(updateHeight)
     resizeObserver.observe(navBarRef.value)
   }
+  // nav 模式下 NavBar 始终挂载：把它自己的登录框注册给全局登录守卫，
+  // 这样 requireAuth() 失败时能直接弹出登录框（默认模式仍使用 App 根级实例）。
+  if (loginModalRef.value) {
+    setLoginModalInstance(loginModalRef.value)
+  }
 })
 
 onUnmounted(() => {
@@ -587,6 +600,13 @@ defineExpose({
 .menu-text {
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.menu-count {
+  font-size: 0.68rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--nav-text-secondary);
+  flex-shrink: 0;
 }
 
 .drag-grip {

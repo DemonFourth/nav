@@ -7,6 +7,7 @@
       :custom-title="customTitle"
       :reorderable="isAuthenticated"
       :active-path="activePath"
+      :bookmark-counts="categoryCountMap"
       @select-menu="handleSelectMenu"
       @select-submenu="handleSelectSubMenu"
       @reorder-categories="handleMenuReorder"
@@ -72,6 +73,9 @@
         :empty-text="gridEmptyText"
         :isAuthenticated="isAuthenticated"
         :reorderable="canReorder"
+        :show-add-card="showAddBookmarkCard"
+        :add-card-hint="addBookmarkCardHint"
+        @add-bookmark="openAddBookmark"
         @tag-click="handleTagClick"
         @group-click="handleGroupClick"
         @show-detail="handleShowDetail"
@@ -143,9 +147,9 @@ import { useAuthGuard } from '../composables/useAuthGuard'
 import { buildCategoryTree } from '../utils/categoryTree'
 import { buildTagStats, countBookmarksWithTags, buildTagGroups, toggleTagSelection, pruneMissingTags } from '../utils/tagBrowse.js'
 
-const { categories, bookmarks, fetchData, searchTags, updateBookmark, deleteBookmark, addCategory, allTags, getEmptyCategories, cleanupEmptyCategories, reorderItems } = useBookmarks()
+const { categories, bookmarks, fetchData, searchTags, updateBookmark, addBookmark, deleteBookmark, addCategory, allTags, getEmptyCategories, cleanupEmptyCategories, reorderItems } = useBookmarks()
 const { isAuthenticated, logout } = useAuth()
-const { customTitle, navWallpaper, showSearch, randomWallpaper, wallpaperApi, applyWallpaper } = useSettings()
+const { customTitle, navWallpaper, showSearch, hideEmptyCategories, randomWallpaper, wallpaperApi, applyWallpaper } = useSettings()
 const { success: toastSuccess, error: errorToast } = useToast()
 const { requireAuth } = useAuthGuard()
 
@@ -197,9 +201,41 @@ const backgroundStyle = computed(() => {
   return style
 })
 
+// 每个分类的书签数（含所有子孙分类），菜单计数与空分类过滤共用
+const categoryCountMap = computed(() => {
+  const { tree } = buildCategoryTree(categories.value)
+  const directCounts = new Map()
+  for (const bookmark of bookmarks.value) {
+    if (bookmark.category_id == null) continue
+    const key = Number(bookmark.category_id)
+    directCounts.set(key, (directCounts.get(key) || 0) + 1)
+  }
+
+  const counts = {}
+  const walk = (nodes) => nodes.reduce((sum, node) => {
+    const total = (directCounts.get(Number(node.id)) || 0) + walk(node.children || [])
+    counts[node.id] = total
+    return total
+  }, 0)
+  walk(tree)
+  return counts
+})
+
 const menuTree = computed(() => {
   const { tree } = buildCategoryTree(categories.value)
-  return tree
+  if (!hideEmptyCategories.value) return tree
+
+  const currentId = activeSubMenu.value?.id ?? activeMenu.value?.id
+  const prune = (nodes) => nodes.reduce((acc, node) => {
+    const children = prune(node.children || [])
+    const count = categoryCountMap.value[node.id] ?? 0
+    // 整棵子树都没有书签的分类隐藏；当前正在浏览的分类及其祖先保留，避免入口消失
+    if (count > 0 || node.id === currentId || children.length > 0) {
+      acc.push({ ...node, children })
+    }
+    return acc
+  }, [])
+  return prune(tree)
 })
 
 // 从根到当前选中项的分类路径，用于逐级递减高亮祖先
@@ -297,6 +333,17 @@ const gridEmptyText = computed(() => {
 const canReorder = computed(() => {
   return isAuthenticated.value && !searchResults.value && !tagFilterActive.value && !!activeMenu.value
 })
+
+// A3：登录后、分类浏览时在网格末尾显示「新增书签」卡片
+const showAddBookmarkCard = computed(() => {
+  if (!isAuthenticated.value) return false
+  if (searchResults.value || tagFilterActive.value) return false
+  return !!(activeSubMenu.value || activeMenu.value)
+})
+
+const addBookmarkCardHint = computed(() =>
+  currentBookmarks.value.length === 0 ? '该分类下暂无书签' : ''
+)
 
 // 拖拽期间隐藏固定顶部菜单，露出最顶部卡片
 const onNavDragStart = () => {
@@ -425,9 +472,39 @@ const handleShowDetail = ({ tag, bookmark }) => {
   showDetailModal.value = true
 }
 
-const handleSaveBookmark = async (bookmark, formData) => {
-  if (!bookmark?.id) return
+// A3：网格末尾新增卡 → 打开新增弹窗并预填当前分类
+const openAddBookmark = () => {
   if (!requireAuth()) return
+  const categoryId = activeSubMenu.value?.id ?? activeMenu.value?.id ?? ''
+  navBookmarkEditModalRef.value?.open(null, { categoryId })
+  showDetailModal.value = true
+}
+
+const handleSaveBookmark = async (bookmark, formData) => {
+  if (!requireAuth()) return
+
+  // 新增模式：没有 id，走 addBookmark
+  if (!bookmark?.id) {
+    const result = await addBookmark(formData)
+    if (!result.success) {
+      errorToast(result.error || '添加失败')
+      return
+    }
+    showDetailModal.value = false
+
+    const targetId = formData.category_id === '' || formData.category_id == null
+      ? null
+      : Number(formData.category_id)
+    const currentId = activeSubMenu.value?.id ?? activeMenu.value?.id ?? null
+    const movedAway = targetId !== null && currentId !== null && targetId !== Number(currentId)
+    if (movedAway) {
+      const targetName = categoryOptions.value.find(c => c.id === targetId)?.displayName
+      toastSuccess(targetName ? `已添加到「${targetName}」` : '书签已添加')
+    } else {
+      toastSuccess('书签已添加')
+    }
+    return
+  }
 
   const originalBookmark = { ...bookmark }
 
