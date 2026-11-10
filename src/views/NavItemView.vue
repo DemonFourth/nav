@@ -44,7 +44,7 @@
       <button class="nav-login-btn" @click="requireAuth()">立即登录</button>
     </div>
 
-    <div v-if="!needsLogin && tagStats.length" class="tag-filter-sticky" :class="{ 'is-pinned': tagFilterActive }">
+    <div v-if="!needsLogin && tagStats.length && !searchResults" class="tag-filter-sticky" :class="{ 'is-pinned': tagFilterActive }">
       <div class="category-tabs">
         <button
           v-for="tag in topTags"
