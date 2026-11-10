@@ -5,7 +5,7 @@
         v-for="toast in toasts"
         :key="toast.id"
         class="toast"
-        :class="toast.type"
+        :class="`toast--${toast.type}`"
         @click="removeToast(toast.id)"
       >
         <div class="toast-icon">
@@ -169,23 +169,24 @@ defineExpose({
   box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2);
 }
 
-.toast.success {
+/* 类型类名带 toast-- 前缀：裸类名 loading 会被 main.css 的全局 .loading（骨架屏列布局）命中 */
+.toast--success {
   border-left-color: #10b981;
 }
 
-.toast.error {
+.toast--error {
   border-left-color: #ef4444;
 }
 
-.toast.warning {
+.toast--warning {
   border-left-color: #f59e0b;
 }
 
-.toast.info {
+.toast--info {
   border-left-color: #3b82f6;
 }
 
-.toast.loading {
+.toast--loading {
   border-left-color: #3b82f6;
 }
 
@@ -218,19 +219,19 @@ defineExpose({
   stroke-width: 2;
 }
 
-.toast.success .toast-icon {
+.toast--success .toast-icon {
   color: #10b981;
 }
 
-.toast.error .toast-icon {
+.toast--error .toast-icon {
   color: #ef4444;
 }
 
-.toast.warning .toast-icon {
+.toast--warning .toast-icon {
   color: #f59e0b;
 }
 
-.toast.info .toast-icon {
+.toast--info .toast-icon {
   color: #3b82f6;
 }
 
