@@ -180,19 +180,19 @@
               </div>
 
               <div class="detail-section full-width">
-                <div class="detail-section-title">描述</div>
-                <div class="input-with-btn align-top">
-                  <textarea v-model="form.description" rows="2" class="detail-textarea" placeholder="添加描述"></textarea>
-                  <button v-if="aiEnabled" type="button" class="ai-btn" :disabled="!form.name || !form.url || generatingDesc" @click="handleGenerateDescription">
+                <div class="detail-section-title title-with-action">
+                  <span>描述</span>
+                  <button v-if="aiEnabled" type="button" class="ai-btn ai-btn-sm" :disabled="!form.name || !form.url || generatingDesc" @click="handleGenerateDescription">
                     <svg v-if="!generatingDesc" viewBox="0 0 24 24" fill="none" stroke="currentColor">
                       <path d="M12 2L2 7l10 5 10-5-10-5z"/>
                       <path d="M2 17l10 5 10-5"/>
                       <path d="M2 12l10 5 10-5"/>
                     </svg>
                     <div v-else class="mini-spinner"></div>
-                    {{ generatingDesc ? 'AI生成中...' : 'AI生成' }}
+                    {{ generatingDesc ? '生成中...' : 'AI 生成' }}
                   </button>
                 </div>
+                <textarea v-model="form.description" rows="2" class="detail-textarea" placeholder="添加描述"></textarea>
               </div>
 
               <div class="detail-section full-width">
@@ -1230,14 +1230,26 @@ defineExpose({ open })
   align-items: stretch;
 }
 
-/* 描述行：多行文本域与 AI 按钮顶部对齐 */
-.input-with-btn.align-top {
-  align-items: flex-start;
+/* 描述标签行：右侧放紧凑动作按钮 */
+.title-with-action {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
 }
 
-.input-with-btn.align-top > .detail-textarea {
-  flex: 1;
-  min-width: 0;
+.ai-btn.ai-btn-sm {
+  padding: 4px 10px;
+  border-radius: 8px;
+  gap: 4px;
+  font-size: 0.75rem;
+  letter-spacing: 0.02em;
+  text-transform: none;
+}
+
+.ai-btn.ai-btn-sm svg {
+  width: 14px;
+  height: 14px;
 }
 
 .input-with-btn > .detail-input,
