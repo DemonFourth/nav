@@ -116,7 +116,7 @@
                           @click.stop
                           ref="selectSearchInput"
                         />
-                        <div class="select-options">
+                        <div class="select-options" ref="selectOptionsRef">
                           <div
                             v-for="cat in filteredCategoryOptions"
                             :key="cat.id"
@@ -298,6 +298,7 @@ const tagInputRef = ref(null)
 const tagsContainerRef = ref(null)
 const selectWrapRef = ref(null)
 const selectDropdownRef = ref(null)
+const selectOptionsRef = ref(null)
 const tagSuggestionsStyle = ref({})
 const selectDropdownStyle = ref({})
 
@@ -336,6 +337,21 @@ const updateTagSuggestionsPosition = () => {
 const updateSelectDropdownPosition = () => {
   if (!selectOpen.value || !selectWrapRef.value) return
   selectDropdownStyle.value = computeDropdownStyle(selectWrapRef.value, { offset: 6, maxHeight: 280, minBelow: 180 })
+}
+
+// 打开下拉时把当前分类滚到列表中央，长列表不会停在顶部看不到选中项
+const scrollSelectedOptionIntoView = () => {
+  const container = selectOptionsRef.value
+  if (!container) return
+  const selected = container.querySelector('.select-option.selected')
+  if (!selected) {
+    container.scrollTop = 0
+    return
+  }
+  const containerRect = container.getBoundingClientRect()
+  const selectedRect = selected.getBoundingClientRect()
+  const delta = selectedRect.top + selectedRect.height / 2 - (containerRect.top + containerRect.height / 2)
+  container.scrollTop += delta
 }
 
 watch(tagSuggestionsOpen, (open) => {
@@ -756,14 +772,14 @@ const getDisplayUrl = (url) => {
 }
 
 watch(selectOpen, (val) => {
-  if (val) {
-    nextTick(() => {
-      updateSelectDropdownPosition()
-      if (selectSearchInput.value) {
-        selectSearchInput.value.focus()
-      }
-    })
-  }
+  if (!val) return
+  updateSelectDropdownPosition()
+  nextTick(() => {
+    if (selectSearchInput.value) {
+      selectSearchInput.value.focus()
+    }
+    scrollSelectedOptionIntoView()
+  })
 })
 
 // 弹窗打开期间锁住页面滚动，避免滚到底部后把背景页一起滚走

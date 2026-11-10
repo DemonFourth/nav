@@ -77,7 +77,7 @@
                     @click.stop
                     ref="selectSearchInput"
                   />
-                  <div class="select-options">
+                  <div class="select-options" ref="selectOptionsRef">
                     <div 
                       v-for="cat in filteredCategoryOptions" 
                       :key="cat.id"
@@ -184,7 +184,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, nextTick } from 'vue'
+import { ref, computed, onMounted, nextTick, watch } from 'vue'
 import { useBookmarks } from '../composables/useBookmarks'
 import { useToast } from '../composables/useToast'
 import { useAI } from '../composables/useAI'
@@ -214,6 +214,7 @@ const newTagInput = ref('')
 const editingTagIndex = ref(null)
 const tagEditInput = ref(null)
 const selectSearchInput = ref(null)
+const selectOptionsRef = ref(null)
 
 const form = ref({
   name: '',
@@ -256,6 +257,25 @@ const selectCategory = (cat) => {
   selectOpen.value = false
   selectSearch.value = ''
 }
+
+// 打开下拉时把当前分类滚到列表中央，长列表不会停在顶部看不到选中项
+const scrollSelectedOptionIntoView = () => {
+  const container = selectOptionsRef.value
+  if (!container) return
+  const selected = container.querySelector('.select-option.selected')
+  if (!selected) {
+    container.scrollTop = 0
+    return
+  }
+  const containerRect = container.getBoundingClientRect()
+  const selectedRect = selected.getBoundingClientRect()
+  const delta = selectedRect.top + selectedRect.height / 2 - (containerRect.top + containerRect.height / 2)
+  container.scrollTop += delta
+}
+
+watch(selectOpen, (open) => {
+  if (open) nextTick(scrollSelectedOptionIntoView)
+})
 
 const addTag = () => {
   const tag = newTagInput.value.trim()
