@@ -60,14 +60,15 @@
                     :class="{ 'is-fetching': fetchingMetadata }"
                     :disabled="!form.url || fetchingMetadata"
                     @click="fetchMetadata"
-                    v-tooltip="fetchingMetadata ? '正在获取网页标题与描述…' : '自动获取标题与描述，只填入空字段'"
+                    v-tooltip="fetchingMetadata ? '正在获取网页标题与描述…' : '从网页获取标题与描述，只填入空字段'"
                   >
                     <div v-if="fetchingMetadata" class="mini-spinner"></div>
                     <svg v-else viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                      <path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/>
-                      <path d="M21 3v5h-5"/>
+                      <path d="M12 13v8"/>
+                      <path d="M8 17l4 4 4-4"/>
+                      <path d="M20 16.7A5 5 0 0 0 18 7h-1.3A8 8 0 1 0 4 15.3"/>
                     </svg>
-                    <span v-if="fetchingMetadata" class="fetch-meta-label">获取中</span>
+                    <span class="fetch-meta-label">{{ fetchingMetadata ? '获取中' : '获取' }}</span>
                   </button>
                   <button
                     v-if="form.url"
@@ -1435,17 +1436,20 @@ defineExpose({ open })
 }
 
 .fetch-meta-btn {
-  width: 38px;
   height: 38px;
-  display: flex;
+  min-width: 76px;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 0;
+  gap: 6px;
+  padding: 0 10px;
   background: var(--nav-card-bg);
   border: 1px solid var(--nav-border);
   border-radius: 10px;
   color: var(--nav-text-secondary);
   font-family: inherit;
+  font-size: 12px;
+  white-space: nowrap;
   cursor: pointer;
   transition: all 0.2s;
   flex-shrink: 0;
@@ -1463,11 +1467,8 @@ defineExpose({ open })
   cursor: not-allowed;
 }
 
-/* 获取中：白色 spinner 在白底按钮上看不见，改用主题色并配文字，且不被 disabled 变淡 */
+/* 获取中：白色 spinner 在白底按钮上看不见，改用主题色，且不被 disabled 变淡 */
 .fetch-meta-btn.is-fetching {
-  width: auto;
-  padding: 0 12px;
-  gap: 6px;
   opacity: 1;
   color: var(--nav-primary);
   border-color: color-mix(in srgb, var(--nav-primary) 45%, transparent);
@@ -1490,6 +1491,7 @@ defineExpose({ open })
 .fetch-meta-btn svg {
   width: 16px;
   height: 16px;
+  flex-shrink: 0;
 }
 
 .url-open-btn {
