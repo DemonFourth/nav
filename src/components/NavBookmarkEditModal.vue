@@ -84,9 +84,19 @@
               </div>
 
               <div class="detail-section">
-                <div class="detail-section-title">分类</div>
-                <div class="input-with-btn">
-                  <div class="custom-select" :class="{ open: selectOpen }" ref="selectWrapRef">
+                <div class="detail-section-title title-with-action">
+                  <span>分类</span>
+                  <button v-if="aiEnabled && props.categoryOptions.length" type="button" class="ai-btn ai-btn-sm" :disabled="suggestingCategory || !form.name || !form.url" @click="handleSuggestCategory" v-tooltip="'AI 推荐分类'">
+                    <div v-if="suggestingCategory" class="mini-spinner"></div>
+                    <svg v-else viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                      <path d="M12 20v-6"/>
+                      <path d="M6 14l6-6 6 6"/>
+                      <path d="M4 10h16"/>
+                    </svg>
+                    {{ suggestingCategory ? '推荐中...' : 'AI 推荐' }}
+                  </button>
+                </div>
+                <div class="custom-select" :class="{ open: selectOpen }" ref="selectWrapRef">
                     <div class="select-trigger" @click="selectOpen = !selectOpen">
                       <span class="select-value" :class="{ placeholder: !selectedCategoryName }">{{ selectedCategoryName || '请选择分类' }}</span>
                       <svg class="select-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -118,15 +128,6 @@
                       </div>
                     </Teleport>
                   </div>
-                  <button v-if="aiEnabled && props.categoryOptions.length" type="button" class="ai-btn" :disabled="suggestingCategory || !form.name || !form.url" @click="handleSuggestCategory" title="AI 推荐分类">
-                    <svg v-if="!suggestingCategory" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                      <path d="M12 20v-6"/>
-                      <path d="M6 14l6-6 6 6"/>
-                      <path d="M4 10h16"/>
-                    </svg>
-                    <div v-else class="mini-spinner"></div>
-                  </button>
-                </div>
                 <p v-if="aiSuggestion" class="ai-suggestion">{{ aiSuggestion }}</p>
               </div>
 
@@ -697,6 +698,11 @@ watch(selectOpen, (val) => {
   }
 })
 
+// 弹窗打开期间锁住页面滚动，避免滚到底部后把背景页一起滚走
+watch(() => props.show, (visible) => {
+  document.body.style.overflow = visible ? 'hidden' : ''
+}, { immediate: true })
+
 onMounted(() => {
   void checkAIAvailability().catch(() => {})
   window.addEventListener('scroll', handleViewportChange, true)
@@ -708,6 +714,7 @@ onUnmounted(() => {
   window.removeEventListener('scroll', handleViewportChange, true)
   window.removeEventListener('resize', handleViewportChange)
   document.removeEventListener('mousedown', handleDocumentMouseDown)
+  document.body.style.overflow = ''
 })
 
 defineExpose({ open })
@@ -848,6 +855,7 @@ defineExpose({ open })
   flex: 1;
   overflow-y: auto;
   min-height: 0;
+  overscroll-behavior: contain;
 }
 
 .form-grid {
@@ -875,7 +883,8 @@ defineExpose({ open })
 
 .detail-input {
   width: 100%;
-  padding: 9px 12px;
+  height: 38px;
+  padding: 0 12px;
   background: var(--nav-card-bg);
   border: 1px solid var(--nav-border);
   border-radius: 8px;
@@ -1031,7 +1040,8 @@ defineExpose({ open })
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 9px 12px;
+  height: 38px;
+  padding: 0 12px;
   background: var(--nav-card-bg);
   border: 1px solid var(--nav-border);
   border-radius: 8px;
