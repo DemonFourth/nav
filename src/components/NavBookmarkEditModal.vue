@@ -873,6 +873,9 @@ defineExpose({ open })
 }
 
 .detail-section-title {
+  display: flex;
+  align-items: center;
+  min-height: 25px;
   font-size: 0.6875rem;
   font-weight: 600;
   color: var(--nav-text-secondary);
