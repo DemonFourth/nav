@@ -283,6 +283,7 @@ nav 独有：标签浏览（多标签 AND + 吸顶）、全部标签弹窗、标
 | 3 | `eaae11b` | D2 外观设置「搜索引擎」区块（开关 + 8 引擎复选）；D1 已由 `NavSearch` 接入 `useSearchEngines` 完成 | `npm run build` 通过 |
 | 修复 | `7f3d714` | B4 计数 `walk()` 漏加同级累加（改为 `return sum + total`）；`useAuthGuard.requireAuth` 弹窗优先、无实例才 toast；`NavItemView` 移除重复 `fetchData`；新增 `utils/settingsFetch` 3 秒 TTL 合并 `/api/settings`；`useAI.checkAIAvailability` 3 秒 TTL；`NavSettingsModal.checkEmptyCategories` 数据指纹 + 300ms 防抖；`useSearchEngines` 改模块级单 watch（避免多实例重复 POST） | `npm run build`；浏览器实测首屏 `ai/status`、`categories`、`settings`、`bookmarks`、`cleanup-empty-categories` 各 1 次、`POST settings` 0 次；菜单计数 部署 40 / AI 67 / Github 98 / 工具 69 / 资源中心 22，根合计 334 |
 | 增强 | `1a9d1af` | 分类浏览时在卡片左上角显示序号角标（搜索/标签分组视图与「新增书签」卡不编号；序号随数组重排自动更新） | `npm run build`；用户浏览器验证通过 |
+| 修复 | `5f7d4a4` | 引擎选择 / 搜索范围按钮的 tooltip 在对应下拉展开时置空；`v-tooltip` 指令在文案清空时立即收起已显示的 tooltip | `npm run build` 通过；浏览器未实测 |
 
 **浏览器实测记录（2026-11-09 ~ 11-10，Chrome DevTools MCP；登录态 `admin`、非公开模式）**：
 
@@ -314,4 +315,3 @@ nav 独有：标签浏览（多标签 AND + 吸顶）、全部标签弹窗、标
 - 搜索/标签视图切换分类时输入框文本不清空（沿用默认模式行为）。
 - `enabledSearchEnginesPanel` 关闭时若此前选中的是外部引擎，会自动回落到「站内」。
 - 站内搜索为大小写忽略的子串匹配（默认 5 字段），短词命中面大（如搜 `AI` 命中 106 条）——待确认是否可接受。
-- 引擎下拉展开时，搜索按钮的「选择搜索引擎」tooltip 会压住第一项——待确认是否处理。
