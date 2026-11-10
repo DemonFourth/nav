@@ -104,6 +104,8 @@ const SITE_ENGINE = { id: 'site', name: '站内' }
 const searchQuery = ref('')
 const selectedEngineId = ref('site')
 const searchResults = ref([])
+// 是否有一次已执行的站内搜索；切换搜索范围时据此决定要不要立即重搜
+let hasActiveSearch = false
 const searchField = ref('all')
 const searchFieldOpen = ref(false)
 const searchFieldRef = ref(null)
@@ -197,6 +199,7 @@ const selectEngine = (engineId) => {
   } else {
     // 切到外部引擎时清掉站内结果，等待回车直接打开搜索页
     searchResults.value = []
+    hasActiveSearch = false
     emit('clear-results')
   }
 }
@@ -204,6 +207,7 @@ const selectEngine = (engineId) => {
 const clearSearch = () => {
   searchQuery.value = ''
   searchResults.value = []
+  hasActiveSearch = false
   emit('clear-results')
 }
 
@@ -228,8 +232,14 @@ const searchInSite = () => {
   const results = searchBookmarks(props.bookmarks, searchQuery.value, { field: searchField.value })
 
   searchResults.value = results
+  hasActiveSearch = true
   emit('search-results', results, query)
 }
+
+// 已有搜索结果时切换搜索范围，立即按新范围重搜，避免标签与结果不一致
+watch(searchField, () => {
+  if (hasActiveSearch) searchInSite()
+})
 </script>
 
 <style scoped>
