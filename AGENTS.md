@@ -387,7 +387,7 @@ const clearSearchResults = () => {
 
 ## 导航站标签浏览
 
-nav 模式支持按标签浏览书签，访客与登录用户均可用。标签行固定在搜索框下方（`category-tabs` 位置），不改变 nav 结构。标签筛选支持**多标签同时满足（AND）**。
+nav 模式支持按标签浏览书签，访客与登录用户均可用。标签行固定在搜索框下方（`category-tabs` 位置），不改变 nav 结构。标签筛选支持**多标签同时满足（AND）**。**搜索结果展示时整行隐藏**（`!searchResults`），清空搜索后恢复——搜索态下同屏出现标签行会让「点标签」静默丢弃搜索结果。
 
 ### 界面结构
 
@@ -423,6 +423,7 @@ nav 模式支持按标签浏览书签，访客与登录用户均可用。标签�
 - 标签视图期间顶部菜单不高亮任何分类，但保留 `activeMenu` / `activeSubMenu`；清除筛选后恢复。
 - 标签视图**禁用卡片拖拽**（`canReorder` 为 false，且 `NavCardGrid` 分组态有额外守卫）；`POST /api/reorder` 会把传入 id 的 `position` 全量重写。
 - 状态互斥：标签 / 搜索 / 分类三者任意切换都会清掉另外两个；`handleTagClick` **先算 next 再 `clearSearch()`**（`clear-results` 会清空 `activeTags`）。
+- 标签行在搜索态隐藏；但搜索结果**卡片上的标签仍可点击**，点击会退出搜索并进入标签筛选（与标签行规则相同，属保留行为）。
 - 标签失效：`pruneMissingTags` 只移除数据刷新后消失的标签，其余选择保留。
 - 组头是原生 `<button>`，可键盘回车跳转；未分类组头 `disabled`。
 
