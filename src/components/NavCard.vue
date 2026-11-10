@@ -55,13 +55,6 @@
         </span>
       </div>
       <div class="nav-card-url">{{ bookmark.url }}</div>
-      <div v-if="bookmark.is_private" class="nav-private-badge">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-          <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
-          <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
-        </svg>
-        <span>私密</span>
-      </div>
       <div v-if="bookmark.notes && bookmark.notes.trim()" class="nav-card-notes">
         {{ bookmark.notes }}
       </div>
@@ -470,28 +463,6 @@ const handleDrop = (e) => {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-}
-
-.nav-private-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  align-self: flex-start;
-  padding: 0.15rem 0.4rem;
-  border-radius: 4px;
-  background: rgba(255, 152, 0, 0.1);
-  color: #ff9800;
-  font-size: 0.7rem;
-  font-weight: 600;
-}
-
-html.dark .nav-private-badge {
-  background: rgba(255, 152, 0, 0.2);
-}
-
-.nav-private-badge svg {
-  width: 12px;
-  height: 12px;
 }
 
 .nav-card-detail-btn {

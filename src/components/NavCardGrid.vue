@@ -18,19 +18,30 @@
         </button>
 
         <div v-if="isGrouped" class="cards-container">
-          <NavCard
+          <div
             v-for="(bookmark, index) in group.bookmarks"
             :key="bookmark.id"
-            :bookmark="bookmark"
-            :isAuthenticated="isAuthenticated"
-            :reorderable="reorderable"
-            :style="getCardStyle(index)"
-            @tag-click="handleTagClick"
-            @show-detail="handleShowDetail"
-            @dragstart="handleDragStart"
-            @dragend="handleDragEnd"
-            @drop="handleCardDrop"
-          />
+            class="card-slot"
+          >
+            <span v-if="bookmark.is_private" class="card-private" :style="getIndexStyle(index)">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+                <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+              </svg>
+              私密
+            </span>
+            <NavCard
+              :bookmark="bookmark"
+              :isAuthenticated="isAuthenticated"
+              :reorderable="reorderable"
+              :style="getCardStyle(index)"
+              @tag-click="handleTagClick"
+              @show-detail="handleShowDetail"
+              @dragstart="handleDragStart"
+              @dragend="handleDragEnd"
+              @drop="handleCardDrop"
+            />
+          </div>
         </div>
         <template v-else>
           <div
@@ -55,6 +66,13 @@
               @dragend="handleDragEnd"
               @drop="handleCardDrop"
             />
+            <span v-if="bookmark.is_private" class="card-private" :style="getIndexStyle(index)">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+                <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+              </svg>
+              私密
+            </span>
           </div>
           <button
             v-if="showAddCard && !isGrouped"
@@ -397,6 +415,59 @@ html.dark .card-slot:hover .card-index {
   transform: translateY(0) scale(0.96);
 }
 
+/* 私密徽标同样骑在边框上，不占卡片内部布局 */
+.card-private {
+  position: absolute;
+  right: -10px;
+  bottom: -10px;
+  z-index: 3;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, #ff9800 40%, transparent);
+  background: color-mix(in srgb, #ff9800 14%, var(--nav-bg));
+  color: #a35f00;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+  pointer-events: none;
+  user-select: none;
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.08);
+  transition: transform 0.28s cubic-bezier(0.16, 1, 0.3, 1),
+              box-shadow 0.28s ease,
+              border-color 0.28s ease;
+}
+
+html.dark .card-private {
+  border-color: color-mix(in srgb, #ff9800 32%, transparent);
+  color: #ffb74d;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+}
+
+.card-private svg {
+  width: 10px;
+  height: 10px;
+}
+
+.card-slot:hover .card-private {
+  transform: translateY(2px) scale(1.06);
+  border-color: color-mix(in srgb, #ff9800 60%, transparent);
+  box-shadow: 0 3px 10px rgba(15, 23, 42, 0.12),
+              0 0 0 2px color-mix(in srgb, #ff9800 14%, transparent);
+}
+
+html.dark .card-slot:hover .card-private {
+  box-shadow: 0 3px 12px rgba(0, 0, 0, 0.4),
+              0 0 0 2px color-mix(in srgb, #ff9800 20%, transparent);
+}
+
+.animate-slideUp .card-private {
+  animation: slideUpIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) backwards;
+}
+
 /* 只用 backwards：入场结束后恢复基础样式，悬停/按下的 transform 才不会被动画锁死 */
 .animate-slideUp .card-index {
   animation: slideUpIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) backwards;
@@ -524,6 +595,15 @@ html.dark .card-slot:hover .card-index {
   }
   .card-slot:hover .card-index,
   .card-slot:active .card-index {
+    transform: none;
+  }
+  .animate-slideUp .card-private {
+    animation: none;
+  }
+  .card-private {
+    transition: none;
+  }
+  .card-slot:hover .card-private {
     transform: none;
   }
 }
