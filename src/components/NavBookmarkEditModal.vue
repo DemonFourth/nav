@@ -181,8 +181,8 @@
 
               <div class="detail-section full-width">
                 <div class="detail-section-title">描述</div>
-                <div class="input-with-btn">
-                  <input v-model="form.description" type="text" class="detail-input" placeholder="添加描述" />
+                <div class="input-with-btn align-top">
+                  <textarea v-model="form.description" rows="2" class="detail-textarea" placeholder="添加描述"></textarea>
                   <button v-if="aiEnabled" type="button" class="ai-btn" :disabled="!form.name || !form.url || generatingDesc" @click="handleGenerateDescription">
                     <svg v-if="!generatingDesc" viewBox="0 0 24 24" fill="none" stroke="currentColor">
                       <path d="M12 2L2 7l10 5 10-5-10-5z"/>
@@ -200,18 +200,6 @@
                 <textarea v-model="form.notes" class="detail-textarea" placeholder="添加备注信息"></textarea>
               </div>
 
-              <div class="detail-section full-width">
-                <label class="detail-checkbox">
-                  <input v-model="form.is_private" type="checkbox" />
-                  <span class="checkbox-label">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                      <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
-                      <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
-                    </svg>
-                    私密书签
-                  </span>
-                </label>
-              </div>
             </div>
           </div>
 
@@ -223,6 +211,16 @@
                 </svg>
                 删除
               </button>
+              <label class="detail-checkbox footer-checkbox">
+                <input v-model="form.is_private" type="checkbox" />
+                <span class="checkbox-label">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+                    <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+                  </svg>
+                  私密书签
+                </span>
+              </label>
             </div>
             <div class="footer-right">
               <button class="detail-btn secondary" @click="handleClose">取消</button>
@@ -889,7 +887,12 @@ defineExpose({ open })
 
 .footer-left, .footer-right {
   display: flex;
+  align-items: center;
   gap: 12px;
+}
+
+.detail-btn + .footer-checkbox {
+  margin-left: 8px;
 }
 
 .detail-btn {
@@ -1225,6 +1228,16 @@ defineExpose({ open })
   display: flex;
   gap: 8px;
   align-items: stretch;
+}
+
+/* 描述行：多行文本域与 AI 按钮顶部对齐 */
+.input-with-btn.align-top {
+  align-items: flex-start;
+}
+
+.input-with-btn.align-top > .detail-textarea {
+  flex: 1;
+  min-width: 0;
 }
 
 .input-with-btn > .detail-input,
