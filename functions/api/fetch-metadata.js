@@ -1,10 +1,46 @@
 const FETCH_TIMEOUT_MS = 10000
+const MAX_HTML_BYTES = 256 * 1024
+const HEAD_END_RE = /<\/head\s*>/i
+const NON_HTML_PREFIXES = [
+  'image/',
+  'video/',
+  'audio/',
+  'application/json',
+  'application/pdf',
+  'application/octet-stream',
+  'application/zip'
+]
 
 const json = (body, status = 200) =>
   new Response(JSON.stringify(body), {
     status,
     headers: { 'Content-Type': 'application/json' }
   })
+
+// 标题/描述都在 <head> 里，读到 </head> 就停，避免为 1MB+ 的页面把整页下载完
+async function readHeadHtml(response) {
+  if (!response.body) return ''
+
+  const reader = response.body.getReader()
+  const decoder = new TextDecoder()
+  let html = ''
+  let received = 0
+
+  try {
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
+      received += value.byteLength
+      html += decoder.decode(value, { stream: true })
+      if (HEAD_END_RE.test(html) || received >= MAX_HTML_BYTES) break
+    }
+  } finally {
+    // 提前结束时主动断开，否则剩余页面还会继续下载
+    reader.cancel().catch(() => {})
+  }
+
+  return html + decoder.decode()
+}
 
 // GET fetch website metadata
 export async function onRequestGet(context) {
@@ -46,8 +82,13 @@ export async function onRequestGet(context) {
     return json({ success: false, error: `目标网站返回 HTTP ${response.status}` }, 502)
   }
 
+  const contentType = (response.headers.get('content-type') || '').toLowerCase()
+  if (NON_HTML_PREFIXES.some(prefix => contentType.startsWith(prefix))) {
+    return json({ success: false, error: '目标地址不是网页，请手动输入' }, 415)
+  }
+
   try {
-    const html = await response.text()
+    const html = await readHeadHtml(response)
 
     // 解析 HTML 提取标题和描述
     const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i);

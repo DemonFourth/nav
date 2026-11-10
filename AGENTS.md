@@ -1454,6 +1454,18 @@ GET /api/icon-proxy?url=<目标网站完整URL，URL编码>
 - 本地 dev 环境下 `functions/` 由 wrangler pages dev 运行，出站走本机网络（google 被墙则抓取失败）
 - 图标命中率不如三方服务的场景，由现有回退链（favicon.im、icon.horse 等）兜底
 
+## 网页元数据获取（/api/fetch-metadata）
+
+编辑/新增书签弹窗的「自动获取标题与描述」：后端 `functions/api/fetch-metadata.js`，前端封装 `src/utils/pageMetadata.js`。
+
+- **只读 `</head>` 就停**：标题/描述都在 head 前几 KB。**禁止改回 `await response.text()` 整页读取**——大页面/限速站（如 tophub.today 首页 1.29MB、约 18KB/s）整页下完要 14s 以上，会先撞 10s 超时而失败。
+- 流式读取上限 256KB；命中 `</head>` 立即 `reader.cancel()`，剩余页面不再下载。
+- 超时：后端 10s（`AbortSignal.timeout`），前端 15s 兜底并提示「获取超时」。
+- 错误分级：超时 504、目标站非 2xx 502、非网页（PDF/JSON/图片）415、网络/TLS 502。
+- 结果归属：请求按发起时的书签（id + URL）绑定；弹窗关闭后结果暂存，重开同一书签且字段为空时自动填入，不会误填到别的书签。只填入空字段。
+- **JS 跳转页抓不到**：如 `https://www.baidu.com` 对非浏览器客户端返回「JS 跳转到 http」的小页面（无 title），浏览器能打开但抓取端没有元数据，属站点反爬行为，不是超时问题。
+- 单测：`npm run test:meta`（客户端超时/错误映射 + 后端协议校验、超时、非 2xx、非网页、提前停止）。
+
 ## v-tooltip 自定义指令
 
 `src/directives/tooltip.js` 提供全局 `v-tooltip` 指令，替换原生 `title` 属性的延迟、不可样式化、移动端无效缺陷。

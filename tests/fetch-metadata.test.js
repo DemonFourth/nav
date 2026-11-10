@@ -97,3 +97,41 @@ test('无 meta 时返回空字符串而不报错', async () => {
     }
   )
 })
+
+test('读到 </head> 即停止，不再下载剩余页面', async () => {
+  const head = '<html><head><title>慢站标题</title><meta name="description" content="慢站描述"></head>'
+  let pulls = 0
+  const stream = new ReadableStream({
+    pull(controller) {
+      pulls++
+      if (pulls === 1) {
+        controller.enqueue(new TextEncoder().encode(head))
+      } else {
+        // 正文若被继续读取，这里会抛错让测试失败
+        controller.error(new Error('不应继续读取正文'))
+      }
+    }
+  }, { highWaterMark: 0 })
+
+  await withFetch(
+    async () => new Response(stream, { status: 200, headers: { 'Content-Type': 'text/html' } }),
+    async () => {
+      const { status, body } = await callApi('https://example.com')
+      assert.equal(status, 200)
+      assert.equal(body.title, '慢站标题')
+      assert.equal(body.description, '慢站描述')
+      assert.equal(pulls, 1)
+    }
+  )
+})
+
+test('非网页内容返回明确提示', async () => {
+  await withFetch(
+    async () => new Response('%PDF-1.4', { status: 200, headers: { 'Content-Type': 'application/pdf' } }),
+    async () => {
+      const { status, body } = await callApi('https://example.com/a.pdf')
+      assert.equal(status, 415)
+      assert.equal(body.error, '目标地址不是网页，请手动输入')
+    }
+  )
+})
