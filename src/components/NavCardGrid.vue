@@ -353,8 +353,8 @@ const handleGridDrop = (e) => {
   height: 20px;
   padding: 0 6px;
   border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.75);
-  background: rgba(255, 255, 255, 0.5);
+  border: 1px solid var(--nav-border);
+  background: rgba(255, 255, 255, 0.55);
   backdrop-filter: blur(10px) saturate(1.3);
   -webkit-backdrop-filter: blur(10px) saturate(1.3);
   color: color-mix(in srgb, var(--nav-primary) 60%, var(--nav-text));
@@ -362,7 +362,7 @@ const handleGridDrop = (e) => {
   font-weight: 700;
   line-height: 1;
   font-variant-numeric: tabular-nums;
-  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.8);
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.5);
   pointer-events: none;
   user-select: none;
   transition: transform 0.28s cubic-bezier(0.16, 1, 0.3, 1),
@@ -373,25 +373,24 @@ const handleGridDrop = (e) => {
 }
 
 html.dark .card-index {
-  border-color: rgba(255, 255, 255, 0.16);
   background: rgba(20, 24, 32, 0.5);
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.1);
 }
 
 /* 跟随卡片交互：悬停轻弹并加主色环，按下回弹 */
 .card-slot:hover .card-index {
   transform: translateY(-2px) scale(1.06);
-  border-color: color-mix(in srgb, var(--nav-primary) 55%, rgba(255, 255, 255, 0.4));
+  border-color: color-mix(in srgb, var(--nav-primary) 45%, var(--nav-border));
   color: color-mix(in srgb, var(--nav-primary) 72%, var(--nav-text));
-  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.14),
-              0 0 0 3px color-mix(in srgb, var(--nav-primary) 16%, transparent),
-              inset 0 1px 0 rgba(255, 255, 255, 0.85);
+  box-shadow: 0 3px 10px rgba(15, 23, 42, 0.12),
+              0 0 0 2px color-mix(in srgb, var(--nav-primary) 14%, transparent),
+              inset 0 1px 0 rgba(255, 255, 255, 0.55);
 }
 
 html.dark .card-slot:hover .card-index {
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.45),
-              0 0 0 3px color-mix(in srgb, var(--nav-primary) 22%, transparent),
-              inset 0 1px 0 rgba(255, 255, 255, 0.16);
+  box-shadow: 0 3px 12px rgba(0, 0, 0, 0.4),
+              0 0 0 2px color-mix(in srgb, var(--nav-primary) 20%, transparent),
+              inset 0 1px 0 rgba(255, 255, 255, 0.12);
 }
 
 .card-slot:active .card-index {
