@@ -32,6 +32,25 @@
               </div>
 
               <div class="detail-section">
+                <div class="detail-section-title">图标URL</div>
+                <div class="icon-field-row">
+                  <input v-model="form.icon" type="text" class="detail-input" placeholder="可选，自定义图标 URL（留空则自动获取）" />
+                  <button
+                    type="button"
+                    class="icon-clear-btn"
+                    :title="form.icon ? '清除自定义图标' : '清除图标缓存并请求新图标'"
+                    @click="handleClearIcon"
+                  >
+                    <svg v-if="!form.icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                      <path d="M23 4v6h-6M1 20v-6h6"/>
+                      <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
+                    </svg>
+                    <span v-else>×</span>
+                  </button>
+                </div>
+              </div>
+
+              <div class="detail-section full-width">
                 <div class="detail-section-title">URL</div>
                 <div class="input-with-btn">
                   <input v-model="form.url" type="text" class="detail-input" placeholder="https://..." />
@@ -60,25 +79,6 @@
                       <polyline points="15 3 21 3 21 9"/>
                       <line x1="10" y1="14" x2="21" y2="3"/>
                     </svg>
-                  </button>
-                </div>
-              </div>
-
-              <div class="detail-section">
-                <div class="detail-section-title">图标URL</div>
-                <div class="icon-field-row">
-                  <input v-model="form.icon" type="text" class="detail-input" placeholder="可选，自定义图标 URL（留空则自动获取）" />
-                  <button
-                    type="button"
-                    class="icon-clear-btn"
-                    :title="form.icon ? '清除自定义图标' : '清除图标缓存并请求新图标'"
-                    @click="handleClearIcon"
-                  >
-                    <svg v-if="!form.icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
-                      <path d="M23 4v6h-6M1 20v-6h6"/>
-                      <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
-                    </svg>
-                    <span v-else>×</span>
                   </button>
                 </div>
               </div>
@@ -130,7 +130,7 @@
                 <p v-if="aiSuggestion" class="ai-suggestion">{{ aiSuggestion }}</p>
               </div>
 
-              <div class="detail-section full-width">
+              <div class="detail-section">
                 <div class="detail-section-title">标签</div>
                 <div class="tags-input-container" ref="tagsContainerRef">
                   <div class="tags-list">
