@@ -1,6 +1,6 @@
 <template>
   <div class="nav-card-grid">
-    <div v-if="totalCount > 0 || showAddCard" :class="[isGrouped ? 'card-groups' : 'cards-container', animationClass, { 'grid-append': gridAppendActive }]" @dragover.prevent="handleGridDragOver" @drop="handleGridDrop">
+    <div v-if="totalCount > 0 || showAddCard" :class="[isGrouped ? 'card-groups' : 'cards-container', animationClass, { 'grid-append': gridAppendActive, 'with-index': !isGrouped && showIndex }]" @dragover.prevent="handleGridDragOver" @drop="handleGridDrop">
       <template v-for="group in displayGroups" :key="group.key">
         <button
           v-if="group.categoryId !== undefined"
@@ -33,19 +33,29 @@
           />
         </div>
         <template v-else>
-          <NavCard
+          <div
             v-for="(bookmark, index) in group.bookmarks"
             :key="bookmark.id"
-            :bookmark="bookmark"
-            :isAuthenticated="isAuthenticated"
-            :reorderable="reorderable"
-            :style="getCardStyle(index)"
-            @tag-click="handleTagClick"
-            @show-detail="handleShowDetail"
-            @dragstart="handleDragStart"
-            @dragend="handleDragEnd"
-            @drop="handleCardDrop"
-          />
+            class="card-slot"
+          >
+            <span
+              v-if="showIndex"
+              class="card-index"
+              :style="getIndexStyle(index)"
+              aria-hidden="true"
+            >{{ index + 1 }}</span>
+            <NavCard
+              :bookmark="bookmark"
+              :isAuthenticated="isAuthenticated"
+              :reorderable="reorderable"
+              :style="getCardStyle(index)"
+              @tag-click="handleTagClick"
+              @show-detail="handleShowDetail"
+              @dragstart="handleDragStart"
+              @dragend="handleDragEnd"
+              @drop="handleCardDrop"
+            />
+          </div>
           <button
             v-if="showAddCard && !isGrouped"
             type="button"
@@ -108,6 +118,11 @@ const props = defineProps({
   addCardHint: {
     type: String,
     default: ''
+  },
+  // 在卡片左上角显示当前视图位次（仅分类浏览时开启）
+  showIndex: {
+    type: Boolean,
+    default: false
   }
 })
 
@@ -152,6 +167,12 @@ function getCardStyle(index) {
     style.animationDelay = `${Math.min(0.03 + index * 0.035, 0.8)}s`
   }
   return style
+}
+
+// 序号跟着卡片一起入场，避免卡片滑入时角标已经停在终点
+function getIndexStyle(index) {
+  if (!animationClass.value) return undefined
+  return { animationDelay: `${Math.min(0.03 + index * 0.035, 0.8)}s` }
 }
 
 const handleTagClick = (tag) => {
@@ -304,6 +325,51 @@ const handleGridDrop = (e) => {
   border-radius: 12px;
 }
 
+/* 序号角标骑在卡片边框左上角，给第一行留出溢出空间 */
+.cards-container.with-index {
+  padding-top: 10px;
+}
+
+.card-slot {
+  position: relative;
+  display: flex;
+  min-width: 0;
+}
+
+/* 包一层定位容器后，卡片需要自己撑满格子（原本由 grid 拉伸） */
+.card-slot :deep(.nav-card-horizontal) {
+  width: 100%;
+}
+
+.card-index {
+  position: absolute;
+  top: -10px;
+  left: -10px;
+  z-index: 3;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 4px;
+  border-radius: 999px;
+  border: 1px solid var(--nav-border);
+  background: var(--nav-bg);
+  color: var(--nav-text-secondary);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+  user-select: none;
+}
+
+.animate-slideUp .card-index {
+  animation: slideUpIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  opacity: 0;
+  transform: translateY(20px);
+}
+
 .nav-add-card {
   display: flex;
   flex-direction: column;
@@ -413,6 +479,11 @@ const handleGridDrop = (e) => {
 
 @media (prefers-reduced-motion: reduce) {
   .animate-slideUp :deep(.nav-card-horizontal) {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
+  .animate-slideUp .card-index {
     animation: none;
     opacity: 1;
     transform: none;

@@ -91,6 +91,7 @@
         :reorderable="canReorder"
         :show-add-card="showAddBookmarkCard"
         :add-card-hint="addBookmarkCardHint"
+        :show-index="showCardIndex"
         @add-bookmark="openAddBookmark"
         @tag-click="handleTagClick"
         @group-click="handleGroupClick"
@@ -383,6 +384,11 @@ const showAddBookmarkCard = computed(() => {
 
 const addBookmarkCardHint = computed(() =>
   currentBookmarks.value.length === 0 ? '该分类下暂无书签' : ''
+)
+
+// 卡片序号：只在纯分类浏览时显示，搜索/标签结果不编号
+const showCardIndex = computed(() =>
+  !searchResults.value && !tagFilterActive.value
 )
 
 // 拖拽期间隐藏固定顶部菜单，露出最顶部卡片
