@@ -351,23 +351,56 @@ const handleGridDrop = (e) => {
   justify-content: center;
   min-width: 20px;
   height: 20px;
-  padding: 0 4px;
+  padding: 0 6px;
   border-radius: 999px;
-  border: 1px solid var(--nav-border);
-  background: var(--nav-bg);
-  color: var(--nav-text-secondary);
+  border: 1px solid rgba(255, 255, 255, 0.75);
+  background: rgba(255, 255, 255, 0.5);
+  backdrop-filter: blur(10px) saturate(1.3);
+  -webkit-backdrop-filter: blur(10px) saturate(1.3);
+  color: color-mix(in srgb, var(--nav-primary) 60%, var(--nav-text));
   font-size: 11px;
-  font-weight: 600;
+  font-weight: 700;
   line-height: 1;
   font-variant-numeric: tabular-nums;
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.8);
   pointer-events: none;
   user-select: none;
+  transition: transform 0.28s cubic-bezier(0.16, 1, 0.3, 1),
+              box-shadow 0.28s ease,
+              border-color 0.28s ease,
+              background-color 0.28s ease,
+              color 0.28s ease;
 }
 
+html.dark .card-index {
+  border-color: rgba(255, 255, 255, 0.16);
+  background: rgba(20, 24, 32, 0.5);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.12);
+}
+
+/* 跟随卡片交互：悬停轻弹并加主色环，按下回弹 */
+.card-slot:hover .card-index {
+  transform: translateY(-2px) scale(1.06);
+  border-color: color-mix(in srgb, var(--nav-primary) 55%, rgba(255, 255, 255, 0.4));
+  color: color-mix(in srgb, var(--nav-primary) 72%, var(--nav-text));
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.14),
+              0 0 0 3px color-mix(in srgb, var(--nav-primary) 16%, transparent),
+              inset 0 1px 0 rgba(255, 255, 255, 0.85);
+}
+
+html.dark .card-slot:hover .card-index {
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.45),
+              0 0 0 3px color-mix(in srgb, var(--nav-primary) 22%, transparent),
+              inset 0 1px 0 rgba(255, 255, 255, 0.16);
+}
+
+.card-slot:active .card-index {
+  transform: translateY(0) scale(0.96);
+}
+
+/* 只用 backwards：入场结束后恢复基础样式，悬停/按下的 transform 才不会被动画锁死 */
 .animate-slideUp .card-index {
-  animation: slideUpIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-  opacity: 0;
-  transform: translateY(20px);
+  animation: slideUpIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) backwards;
 }
 
 .nav-add-card {
@@ -468,6 +501,7 @@ const handleGridDrop = (e) => {
 }
 
 @keyframes slideUpIn {
+  from { opacity: 0; transform: translateY(20px); }
   to { opacity: 1; transform: translateY(0); }
 }
 
@@ -485,7 +519,12 @@ const handleGridDrop = (e) => {
   }
   .animate-slideUp .card-index {
     animation: none;
-    opacity: 1;
+  }
+  .card-index {
+    transition: none;
+  }
+  .card-slot:hover .card-index,
+  .card-slot:active .card-index {
     transform: none;
   }
 }
