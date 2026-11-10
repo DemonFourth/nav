@@ -10,10 +10,19 @@ const aiSource = ref('none')
 const aiApiKey = ref('')
 const aiBaseUrl = ref('')
 
+// 首屏 App.vue、BookmarkDialog、NavBookmarkEditModal 都会各查一次 AI 状态，
+// 这里用 3 秒 TTL 合并，避免 /api/ai/status 被连打三次。
+const AI_STATUS_TTL = 3000
+let aiStatusCache = null
+
+const invalidateAIStatusCache = () => {
+  aiStatusCache = null
+}
+
 export function useAI() {
   const { apiRequest } = useAuth()
 
-const checkAIAvailability = async () => {
+const doCheckAIAvailability = async () => {
     try {
       let response = null
       for (let attempt = 0; attempt < RETRY_ATTEMPTS; attempt++) {
@@ -55,6 +64,19 @@ const checkAIAvailability = async () => {
       aiSource.value = 'none'
       return { success: false, enabled: false }
     }
+  }
+
+  /**
+   * @param {boolean} force 跳过 TTL 缓存强制重新检查（保存配置后使用）
+   */
+  const checkAIAvailability = (force = false) => {
+    const now = Date.now()
+    if (!force && aiStatusCache && now - aiStatusCache.at < AI_STATUS_TTL) {
+      return aiStatusCache.promise
+    }
+    const promise = doCheckAIAvailability()
+    aiStatusCache = { at: now, promise }
+    return promise
   }
 
   const generateDescription = async (name, url, pageMeta) => {
@@ -160,6 +182,7 @@ const checkAIAvailability = async () => {
       
       const result = await response.json()
       if (result.success) {
+        invalidateAIStatusCache()
         await checkAIAvailability()
         return { success: true }
       }

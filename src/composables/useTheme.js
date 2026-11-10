@@ -1,5 +1,6 @@
 import { ref, watch } from 'vue'
 import { useAuth } from './useAuth'
+import { fetchSettingsShared } from '../utils/settingsFetch'
 
 // 支持三种主题模式：light, dark, system
 const themeMode = ref(localStorage.getItem('themeMode') || 'system')
@@ -26,7 +27,7 @@ const applyTheme = () => {
 }
 
 export function useTheme() {
-  const { isAuthenticated, apiRequest } = useAuth()
+  const { isAuthenticated, apiRequest, getAuthHeaders } = useAuth()
 
   // 保存主题到数据库
   const saveThemeToDB = async () => {
@@ -53,17 +54,16 @@ export function useTheme() {
   // 从数据库加载主题
   const loadThemeFromDB = async () => {
     try {
-      const response = await fetch('/api/settings')
+      const settingsData = await fetchSettingsShared(
+        isAuthenticated.value ? getAuthHeaders() : {}
+      )
 
-      if (response.ok) {
-        const data = await response.json()
-        if (data.success && data.data) {
-          if (data.data.themeMode) {
-            themeMode.value = data.data.themeMode
-            localStorage.setItem('themeMode', themeMode.value)
-          }
-          applyTheme()
+      if (settingsData) {
+        if (settingsData.themeMode) {
+          themeMode.value = settingsData.themeMode
+          localStorage.setItem('themeMode', themeMode.value)
         }
+        applyTheme()
       }
     } catch (error) {
       console.error('Failed to load theme from database:', error)

@@ -1,35 +1,7 @@
 import { ref, watch } from 'vue'
 import { useAuth } from './useAuth'
 import { useToast } from './useToast'
-
-const RETRY_ATTEMPTS = 3
-const RETRY_DELAY_MS = 500
-const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms))
-
-async function fetchWithRetry(url, options) {
-  let lastError = null
-  for (let attempt = 0; attempt < RETRY_ATTEMPTS; attempt++) {
-    try {
-      const response = await fetch(url, options)
-      if (response.status >= 500) {
-        lastError = new Error(`Server error ${response.status}`)
-        if (attempt < RETRY_ATTEMPTS - 1) {
-          await sleep(RETRY_DELAY_MS * (attempt + 1))
-          continue
-        }
-        break
-      }
-      return response
-    } catch (error) {
-      lastError = error
-      if (attempt < RETRY_ATTEMPTS - 1) {
-        await sleep(RETRY_DELAY_MS * (attempt + 1))
-        continue
-      }
-    }
-  }
-  throw lastError
-}
+import { fetchSettingsShared, invalidateSettingsFetch } from '../utils/settingsFetch'
 
 const showSearch = ref(localStorage.getItem('showSearch') !== 'false')
 const hideEmptyCategories = ref(localStorage.getItem('hideEmptyCategories') === 'true')
@@ -94,55 +66,49 @@ export function useSettings() {
   const loadSettingsFromDB = async () => {
     isLoadingFromDB.value = true
     try {
-      const response = await fetchWithRetry('/api/settings', {
-        headers: isAuthenticated.value ? getAuthHeaders() : {}
-      })
+      const settingsData = await fetchSettingsShared(
+        isAuthenticated.value ? getAuthHeaders() : {}
+      )
 
-      if (response.ok) {
-        const data = await response.json()
-        if (data.success && data.data) {
+      if (settingsData) {
           // 更新设置值，不触发 watch
-          if (data.data.customTitle) {
-            customTitle.value = data.data.customTitle
-            localStorage.setItem('customTitle', data.data.customTitle)
+          if (settingsData.customTitle) {
+            customTitle.value = settingsData.customTitle
+            localStorage.setItem('customTitle', settingsData.customTitle)
           }
-          if (data.data.footerContent) {
-            footerContent.value = data.data.footerContent
-            localStorage.setItem('footerContent', data.data.footerContent)
+          if (settingsData.footerContent) {
+            footerContent.value = settingsData.footerContent
+            localStorage.setItem('footerContent', settingsData.footerContent)
           }
-          if (data.data.showSearch !== undefined) {
-            showSearch.value = data.data.showSearch === 'true'
-            localStorage.setItem('showSearch', data.data.showSearch)
+          if (settingsData.showSearch !== undefined) {
+            showSearch.value = settingsData.showSearch === 'true'
+            localStorage.setItem('showSearch', settingsData.showSearch)
           }
-          if (data.data.hideEmptyCategories !== undefined) {
-            hideEmptyCategories.value = data.data.hideEmptyCategories === 'true'
-            localStorage.setItem('hideEmptyCategories', data.data.hideEmptyCategories)
+          if (settingsData.hideEmptyCategories !== undefined) {
+            hideEmptyCategories.value = settingsData.hideEmptyCategories === 'true'
+            localStorage.setItem('hideEmptyCategories', settingsData.hideEmptyCategories)
           }
-          if (data.data.activeSettingsTab) {
-            activeSettingsTab.value = data.data.activeSettingsTab
-            localStorage.setItem('activeSettingsTab', data.data.activeSettingsTab)
+          if (settingsData.activeSettingsTab) {
+            activeSettingsTab.value = settingsData.activeSettingsTab
+            localStorage.setItem('activeSettingsTab', settingsData.activeSettingsTab)
           }
-          if (data.data.publicMode !== undefined) {
-            publicMode.value = data.data.publicMode === 'true'
-            localStorage.setItem('publicMode', data.data.publicMode)
+          if (settingsData.publicMode !== undefined) {
+            publicMode.value = settingsData.publicMode === 'true'
+            localStorage.setItem('publicMode', settingsData.publicMode)
           }
-          if (data.data.randomWallpaper !== undefined) {
-            randomWallpaper.value = data.data.randomWallpaper === 'true'
-            localStorage.setItem('randomWallpaper', data.data.randomWallpaper)
+          if (settingsData.randomWallpaper !== undefined) {
+            randomWallpaper.value = settingsData.randomWallpaper === 'true'
+            localStorage.setItem('randomWallpaper', settingsData.randomWallpaper)
           }
-          if (data.data.wallpaperApi) {
-            wallpaperApi.value = data.data.wallpaperApi
-            localStorage.setItem('wallpaperApi', data.data.wallpaperApi)
-          }
-
-          if (data.data.avatarUrl !== undefined) {
-            avatarUrl.value = data.data.avatarUrl || ''
-            localStorage.setItem('avatarUrl', data.data.avatarUrl || '')
+          if (settingsData.wallpaperApi) {
+            wallpaperApi.value = settingsData.wallpaperApi
+            localStorage.setItem('wallpaperApi', settingsData.wallpaperApi)
           }
 
-
-          
-        }
+          if (settingsData.avatarUrl !== undefined) {
+            avatarUrl.value = settingsData.avatarUrl || ''
+            localStorage.setItem('avatarUrl', settingsData.avatarUrl || '')
+          }
       }
     } catch (error) {
       console.error('Failed to load settings from database:', error)
@@ -161,6 +127,7 @@ export function useSettings() {
         method: 'POST',
         body: JSON.stringify({ settings })
       })
+      invalidateSettingsFetch()
     } catch (error) {
       if (error.message === 'Token expired') {
         console.warn('Token expired, settings not saved to database')

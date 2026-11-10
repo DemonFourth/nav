@@ -1684,8 +1684,19 @@ const privateBookmarks = computed(() => bookmarks.value.filter(b => b.is_private
 const privacyCheckItems = computed(() => findPublicBookmarksInPrivateCategories(bookmarks.value, categories.value))
 const emptyCategoryCount = ref(0)
 
-const checkEmptyCategories = async () => {
+// 用「分类 id + 每个书签所属分类」生成数据指纹：数据没变就不重复请求
+const buildDataSignature = () => {
+  const catPart = categories.value.map(c => c.id).join(',')
+  const bmPart = bookmarks.value.map(b => `${b.id}:${b.category_id}`).join(',')
+  return `${catPart}|${bmPart}`
+}
+
+let lastEmptyCheckSignature = ''
+let emptyCategoryCheckTimer = null
+
+const checkEmptyCategoriesNow = async () => {
   if (!validateAuthState()) return
+  lastEmptyCheckSignature = buildDataSignature()
   try {
     const response = await fetch('/api/cleanup-empty-categories', {
       headers: { 'Authorization': `Bearer ${localStorage.getItem('authToken') || ''}` }
@@ -1700,7 +1711,19 @@ const checkEmptyCategories = async () => {
   }
 }
 
-watch(() => categories.value, () => {
+// 分类/书签数据加载过程中会连续触发 deep watch，合并成一次请求
+const checkEmptyCategories = () => {
+  // 挂载时数据还没到，等 watch 触发的那次即可，避免首屏多发一次
+  if (!categories.value.length) return
+  if (buildDataSignature() === lastEmptyCheckSignature) return
+  if (emptyCategoryCheckTimer) clearTimeout(emptyCategoryCheckTimer)
+  emptyCategoryCheckTimer = setTimeout(() => {
+    emptyCategoryCheckTimer = null
+    checkEmptyCategoriesNow()
+  }, 300)
+}
+
+watch([() => categories.value, () => bookmarks.value], () => {
   checkEmptyCategories()
   // Auto capture initial snapshot when data loads and snapshot is empty
   if (categories.value.length > 0 && initialDataSnapshot.value.length === 0) {
@@ -1723,10 +1746,15 @@ onMounted(() => {
 
 onUnmounted(() => {
   document.removeEventListener('mouseup', handleSliderMouseUp)
+  if (emptyCategoryCheckTimer) {
+    clearTimeout(emptyCategoryCheckTimer)
+    emptyCategoryCheckTimer = null
+  }
 })
 
 defineExpose({
-  refreshEmptyCategoryCount: checkEmptyCategories
+  // 清理空分类后需要立刻拿到新的数量，这里走立即检查而不是防抖版本
+  refreshEmptyCategoryCount: checkEmptyCategoriesNow
 })
 
 const handleSliderMouseUp = () => {

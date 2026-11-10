@@ -238,7 +238,7 @@ const categoryCountMap = computed(() => {
   const walk = (nodes) => nodes.reduce((sum, node) => {
     const total = (directCounts.get(Number(node.id)) || 0) + walk(node.children || [])
     counts[node.id] = total
-    return total
+    return sum + total
   }, 0)
   walk(tree)
   return counts
@@ -402,9 +402,8 @@ const handleOpenSettings = () => {
   showNavSettings.value = true
 }
 
-onMounted(async () => {
-  await fetchData()
-  
+onMounted(() => {
+  // App.vue 首屏已统一 fetchData，这里不再重复请求，避免 /api/categories、/api/bookmarks 各发两次
   if (menuTree.value.length > 0) {
     activeMenu.value = menuTree.value[0]
   }

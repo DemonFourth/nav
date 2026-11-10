@@ -1,5 +1,6 @@
 import { ref, watch } from 'vue'
 import { useAuth } from './useAuth'
+import { fetchSettingsShared } from '../utils/settingsFetch'
 
 const SEARCH_ENGINES = [
   {
@@ -56,9 +57,35 @@ const enabledEngines = ref(localStorage.getItem('enabledSearchEngines')
   ? JSON.parse(localStorage.getItem('enabledSearchEngines'))
   : SEARCH_ENGINES.slice(0, 4).map(e => e.id))
 
+// 已与数据库同步过的值，用于避免加载时把同样的数据又 POST 回去
+let syncedEnginesSnapshot = JSON.stringify(enabledEngines.value)
+
 const enabledSearchEnginesPanel = ref(localStorage.getItem('enabledSearchEnginesPanel') !== 'false')
 
 const isLoadingFromDB = ref(false)
+
+// 只有一个模块级 watcher：多个组件各自 useSearchEngines() 时不会重复写库
+const { isAuthenticated: isAuthedForEngines, apiRequest: apiRequestForEngines } = useAuth()
+watch(enabledEngines, async (newValue) => {
+  const serialized = JSON.stringify(newValue)
+  // 与已同步值一致说明只是加载/回填，不需要写回数据库
+  if (serialized === syncedEnginesSnapshot) return
+  syncedEnginesSnapshot = serialized
+
+  if (!isAuthedForEngines.value) return
+  try {
+    await apiRequestForEngines('/api/settings', {
+      method: 'POST',
+      body: JSON.stringify({
+        settings: { enabledSearchEngines: serialized }
+      })
+    })
+  } catch (error) {
+    if (error.message !== 'Token expired') {
+      console.error('Failed to save search engines settings:', error)
+    }
+  }
+}, { deep: true })
 
 export function useSearchEngines() {
   const { isAuthenticated, getAuthHeaders, apiRequest } = useAuth()
@@ -91,20 +118,7 @@ export function useSearchEngines() {
 
     localStorage.setItem('enabledSearchEngines', JSON.stringify(enabledEngines.value))
 
-    if (isAuthenticated.value) {
-      try {
-        await apiRequest('/api/settings', {
-          method: 'POST',
-          body: JSON.stringify({
-            settings: { enabledSearchEngines: JSON.stringify(enabledEngines.value) }
-          })
-        })
-      } catch (error) {
-        if (error.message !== 'Token expired') {
-          console.error('Failed to save search engines settings:', error)
-        }
-      }
-    }
+    // 数据库写入由上面的模块级 watch 统一处理，这里不再重复 POST
   }
 
   const toggleSearchEnginesPanel = async () => {
@@ -130,21 +144,20 @@ export function useSearchEngines() {
   const loadSettingsFromDB = async () => {
     isLoadingFromDB.value = true
     try {
-      const response = await fetch('/api/settings', {
-        headers: isAuthenticated.value ? getAuthHeaders() : {}
-      })
+      const settingsData = await fetchSettingsShared(
+        isAuthenticated.value ? getAuthHeaders() : {}
+      )
 
-      if (response.ok) {
-        const data = await response.json()
-        if (data.success && data.data) {
-          if (data.data.enabledSearchEngines) {
-            enabledEngines.value = JSON.parse(data.data.enabledSearchEngines)
-            localStorage.setItem('enabledSearchEngines', JSON.stringify(enabledEngines.value))
-          }
-          if (data.data.enabledSearchEnginesPanel) {
-            enabledSearchEnginesPanel.value = data.data.enabledSearchEnginesPanel !== 'false'
-            localStorage.setItem('enabledSearchEnginesPanel', data.data.enabledSearchEnginesPanel)
-          }
+      if (settingsData) {
+        if (settingsData.enabledSearchEngines) {
+          enabledEngines.value = JSON.parse(settingsData.enabledSearchEngines)
+          // 来自数据库的值无需再回写，避免加载过程触发 watch 保存
+          syncedEnginesSnapshot = JSON.stringify(enabledEngines.value)
+          localStorage.setItem('enabledSearchEngines', JSON.stringify(enabledEngines.value))
+        }
+        if (settingsData.enabledSearchEnginesPanel) {
+          enabledSearchEnginesPanel.value = settingsData.enabledSearchEnginesPanel !== 'false'
+          localStorage.setItem('enabledSearchEnginesPanel', settingsData.enabledSearchEnginesPanel)
         }
       }
     } catch (error) {
@@ -153,23 +166,6 @@ export function useSearchEngines() {
       isLoadingFromDB.value = false
     }
   }
-
-  watch(enabledEngines, async (newValue) => {
-    if (!isLoadingFromDB.value && isAuthenticated.value) {
-      try {
-        await apiRequest('/api/settings', {
-          method: 'POST',
-          body: JSON.stringify({
-            settings: { enabledSearchEngines: JSON.stringify(newValue) }
-          })
-        })
-      } catch (error) {
-        if (error.message !== 'Token expired') {
-          console.error('Failed to save search engines settings:', error)
-        }
-      }
-    }
-  }, { deep: true })
 
   return {
     SEARCH_ENGINES,
