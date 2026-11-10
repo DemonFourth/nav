@@ -9,7 +9,7 @@
             class="engine-trigger"
             :class="{ active: engineOpen }"
             @click.stop="toggleEngineDropdown"
-            v-tooltip="'选择搜索引擎'"
+            v-tooltip="engineOpen ? '' : '选择搜索引擎'"
           >
             <span class="engine-trigger-name">{{ selectedEngine.name }}</span>
             <svg class="engine-trigger-arrow" :class="{ open: engineOpen }" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -47,7 +47,7 @@
           </svg>
         </button>
         <div v-if="selectedEngine.id === 'site'" class="search-field-wrap" ref="searchFieldRef">
-          <button ref="searchFieldBtnRef" class="search-field-btn" :class="{ active: searchField !== 'all' }" @click="openFieldDropdown" v-tooltip="'搜索范围: ' + (SEARCH_FIELD_OPTIONS.find(o => o.value === searchField)?.label || '全部字段')">
+          <button ref="searchFieldBtnRef" class="search-field-btn" :class="{ active: searchField !== 'all' }" @click="openFieldDropdown" v-tooltip="searchFieldOpen ? '' : '搜索范围: ' + (SEARCH_FIELD_OPTIONS.find(o => o.value === searchField)?.label || '全部字段')">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M12 3v18M3 12h18"/>
               <circle cx="10" cy="10" r="3"/>

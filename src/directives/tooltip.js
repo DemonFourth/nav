@@ -92,6 +92,12 @@ export const tooltipDirective = {
   },
   updated(el, binding) {
     el.__vTooltipText = binding.value
+    // 文案被清空（如关联下拉已展开）时立即收起，不等鼠标移出
+    if (!binding.value && activeEl === el) {
+      clearTimeout(showTimeout)
+      hideTooltip()
+      activeEl = null
+    }
   },
   unmounted(el) {
     el.removeEventListener('mouseenter', onMouseEnter)
