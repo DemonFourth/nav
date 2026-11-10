@@ -40,21 +40,20 @@
                     class="fetch-meta-btn"
                     :disabled="!form.url || fetchingMetadata"
                     @click="fetchMetadata"
-                    title="抓取网页标题与描述，只填入空字段"
+                    v-tooltip="'自动获取标题与描述，只填入空字段'"
                   >
                     <div v-if="fetchingMetadata" class="mini-spinner"></div>
                     <svg v-else viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                       <path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/>
                       <path d="M21 3v5h-5"/>
                     </svg>
-                    {{ fetchingMetadata ? '获取中' : '自动获取' }}
                   </button>
                   <button
                     v-if="form.url"
                     type="button"
                     class="url-open-btn"
                     @click="openUrl(form.url)"
-                    title="在新标签页中打开"
+                    v-tooltip="'在新标签页中打开'"
                   >
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                       <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
@@ -1270,19 +1269,17 @@ defineExpose({ open })
 }
 
 .fetch-meta-btn {
+  width: 38px;
+  height: 38px;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
-  padding: 9px 12px;
+  padding: 0;
   background: var(--nav-card-bg);
   border: 1px solid var(--nav-border);
   border-radius: 10px;
   color: var(--nav-text-secondary);
-  font-size: 0.8125rem;
-  font-weight: 500;
   font-family: inherit;
-  white-space: nowrap;
   cursor: pointer;
   transition: all 0.2s;
   flex-shrink: 0;
@@ -1301,15 +1298,17 @@ defineExpose({ open })
 }
 
 .fetch-meta-btn svg {
-  width: 15px;
-  height: 15px;
+  width: 16px;
+  height: 16px;
 }
 
 .url-open-btn {
+  width: 38px;
+  height: 38px;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 9px 12px;
+  padding: 0;
   background: var(--nav-card-bg);
   border: 1px solid var(--nav-border);
   border-radius: 10px;
