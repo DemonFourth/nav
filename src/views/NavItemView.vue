@@ -532,19 +532,6 @@ const openAddBookmark = () => {
 }
 
 const normalizeCategoryId = (value) => (value === '' || value == null ? null : Number(value))
-const normalizeTagString = (value) => (value || '').split(',').map(t => t.trim()).filter(Boolean).join(',')
-
-// 只有真正需要写入 D1 的修改才发请求和提示
-const hasBookmarkChanges = (original, formData) => (
-  (original.name || '') !== formData.name ||
-  (original.url || '') !== formData.url ||
-  normalizeCategoryId(original.category_id) !== normalizeCategoryId(formData.category_id) ||
-  (original.description || '') !== formData.description ||
-  normalizeTagString(original.tags) !== normalizeTagString(formData.tags) ||
-  (original.notes || '') !== formData.notes ||
-  !!original.is_private !== !!formData.is_private ||
-  (original.icon || '') !== formData.icon
-)
 
 // 写操作的三段式 toast：保存中 → 已保存·同步中 → 已同步
 const createSyncPhaseHandler = (toastId, doneMessage = '已同步') => (phase) => {
@@ -591,12 +578,6 @@ const handleSaveBookmark = async (bookmark, formData) => {
   }
 
   const originalBookmark = { ...bookmark }
-
-  // 没有实际变更就不写 D1，也不弹提示
-  if (!hasBookmarkChanges(originalBookmark, formData)) {
-    showDetailModal.value = false
-    return
-  }
 
   const originalCategoryId = normalizeCategoryId(originalBookmark.category_id)
   const nextCategoryId = normalizeCategoryId(formData.category_id)
