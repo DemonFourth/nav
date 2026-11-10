@@ -1493,4 +1493,42 @@ defineExpose({ open })
 @keyframes spin {
   to { transform: rotate(360deg); }
 }
+
+@media (max-width: 900px) {
+  .detail-modal-overlay {
+    padding: 24px;
+  }
+
+  .detail-modal {
+    max-height: 90vh;
+  }
+}
+
+@media (max-width: 640px) {
+  .detail-modal-overlay {
+    padding: 12px;
+  }
+
+  .detail-modal {
+    max-height: 92vh;
+    border-radius: 16px;
+  }
+
+  .detail-body {
+    padding: 14px 16px;
+  }
+
+  .form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .detail-footer {
+    flex-wrap: wrap;
+    row-gap: 10px;
+  }
+
+  .footer-right {
+    margin-left: auto;
+  }
+}
 </style>

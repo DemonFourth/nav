@@ -531,6 +531,13 @@ const handleDrop = (e) => {
   opacity: 1;
 }
 
+/* 触屏没有 hover，原生拖拽也不可用，把手不渲染交互区 */
+@media (hover: none) {
+  .nav-card-drag-handle {
+    display: none;
+  }
+}
+
 .nav-card-drag-handle:hover {
   background: color-mix(in srgb, var(--nav-primary) 20%, transparent);
   color: var(--nav-primary);
