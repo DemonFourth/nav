@@ -10,6 +10,23 @@ const NON_HTML_PREFIXES = [
   'application/octet-stream',
   'application/zip'
 ]
+const LOGIN_PATH_RE = /\/(login|signin|sign-in|sign_in|passport|sso)(\/|$)/i
+const LOGIN_HOST_RE = /^(accounts|login|passport|sso|signin)\./i
+
+// 被 302 到登录/验证页时，抓到的不是目标页面，元数据必然为空
+function isLoginRedirect(requested, finalUrl) {
+  if (!finalUrl || finalUrl === requested.href) return false
+
+  let final
+  try {
+    final = new URL(finalUrl)
+  } catch {
+    return false
+  }
+  if (final.origin === requested.origin && final.pathname === requested.pathname) return false
+
+  return LOGIN_PATH_RE.test(final.pathname) || LOGIN_HOST_RE.test(final.hostname)
+}
 
 const json = (body, status = 200) =>
   new Response(JSON.stringify(body), {
@@ -80,6 +97,10 @@ export async function onRequestGet(context) {
 
   if (!response.ok) {
     return json({ success: false, error: `目标网站返回 HTTP ${response.status}` }, 502)
+  }
+
+  if (isLoginRedirect(parsed, response.url)) {
+    return json({ success: false, error: '页面需要登录，无法自动获取' }, 401)
   }
 
   const contentType = (response.headers.get('content-type') || '').toLowerCase()

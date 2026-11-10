@@ -135,3 +135,37 @@ test('非网页内容返回明确提示', async () => {
     }
   )
 })
+
+const withFinalUrl = (response, url) => {
+  Object.defineProperty(response, 'url', { value: url, configurable: true })
+  return response
+}
+
+test('被重定向到登录页时提示需要登录', async () => {
+  await withFetch(
+    async () => withFinalUrl(
+      new Response('<html><head><title></title></head></html>', { status: 200, headers: { 'Content-Type': 'text/html' } }),
+      'https://accounts.feishu.cn/accounts/page/login?app_id=169'
+    ),
+    async () => {
+      const { status, body } = await callApi('https://miaoda.feishu.cn/home')
+      assert.equal(status, 401)
+      assert.equal(body.error, '页面需要登录，无法自动获取')
+    }
+  )
+})
+
+test('普通重定向不误判为登录页', async () => {
+  const html = '<html><head><title>正常标题</title></head><body></body></html>'
+  await withFetch(
+    async () => withFinalUrl(
+      new Response(html, { status: 200, headers: { 'Content-Type': 'text/html' } }),
+      'https://example.com/page'
+    ),
+    async () => {
+      const { status, body } = await callApi('https://www.example.com/page')
+      assert.equal(status, 200)
+      assert.equal(body.title, '正常标题')
+    }
+  )
+})

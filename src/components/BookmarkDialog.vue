@@ -418,7 +418,7 @@ const fetchMetadata = async () => {
       return
     }
     if (!result.title && !result.description) {
-      toastError('未找到网页标题或描述')
+      toastError('未找到标题或描述（页面可能由 JS 渲染）')
       return
     }
 
