@@ -86,35 +86,37 @@
               <div class="detail-section">
                 <div class="detail-section-title">分类</div>
                 <div class="input-with-btn">
-                  <div class="custom-select" :class="{ open: selectOpen }">
+                  <div class="custom-select" :class="{ open: selectOpen }" ref="selectWrapRef">
                     <div class="select-trigger" @click="selectOpen = !selectOpen">
                       <span class="select-value" :class="{ placeholder: !selectedCategoryName }">{{ selectedCategoryName || '请选择分类' }}</span>
                       <svg class="select-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <path d="M6 9l6 6 6-6"/>
                       </svg>
                     </div>
-                    <div v-if="selectOpen" class="select-dropdown">
-                      <input
-                        v-model="selectSearch"
-                        type="text"
-                        class="select-search"
-                        placeholder="搜索分类..."
-                        @click.stop
-                        ref="selectSearchInput"
-                      />
-                      <div class="select-options">
-                        <div
-                          v-for="cat in filteredCategoryOptions"
-                          :key="cat.id"
-                          class="select-option"
-                          :class="{ selected: cat.id === form.category_id }"
-                          @click="selectCategory(cat)"
-                        >
-                          {{ cat.displayName }}
+                    <Teleport to="body">
+                      <div v-if="selectOpen" class="select-dropdown" :style="selectDropdownStyle" ref="selectDropdownRef">
+                        <input
+                          v-model="selectSearch"
+                          type="text"
+                          class="select-search"
+                          placeholder="搜索分类..."
+                          @click.stop
+                          ref="selectSearchInput"
+                        />
+                        <div class="select-options">
+                          <div
+                            v-for="cat in filteredCategoryOptions"
+                            :key="cat.id"
+                            class="select-option"
+                            :class="{ selected: cat.id === form.category_id }"
+                            @click="selectCategory(cat)"
+                          >
+                            {{ cat.displayName }}
+                          </div>
+                          <div v-if="filteredCategoryOptions.length === 0" class="select-no-results">未找到分类</div>
                         </div>
-                        <div v-if="filteredCategoryOptions.length === 0" class="select-no-results">未找到分类</div>
                       </div>
-                    </div>
+                    </Teleport>
                   </div>
                   <button v-if="aiEnabled && props.categoryOptions.length" type="button" class="ai-btn" :disabled="suggestingCategory || !form.name || !form.url" @click="handleSuggestCategory" title="AI 推荐分类">
                     <svg v-if="!suggestingCategory" viewBox="0 0 24 24" fill="none" stroke="currentColor">
@@ -128,9 +130,9 @@
                 <p v-if="aiSuggestion" class="ai-suggestion">{{ aiSuggestion }}</p>
               </div>
 
-              <div class="detail-section">
+              <div class="detail-section full-width">
                 <div class="detail-section-title">标签</div>
-                <div class="tags-input-container">
+                <div class="tags-input-container" ref="tagsContainerRef">
                   <div class="tags-list">
                     <span
                       v-for="(tag, index) in tagItems"
@@ -166,16 +168,18 @@
                     @blur="handleTagInputBlur"
                     @keydown.escape="tagSuggestionsOpen = false"
                   />
-                  <div v-if="tagSuggestionsOpen && displayedTagSuggestions.length > 0" class="tag-suggestions">
-                    <div
-                      v-for="tag in displayedTagSuggestions"
-                      :key="tag"
-                      class="tag-suggestion-item"
-                      @mousedown.prevent="selectTag(tag)"
-                    >
-                      {{ tag }}
+                  <Teleport to="body">
+                    <div v-if="tagSuggestionsOpen && displayedTagSuggestions.length > 0" class="tag-suggestions" :style="tagSuggestionsStyle">
+                      <div
+                        v-for="tag in displayedTagSuggestions"
+                        :key="tag"
+                        class="tag-suggestion-item"
+                        @mousedown.prevent="selectTag(tag)"
+                      >
+                        {{ tag }}
+                      </div>
                     </div>
-                  </div>
+                  </Teleport>
                 </div>
               </div>
 
@@ -241,7 +245,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, nextTick, watch, onMounted } from 'vue'
+import { ref, reactive, computed, nextTick, watch, onMounted, onUnmounted } from 'vue'
 import { useAI } from '@/composables/useAI'
 import { useToast } from '@/composables/useToast'
 import { getIconUrl, handleIconError, refreshBookmarkIcon } from '@/composables/useIcon'
@@ -282,6 +286,65 @@ const fetchingMetadata = ref(false)
 const aiSuggestion = ref('')
 const tagSuggestionsOpen = ref(false)
 const tagInputRef = ref(null)
+const tagsContainerRef = ref(null)
+const selectWrapRef = ref(null)
+const selectDropdownRef = ref(null)
+const tagSuggestionsStyle = ref({})
+const selectDropdownStyle = ref({})
+
+// 浮层固定定位：弹窗 body 是滚动容器，绝对定位会被裁掉，改为 Teleport 到 body
+const computeDropdownStyle = (anchor, { offset = 4, maxHeight = 200, minBelow = 120 } = {}) => {
+  const rect = anchor.getBoundingClientRect()
+  const viewportHeight = window.innerHeight
+  const spaceBelow = viewportHeight - rect.bottom - 8
+  const spaceAbove = rect.top - 8
+  const openUp = spaceBelow < minBelow && spaceAbove > spaceBelow
+  if (openUp) {
+    return {
+      position: 'fixed',
+      left: `${rect.left}px`,
+      width: `${rect.width}px`,
+      bottom: `${viewportHeight - rect.top + offset}px`,
+      maxHeight: `${Math.max(0, Math.min(maxHeight, spaceAbove - offset))}px`,
+      zIndex: 100000
+    }
+  }
+  return {
+    position: 'fixed',
+    left: `${rect.left}px`,
+    width: `${rect.width}px`,
+    top: `${rect.bottom + offset}px`,
+    maxHeight: `${Math.max(0, Math.min(maxHeight, spaceBelow - offset))}px`,
+    zIndex: 100000
+  }
+}
+
+const updateTagSuggestionsPosition = () => {
+  if (!tagSuggestionsOpen.value || !tagsContainerRef.value) return
+  tagSuggestionsStyle.value = computeDropdownStyle(tagsContainerRef.value, { offset: 4, maxHeight: 200, minBelow: 120 })
+}
+
+const updateSelectDropdownPosition = () => {
+  if (!selectOpen.value || !selectWrapRef.value) return
+  selectDropdownStyle.value = computeDropdownStyle(selectWrapRef.value, { offset: 6, maxHeight: 280, minBelow: 180 })
+}
+
+watch(tagSuggestionsOpen, (open) => {
+  if (open) nextTick(updateTagSuggestionsPosition)
+})
+
+const handleViewportChange = () => {
+  updateTagSuggestionsPosition()
+  updateSelectDropdownPosition()
+}
+
+const handleDocumentMouseDown = (e) => {
+  if (!selectOpen.value) return
+  if (selectWrapRef.value?.contains(e.target)) return
+  if (selectDropdownRef.value?.contains(e.target)) return
+  selectOpen.value = false
+  selectSearch.value = ''
+}
 
 const isEdit = computed(() => !!internalBookmark.value)
 
@@ -626,6 +689,7 @@ const getDisplayUrl = (url) => {
 watch(selectOpen, (val) => {
   if (val) {
     nextTick(() => {
+      updateSelectDropdownPosition()
       if (selectSearchInput.value) {
         selectSearchInput.value.focus()
       }
@@ -635,6 +699,15 @@ watch(selectOpen, (val) => {
 
 onMounted(() => {
   void checkAIAvailability().catch(() => {})
+  window.addEventListener('scroll', handleViewportChange, true)
+  window.addEventListener('resize', handleViewportChange)
+  document.addEventListener('mousedown', handleDocumentMouseDown)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('scroll', handleViewportChange, true)
+  window.removeEventListener('resize', handleViewportChange)
+  document.removeEventListener('mousedown', handleDocumentMouseDown)
 })
 
 defineExpose({ open })
@@ -1000,20 +1073,18 @@ defineExpose({ open })
 }
 
 .select-dropdown {
-  position: absolute;
-  top: calc(100% + 4px);
-  left: 0;
-  right: 0;
+  display: flex;
+  flex-direction: column;
   background: var(--nav-bg);
   border: 1px solid var(--nav-border);
   border-radius: 10px;
   box-shadow: 0 10px 40px var(--shadow-lg, rgba(0,0,0,0.15));
-  z-index: 100;
   overflow: hidden;
 }
 
 .select-search {
   width: 100%;
+  flex-shrink: 0;
   padding: 10px 12px;
   background: var(--nav-card-bg);
   border: none;
@@ -1029,7 +1100,8 @@ defineExpose({ open })
 }
 
 .select-options {
-  max-height: 200px;
+  flex: 1 1 auto;
+  min-height: 0;
   overflow-y: auto;
 }
 
@@ -1162,15 +1234,10 @@ defineExpose({ open })
 }
 
 .tag-suggestions {
-  position: absolute;
-  top: calc(100% + 4px);
-  left: 0;
-  right: 0;
   background: var(--nav-bg);
   border: 1px solid var(--nav-border);
   border-radius: 8px;
   box-shadow: 0 10px 40px var(--shadow-lg, rgba(0,0,0,0.15));
-  z-index: 100;
   max-height: 200px;
   overflow-y: auto;
 }
