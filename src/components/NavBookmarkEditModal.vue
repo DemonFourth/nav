@@ -57,15 +57,17 @@
                   <button
                     type="button"
                     class="fetch-meta-btn"
+                    :class="{ 'is-fetching': fetchingMetadata }"
                     :disabled="!form.url || fetchingMetadata"
                     @click="fetchMetadata"
-                    v-tooltip="'自动获取标题与描述，只填入空字段'"
+                    v-tooltip="fetchingMetadata ? '正在获取网页标题与描述…' : '自动获取标题与描述，只填入空字段'"
                   >
                     <div v-if="fetchingMetadata" class="mini-spinner"></div>
                     <svg v-else viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                       <path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/>
                       <path d="M21 3v5h-5"/>
                     </svg>
+                    <span v-if="fetchingMetadata" class="fetch-meta-label">获取中</span>
                   </button>
                   <button
                     v-if="form.url"
@@ -250,6 +252,7 @@ import { ref, reactive, computed, nextTick, watch, onMounted, onUnmounted } from
 import { useAI } from '@/composables/useAI'
 import { useToast } from '@/composables/useToast'
 import { getIconUrl, handleIconError, refreshBookmarkIcon } from '@/composables/useIcon'
+import { fetchPageMetadata } from '@/utils/pageMetadata'
 
 const props = defineProps({
   show: { type: Boolean, default: false },
@@ -260,7 +263,7 @@ const props = defineProps({
 const emit = defineEmits(['close', 'save', 'delete'])
 
 const { aiEnabled, checkAIAvailability, generateDescription, suggestCategory } = useAI()
-const { success: toastSuccess, error: toastError } = useToast()
+const { success: toastSuccess, error: toastError, info: toastInfo } = useToast()
 
 const internalBookmark = ref(null)
 const form = reactive({
@@ -284,6 +287,10 @@ const headerIconError = ref(false)
 const generatingDesc = ref(false)
 const suggestingCategory = ref(false)
 const fetchingMetadata = ref(false)
+// 元数据请求按「发起时的书签」归属，弹窗关闭后结果不写当前表单，留给重开时填入
+const metaRequestSeq = ref(0)
+const inflightMeta = ref(null)  // { seq, bookmarkId, url }
+const pendingMeta = ref(null)   // { bookmarkId, url, title, description }
 const aiSuggestion = ref('')
 const tagSuggestionsOpen = ref(false)
 const tagInputRef = ref(null)
@@ -392,6 +399,37 @@ const showAllTagSuggestions = () => {
   nextTick(() => tagInputRef.value?.focus())
 }
 
+const currentMetaTarget = (bookmark = internalBookmark.value) => ({
+  bookmarkId: bookmark?.id ?? null,
+  url: (form.url || '').trim()
+})
+
+const isSameMetaTarget = (a, b) => !!a && !!b && a.bookmarkId === b.bookmarkId && a.url === b.url
+
+// 重开同一书签时补上关闭期间获取到的标题/描述
+const applyPendingMeta = () => {
+  const pending = pendingMeta.value
+  if (!pending) return
+
+  if (!isSameMetaTarget(pending, currentMetaTarget())) {
+    // 同一书签但 URL 已变，旧结果作废；不同书签则保留，等它再次被打开
+    if (pending.bookmarkId === (internalBookmark.value?.id ?? null)) pendingMeta.value = null
+    return
+  }
+
+  const filled = []
+  if (pending.title && !form.name.trim()) {
+    form.name = pending.title
+    filled.push('标题')
+  }
+  if (pending.description && !form.description.trim()) {
+    form.description = pending.description
+    filled.push('描述')
+  }
+  pendingMeta.value = null
+  if (filled.length) toastSuccess(`已填入之前获取的${filled.join('和')}`)
+}
+
 const open = (bookmark, options = {}) => {
   internalBookmark.value = bookmark
   if (bookmark) {
@@ -423,8 +461,10 @@ const open = (bookmark, options = {}) => {
   aiSuggestion.value = ''
   generatingDesc.value = false
   suggestingCategory.value = false
-  fetchingMetadata.value = false
+  // 请求还在飞且指向当前书签时，恢复「获取中」状态
+  fetchingMetadata.value = isSameMetaTarget(inflightMeta.value, currentMetaTarget(bookmark))
   tagSuggestionsOpen.value = false
+  applyPendingMeta()
   void checkAIAvailability().catch(() => {})
 }
 
@@ -437,46 +477,67 @@ const openUrl = (url) => {
   window.open(url, '_blank', 'noopener,noreferrer')
 }
 
-// C6：抓取网页标题/描述，只填入当前为空的字段
+// C6：抓取网页标题/描述，只填入当前为空的字段；结果按发起时的书签归属
 const fetchMetadata = async () => {
-  const url = form.url.trim()
-  if (!url) {
+  const targetUrl = form.url.trim()
+  if (!targetUrl) {
     toastError('请先输入 URL')
     return
   }
   try {
-    new URL(url)
+    new URL(targetUrl)
   } catch {
     toastError('URL 格式不正确')
     return
   }
 
+  const job = {
+    bookmarkId: internalBookmark.value?.id ?? null,
+    url: targetUrl,
+    name: (internalBookmark.value?.name || form.name || '').trim()
+  }
+  const seq = ++metaRequestSeq.value
+  inflightMeta.value = { seq, ...job }
   fetchingMetadata.value = true
+
   try {
-    const response = await fetch(`/api/fetch-metadata?url=${encodeURIComponent(url)}`)
-    const data = await response.json()
-    if (data?.success) {
-      let changed = false
-      if (data.title && !form.name.trim()) {
-        form.name = data.title
-        changed = true
-      }
-      if (data.description && !form.description.trim()) {
-        form.description = data.description
-        changed = true
-      }
-      if (changed) {
-        toastSuccess('已自动填入标题和描述')
-      } else {
-        toastSuccess('没有可自动填入的空字段')
-      }
-    } else {
-      toastError(data?.error || '无法获取网页信息，请手动输入')
+    const result = await fetchPageMetadata(targetUrl)
+    if (!result.success) {
+      toastError(result.error)
+      return
     }
-  } catch {
-    toastError('网络错误，请手动输入')
+    if (!result.title && !result.description) {
+      toastError('未找到网页标题或描述')
+      return
+    }
+
+    if (props.show && isSameMetaTarget(job, currentMetaTarget())) {
+      const filled = []
+      if (result.title && !form.name.trim()) {
+        form.name = result.title
+        filled.push('标题')
+      }
+      if (result.description && !form.description.trim()) {
+        form.description = result.description
+        filled.push('描述')
+      }
+      toastSuccess(filled.length ? `已自动填入${filled.join('和')}` : '没有可自动填入的空字段')
+      return
+    }
+
+    // 弹窗已关闭或已切到别的书签：暂存，重开该书签时填入
+    if (job.bookmarkId == null) {
+      toastInfo('已获取标题与描述 · 新增弹窗未保存，已丢弃')
+      return
+    }
+    pendingMeta.value = { ...job, title: result.title, description: result.description }
+    const label = job.name ? (job.name.length > 12 ? `${job.name.slice(0, 12)}…` : job.name) : '该书签'
+    toastSuccess(`已获取「${label}」的标题与描述 · 重新打开该书签时自动填入`)
   } finally {
-    fetchingMetadata.value = false
+    if (metaRequestSeq.value === seq) {
+      fetchingMetadata.value = false
+      inflightMeta.value = null
+    }
   }
 }
 
@@ -1400,6 +1461,30 @@ defineExpose({ open })
 .fetch-meta-btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+/* 获取中：白色 spinner 在白底按钮上看不见，改用主题色并配文字，且不被 disabled 变淡 */
+.fetch-meta-btn.is-fetching {
+  width: auto;
+  padding: 0 12px;
+  gap: 6px;
+  opacity: 1;
+  color: var(--nav-primary);
+  border-color: color-mix(in srgb, var(--nav-primary) 45%, transparent);
+  background: color-mix(in srgb, var(--nav-primary) 10%, transparent);
+  cursor: default;
+}
+
+.fetch-meta-btn.is-fetching .mini-spinner {
+  width: 12px;
+  height: 12px;
+  border-color: color-mix(in srgb, var(--nav-primary) 25%, transparent);
+  border-top-color: var(--nav-primary);
+}
+
+.fetch-meta-label {
+  font-size: 12px;
+  white-space: nowrap;
 }
 
 .fetch-meta-btn svg {

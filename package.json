@@ -16,7 +16,8 @@
     "db:create": "wrangler d1 create bookmark-db",
     "db:init:local": "wrangler d1 execute bookmark-db --local --file=schema.sql",
     "db:init:remote": "wrangler d1 execute bookmark-db --remote --file=schema.sql",
-    "db:migrate:indexes": "wrangler d1 execute bookmark-db --remote --file=migration-add-indexes.sql"
+    "db:migrate:indexes": "wrangler d1 execute bookmark-db --remote --file=migration-add-indexes.sql",
+    "test:meta": "node --test tests/page-metadata.test.js tests/fetch-metadata.test.js"
   },
   "dependencies": {
     "vue": "^3.4.0"
