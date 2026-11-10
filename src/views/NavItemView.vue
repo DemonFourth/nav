@@ -531,6 +531,21 @@ const openAddBookmark = () => {
   showDetailModal.value = true
 }
 
+const normalizeCategoryId = (value) => (value === '' || value == null ? null : Number(value))
+const normalizeTagString = (value) => (value || '').split(',').map(t => t.trim()).filter(Boolean).join(',')
+
+// 只有真正需要写入 D1 的修改才发请求和提示
+const hasBookmarkChanges = (original, formData) => (
+  (original.name || '') !== formData.name ||
+  (original.url || '') !== formData.url ||
+  normalizeCategoryId(original.category_id) !== normalizeCategoryId(formData.category_id) ||
+  (original.description || '') !== formData.description ||
+  normalizeTagString(original.tags) !== normalizeTagString(formData.tags) ||
+  (original.notes || '') !== formData.notes ||
+  !!original.is_private !== !!formData.is_private ||
+  (original.icon || '') !== formData.icon
+)
+
 // 写操作的三段式 toast：保存中 → 已保存·同步中 → 已同步
 const createSyncPhaseHandler = (toastId, doneMessage = '已同步') => (phase) => {
   if (toastId == null) return
@@ -577,6 +592,24 @@ const handleSaveBookmark = async (bookmark, formData) => {
 
   const originalBookmark = { ...bookmark }
 
+  // 没有实际变更就不写 D1，也不弹提示
+  if (!hasBookmarkChanges(originalBookmark, formData)) {
+    showDetailModal.value = false
+    return
+  }
+
+  const originalCategoryId = normalizeCategoryId(originalBookmark.category_id)
+  const nextCategoryId = normalizeCategoryId(formData.category_id)
+  let doneMessage = '已同步'
+  if (originalCategoryId !== nextCategoryId) {
+    const targetName = nextCategoryId == null
+      ? null
+      : categoryOptions.value.find(c => c.id === nextCategoryId)?.displayName
+    doneMessage = targetName ? `已同步 · 已移动到「${targetName}」` : '已同步 · 已移到未分类'
+  }
+
+  const toastId = toastLoading('正在保存到云端…', '编辑书签')
+
   try {
     bookmarks.value = bookmarks.value.map(b => {
       if (b.id === bookmark.id) {
@@ -585,14 +618,20 @@ const handleSaveBookmark = async (bookmark, formData) => {
       return b
     })
 
-    const result = await updateBookmark(bookmark.id, formData)
+    const result = await updateBookmark(bookmark.id, formData, {
+      onPhase: createSyncPhaseHandler(toastId, doneMessage)
+    })
 
     if (!result.success) {
       bookmarks.value = bookmarks.value.map(b => {
         if (b.id === originalBookmark.id) return originalBookmark
         return b
       })
-      if (result.error) errorToast(result.error)
+      if (toastId != null) {
+        toastUpdate(toastId, { type: 'error', message: result.error || '保存失败', duration: 4000 })
+      } else if (result.error) {
+        errorToast(result.error)
+      }
       return
     }
 
@@ -602,7 +641,11 @@ const handleSaveBookmark = async (bookmark, formData) => {
       if (b.id === originalBookmark.id) return originalBookmark
       return b
     })
-    errorToast('保存失败，请重试')
+    if (toastId != null) {
+      toastUpdate(toastId, { type: 'error', message: '保存失败，请重试', duration: 4000 })
+    } else {
+      errorToast('保存失败，请重试')
+    }
   }
 }
 

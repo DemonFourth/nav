@@ -265,7 +265,9 @@ export function useBookmarks() {
     }
   }
 
-  const updateBookmark = async (id, data) => {
+  const updateBookmark = async (id, data, options = {}) => {
+    const { onPhase } = options
+    onPhase?.('saving')
     try {
       const response = await apiRequest(`/api/bookmarks/${id}`, {
         method: 'PUT',
@@ -284,7 +286,10 @@ export function useBookmarks() {
       }
 
       if (result.success) {
-        fetchData({ forceRefresh: true })
+        onPhase?.('syncing')
+        fetchData({ forceRefresh: true, silent: !!onPhase }).then(synced => {
+          onPhase?.(synced ? 'done' : 'sync-failed')
+        })
         return { success: true }
       }
       return { success: false, error: result.error || '更新失败' }

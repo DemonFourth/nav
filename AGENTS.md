@@ -218,9 +218,11 @@ nav 模式下新增、删除书签复用**同一条 toast 就地更新**，不�
 | `done` | 已同步 | 两次 GET 完成，1.5s 后自动收起 |
 | `sync-failed` | 已保存，但列表同步失败 | `fetchData` 失败，4s 警告 |
 
-- `useBookmarks.addBookmark / deleteBookmark` 接受 `{ onPhase }`；`fetchData` 返回成功与否，并支持 `silent` 抑制自身错误 toast。
+- `useBookmarks.addBookmark / deleteBookmark / updateBookmark` 接受 `{ onPhase }`；`fetchData` 返回成功与否，并支持 `silent` 抑制自身错误 toast。
 - `ToastNotification` 提供 `loading()`（常驻、不自动消失）与 `update(id, patch)`；`useToast` 同步透出。
 - 写请求失败时由调用方把同一条 toast 改为红色错误态，不新开第二条。
+- 编辑保存先比较表单与原始值（分类、标签做归一化），**只有实际变更才 PUT + 三段提示**；无变更直接关闭弹窗，不写 D1、不弹 toast。分类变化时完成文案为「已同步 · 已移动到「X」」。
+- 编辑的列表同步仍在后台进行，不阻塞弹窗关闭；同步结束后再推进 toast。
 - 目前仅 nav 模式接入；设置页与默认模式仍用原有结果 toast。
 
 ### 响应式设计
