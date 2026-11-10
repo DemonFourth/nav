@@ -492,6 +492,12 @@ const fetchMetadata = async () => {
     return
   }
 
+  // 名称和描述都已有内容时，抓取也填不进去，直接提示不发请求
+  if (form.name.trim() && form.description.trim()) {
+    toastInfo('名称和描述都已有内容，无需获取')
+    return
+  }
+
   const job = {
     bookmarkId: internalBookmark.value?.id ?? null,
     url: targetUrl,
