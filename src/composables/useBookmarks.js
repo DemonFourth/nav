@@ -152,7 +152,7 @@ export function useBookmarks() {
   })
 
   const fetchData = async (options = {}) => {
-    const { forceRefresh = false, background = false } = options
+    const { forceRefresh = false, background = false, silent = false } = options
     const isAuth = isAuthenticated.value
 
     if (!forceRefresh) {
@@ -178,7 +178,7 @@ export function useBookmarks() {
           categories.value = []
           bookmarks.value = []
           clearCache()
-          return
+          return false
         }
 
         const categoriesData = await categoriesRes.json()
@@ -193,7 +193,7 @@ export function useBookmarks() {
             logout()
           }
           bookmarks.value = []
-          return
+          return false
         }
 
         const bookmarksData = await bookmarksRes.json()
@@ -203,25 +203,30 @@ export function useBookmarks() {
           categories: categories.value,
           bookmarks: bookmarks.value
         })
+        return true
       } catch (error) {
         console.error('Failed to fetch data (after retries):', error)
-        const hasData = bookmarks.value.length > 0 || categories.value.length > 0
-        if (hasData) {
-          toastWarning('数据加载失败，显示缓存数据')
-        } else {
-          toastError('数据加载失败，请刷新页面重试')
+        if (!silent) {
+          const hasData = bookmarks.value.length > 0 || categories.value.length > 0
+          if (hasData) {
+            toastWarning('数据加载失败，显示缓存数据')
+          } else {
+            toastError('数据加载失败，请刷新页面重试')
+          }
         }
+        return false
       }
     }
 
     if (background) {
-      doFetch()
-    } else {
-      await doFetch()
+      return doFetch()
     }
+    return await doFetch()
   }
 
-  const addBookmark = async (data) => {
+  const addBookmark = async (data, options = {}) => {
+    const { onPhase } = options
+    onPhase?.('saving')
     try {
       const response = await fetch('/api/bookmarks', {
         method: 'POST',
@@ -249,8 +254,10 @@ export function useBookmarks() {
       }
 
       if (result.success) {
-        await fetchData({ forceRefresh: true })
-        return { success: true }
+        onPhase?.('syncing')
+        const synced = await fetchData({ forceRefresh: true, silent: !!onPhase })
+        onPhase?.(synced ? 'done' : 'sync-failed')
+        return { success: true, syncFailed: !synced }
       }
       return { success: false, error: result.error || '添加失败' }
     } catch (error) {
@@ -289,7 +296,9 @@ export function useBookmarks() {
     }
   }
 
-  const deleteBookmark = async (id) => {
+  const deleteBookmark = async (id, options = {}) => {
+    const { onPhase } = options
+    onPhase?.('saving')
     try {
       const response = await apiRequest(`/api/bookmarks/${id}`, {
         method: 'DELETE'
@@ -297,8 +306,10 @@ export function useBookmarks() {
 
       const result = await response.json()
       if (result.success) {
-        await fetchData({ forceRefresh: true })
-        return { success: true, id: result.id }
+        onPhase?.('syncing')
+        const synced = await fetchData({ forceRefresh: true, silent: !!onPhase })
+        onPhase?.(synced ? 'done' : 'sync-failed')
+        return { success: true, id: result.id, syncFailed: !synced }
       }
       return { success: false, error: '删除失败' }
     } catch (error) {

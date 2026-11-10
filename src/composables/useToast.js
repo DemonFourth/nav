@@ -31,12 +31,26 @@ export function useToast() {
     }
   }
   
+  const loading = (message, title = '') => {
+    if (toastInstance) {
+      return toastInstance.loading(message, title)
+    }
+  }
+
+  const update = (id, patch) => {
+    if (toastInstance) {
+      return toastInstance.update(id, patch)
+    }
+  }
+
   return {
     setToastInstance,
     success,
     error,
     warning,
-    info
+    info,
+    loading,
+    update
   }
 }
 

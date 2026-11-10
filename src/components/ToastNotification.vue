@@ -1,6 +1,6 @@
 <template>
   <Teleport to="body">
-    <TransitionGroup name="toast" tag="div" class="toast-container">
+    <TransitionGroup name="toast" tag="div" class="toast-container" role="status" aria-live="polite">
       <div
         v-for="toast in toasts"
         :key="toast.id"
@@ -9,7 +9,8 @@
         @click="removeToast(toast.id)"
       >
         <div class="toast-icon">
-          <svg v-if="toast.type === 'success'" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+          <span v-if="toast.type === 'loading'" class="toast-spinner"></span>
+          <svg v-else-if="toast.type === 'success'" viewBox="0 0 24 24" fill="none" stroke="currentColor">
             <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
             <polyline points="22 4 12 14.01 9 11.01"/>
           </svg>
@@ -48,28 +49,53 @@
 import { ref } from 'vue'
 
 const toasts = ref([])
+const timers = new Map()
 let nextId = 0
+
+const clearTimer = (id) => {
+  const timer = timers.get(id)
+  if (timer) {
+    clearTimeout(timer)
+    timers.delete(id)
+  }
+}
+
+const removeToast = (id) => {
+  clearTimer(id)
+  const index = toasts.value.findIndex(t => t.id === id)
+  if (index > -1) {
+    toasts.value.splice(index, 1)
+  }
+}
+
+const scheduleRemoval = (id, duration) => {
+  clearTimer(id)
+  if (duration > 0) {
+    timers.set(id, setTimeout(() => removeToast(id), duration))
+  }
+}
 
 const show = (message, type = 'info', title = '', duration = 3000) => {
   const id = nextId++
   const toast = { id, message, type, title }
   
   toasts.value.push(toast)
-  
-  if (duration > 0) {
-    setTimeout(() => {
-      removeToast(id)
-    }, duration)
-  }
+  scheduleRemoval(id, duration)
   
   return id
 }
 
-const removeToast = (id) => {
-  const index = toasts.value.findIndex(t => t.id === id)
-  if (index > -1) {
-    toasts.value.splice(index, 1)
+// 就地更新同一条 toast（用于「保存中 → 同步中 → 已同步」）
+const update = (id, patch = {}) => {
+  const toast = toasts.value.find(t => t.id === id)
+  if (!toast) return false
+
+  const { duration, ...fields } = patch
+  Object.assign(toast, fields)
+  if (duration !== undefined) {
+    scheduleRemoval(id, duration)
   }
+  return true
 }
 
 const success = (message, title = '', duration = 3000) => {
@@ -88,12 +114,19 @@ const info = (message, title = '', duration = 3000) => {
   return show(message, 'info', title, duration)
 }
 
+// 常驻进行中提示，由调用方用 update() 推进或结束
+const loading = (message, title = '') => {
+  return show(message, 'loading', title, 0)
+}
+
 defineExpose({
   show,
   success,
   error,
   warning,
   info,
+  loading,
+  update,
   removeToast
 })
 </script>
@@ -152,10 +185,31 @@ defineExpose({
   border-left-color: #3b82f6;
 }
 
+.toast.loading {
+  border-left-color: #3b82f6;
+}
+
+.toast-spinner {
+  display: block;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 2px solid rgba(59, 130, 246, 0.25);
+  border-top-color: #3b82f6;
+  animation: toast-spin 0.8s linear infinite;
+}
+
+@keyframes toast-spin {
+  to { transform: rotate(360deg); }
+}
+
 .toast-icon {
   flex-shrink: 0;
   width: 24px;
   height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .toast-icon svg {

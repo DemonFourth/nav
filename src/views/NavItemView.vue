@@ -171,7 +171,7 @@ import { buildTagStats, countBookmarksWithTags, buildTagGroups, buildCategoryGro
 const { categories, bookmarks, fetchData, searchTags, updateBookmark, addBookmark, deleteBookmark, addCategory, allTags, getEmptyCategories, cleanupEmptyCategories, reorderItems } = useBookmarks()
 const { isAuthenticated, logout } = useAuth()
 const { customTitle, navWallpaper, showSearch, hideEmptyCategories, randomWallpaper, wallpaperApi, applyWallpaper, publicMode, footerContent } = useSettings()
-const { success: toastSuccess, error: errorToast } = useToast()
+const { success: toastSuccess, error: errorToast, loading: toastLoading, update: toastUpdate } = useToast()
 const { requireAuth } = useAuthGuard()
 
 // 非公开模式且未登录：用锁屏引导替代浏览区域
@@ -531,29 +531,47 @@ const openAddBookmark = () => {
   showDetailModal.value = true
 }
 
+// 写操作的三段式 toast：保存中 → 已保存·同步中 → 已同步
+const createSyncPhaseHandler = (toastId, doneMessage = '已同步') => (phase) => {
+  if (toastId == null) return
+  if (phase === 'syncing') {
+    toastUpdate(toastId, { message: '已保存 · 正在同步列表…' })
+  } else if (phase === 'done') {
+    toastUpdate(toastId, { type: 'success', message: doneMessage, duration: 1500 })
+  } else if (phase === 'sync-failed') {
+    toastUpdate(toastId, { type: 'warning', message: '已保存，但列表同步失败', duration: 4000 })
+  }
+}
+
 const handleSaveBookmark = async (bookmark, formData) => {
   if (!requireAuth()) return
 
   // 新增模式：没有 id，走 addBookmark
   if (!bookmark?.id) {
-    const result = await addBookmark(formData)
-    if (!result.success) {
-      errorToast(result.error || '添加失败')
-      return
-    }
-    showDetailModal.value = false
-
     const targetId = formData.category_id === '' || formData.category_id == null
       ? null
       : Number(formData.category_id)
     const currentId = activeSubMenu.value?.id ?? activeMenu.value?.id ?? null
     const movedAway = targetId !== null && currentId !== null && targetId !== Number(currentId)
-    if (movedAway) {
-      const targetName = categoryOptions.value.find(c => c.id === targetId)?.displayName
-      toastSuccess(targetName ? `已添加到「${targetName}」` : '书签已添加')
-    } else {
-      toastSuccess('书签已添加')
+    const targetName = movedAway
+      ? categoryOptions.value.find(c => c.id === targetId)?.displayName
+      : null
+    const doneMessage = targetName ? `已同步 · 已添加到「${targetName}」` : '已同步'
+
+    const toastId = toastLoading('正在保存到云端…', '新增书签')
+    const result = await addBookmark(formData, {
+      onPhase: createSyncPhaseHandler(toastId, doneMessage)
+    })
+
+    if (!result.success) {
+      if (toastId != null) {
+        toastUpdate(toastId, { type: 'error', message: result.error || '添加失败', duration: 4000 })
+      } else {
+        errorToast(result.error || '添加失败')
+      }
+      return
     }
+    showDetailModal.value = false
     return
   }
 
@@ -595,10 +613,15 @@ const handleDeleteBookmark = async (bookmark) => {
     '删除书签'
   )
   if (!confirmed) return
-  const result = await deleteBookmark(bookmark.id)
+  const toastId = toastLoading('正在保存到云端…', '删除书签')
+  const result = await deleteBookmark(bookmark.id, {
+    onPhase: createSyncPhaseHandler(toastId)
+  })
+
   if (result.success) {
     showDetailModal.value = false
-    toastSuccess('书签已删除')
+  } else if (toastId != null) {
+    toastUpdate(toastId, { type: 'error', message: result.error || '删除失败', duration: 4000 })
   } else {
     errorToast(result.error || '删除失败')
   }

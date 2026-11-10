@@ -207,6 +207,22 @@ if (result.success) {
 | 并发冲突（多 Tab 同时修改） | 无特殊处理，下次 fetchData 覆盖 |
 | 网络异常 | 回滚 + toast 提示"保存失败，请重试" |
 
+### 写操作的三段式 Toast（新增 / 删除）
+
+nav 模式下新增、删除书签复用**同一条 toast 就地更新**，不再各弹一条结果提示：
+
+| 阶段 | 文案 | 触发 |
+|------|------|------|
+| `saving` | 正在保存到云端… | 写请求发出前 |
+| `syncing` | 已保存 · 正在同步列表… | 写请求成功、`fetchData` 前 |
+| `done` | 已同步 | 两次 GET 完成，1.5s 后自动收起 |
+| `sync-failed` | 已保存，但列表同步失败 | `fetchData` 失败，4s 警告 |
+
+- `useBookmarks.addBookmark / deleteBookmark` 接受 `{ onPhase }`；`fetchData` 返回成功与否，并支持 `silent` 抑制自身错误 toast。
+- `ToastNotification` 提供 `loading()`（常驻、不自动消失）与 `update(id, patch)`；`useToast` 同步透出。
+- 写请求失败时由调用方把同一条 toast 改为红色错误态，不新开第二条。
+- 目前仅 nav 模式接入；设置页与默认模式仍用原有结果 toast。
+
 ### 响应式设计
 - 使用 CSS 媒体查询设置断点（768px、1024px）
 - 采用桌面端优先，移动端覆盖的方式
