@@ -22,6 +22,10 @@
 
         <div class="conn-sep"></div>
 
+        <div v-if="status === 'ok'" class="conn-row">
+          <span>当前节点</span>
+          <strong>{{ coloLabel }}</strong>
+        </div>
         <div class="conn-row">
           <span>最近测速成功</span>
           <strong>{{ lastSuccessText }}</strong>
@@ -54,6 +58,7 @@ import {
 const {
   status,
   latency,
+  colo,
   level,
   lastSuccessAt,
   lastSuccessMs,
@@ -62,6 +67,27 @@ const {
   startProbing,
   stopProbing
 } = useConnectionStatus()
+
+// 只列常用机房，未知代码直接显示原始代码
+const COLO_NAMES = {
+  HKG: '香港',
+  TPE: '台北',
+  NRT: '东京',
+  KIX: '大阪',
+  ICN: '首尔',
+  SIN: '新加坡',
+  BKK: '曼谷',
+  SGN: '胡志明市',
+  MNL: '马尼拉',
+  LAX: '洛杉矶',
+  SJC: '圣何塞',
+  SEA: '西雅图',
+  FRA: '法兰克福',
+  AMS: '阿姆斯特丹',
+  LHR: '伦敦',
+  CDG: '巴黎',
+  SYD: '悉尼'
+}
 
 const capsuleRef = ref(null)
 const panelRef = ref(null)
@@ -96,9 +122,14 @@ const lastSuccessText = computed(() => {
   return `${formatRelativeTime(lastSuccessAt.value, panelNow.value)}（${formatLatency(lastSuccessMs.value)}）`
 })
 
+const coloLabel = computed(() => {
+  if (!colo.value) return '本地环境（无节点信息）'
+  return COLO_NAMES[colo.value] ? `${colo.value} · ${COLO_NAMES[colo.value]}` : colo.value
+})
+
 const noteText = computed(() => {
   if (status.value === 'fail') return '如果书签列表仍能打开，说明只是测速请求失败，稍后重试即可。'
-  if (status.value === 'ok') return '延迟取自 /api/ping 纯连接耗时，不含书签、分类等数据的加载时间。'
+  if (status.value === 'ok') return '延迟取自 /api/ping 纯连接耗时（浏览器 → 最近 CF 节点），不含书签、分类等数据的加载时间。'
   return '正在测量与服务器的连接耗时。'
 })
 

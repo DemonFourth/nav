@@ -7,6 +7,7 @@ const REUSE_MS = 10 * 1000
 // idle | loading | ok | fail | hidden（hidden = 后端无 ping 或返回非预计内容，不再探测）
 const status = ref('idle')
 const latency = ref(null)
+const colo = ref('')
 const lastSuccessAt = ref(0)
 const lastSuccessMs = ref(null)
 const lastMeasuredAt = ref(0)
@@ -87,6 +88,9 @@ async function runProbe() {
     }
 
     latency.value = Math.round(performance.now() - start)
+    // 本地 wrangler 会模拟一个 colo（当前是 SJC）但不带 cf-ray，不能当真实节点展示
+    const hasCfRay = !!response.headers.get('cf-ray')
+    colo.value = hasCfRay && typeof payload.colo === 'string' ? payload.colo : ''
     lastSuccessMs.value = latency.value
     lastSuccessAt.value = Date.now()
     status.value = 'ok'
@@ -138,6 +142,7 @@ export function useConnectionStatus() {
   return {
     status,
     latency,
+    colo,
     level,
     lastSuccessAt,
     lastSuccessMs,
