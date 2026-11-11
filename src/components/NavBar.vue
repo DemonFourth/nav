@@ -1,6 +1,8 @@
 <template>
   <nav ref="navBarRef" class="nav-bar">
-    <div class="nav-left-space"></div>
+    <div class="nav-left-space">
+      <ConnectionStatus />
+    </div>
     <div class="nav-bar-container">
       <div class="nav-menu-wrapper">
           <div class="nav-menu">
@@ -194,6 +196,7 @@ import { useAuth } from '../composables/useAuth'
 import { useToast } from '../composables/useToast'
 import { useSettings } from '../composables/useSettings'
 import LoginModal from './LoginModal.vue'
+import ConnectionStatus from './ConnectionStatus.vue'
 import NavMenuItem from './NavMenuItem.vue'
 import { useMenuReorder, resolveDropPosition } from '../composables/useMenuReorder'
 import { useAuthGuard } from '../composables/useAuthGuard'
@@ -464,7 +467,12 @@ defineExpose({
   box-shadow: inset 0 1px 0 var(--nav-border);
 }
 
-.nav-left-space { flex: 0 0 10%; }
+.nav-left-space {
+  flex: 0 0 10%;
+  display: flex;
+  align-items: center;
+  padding-left: 14px;
+}
 
 .nav-bar-container {
   display: flex;
