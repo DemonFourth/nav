@@ -27,6 +27,18 @@
           <strong>{{ coloLabel }}</strong>
         </div>
         <div class="conn-row">
+          <span>数据来源</span>
+          <strong>{{ sourceText }}</strong>
+        </div>
+        <div class="conn-row">
+          <span>列表刷新</span>
+          <strong :class="{ 'is-warn': refreshState === 'failed' }">{{ refreshText }}</strong>
+        </div>
+        <div v-if="cacheWriteFailed" class="conn-row">
+          <span>本地缓存</span>
+          <strong class="is-warn">写入失败（存储空间不足）</strong>
+        </div>
+        <div class="conn-row">
           <span>最近测速成功</span>
           <strong>{{ lastSuccessText }}</strong>
         </div>
@@ -54,6 +66,7 @@ import {
   formatLatency,
   formatRelativeTime
 } from '@/composables/useConnectionStatus'
+import { useBookmarks } from '@/composables/useBookmarks'
 
 const {
   status,
@@ -67,6 +80,8 @@ const {
   startProbing,
   stopProbing
 } = useConnectionStatus()
+
+const { dataSource, cacheUpdatedAt, refreshState, cacheWriteFailed } = useBookmarks()
 
 // 只列常用机房，未知代码直接显示原始代码
 const COLO_NAMES = {
@@ -97,15 +112,42 @@ const panelNow = ref(Date.now())
 let panelTimer = null
 
 const measuring = computed(() => status.value === 'loading')
-const dotClass = computed(() => (status.value === 'ok' ? level.value : status.value))
+const showingStaleCache = computed(
+  () => refreshState.value === 'failed' && dataSource.value === 'cache'
+)
+const dotClass = computed(() => {
+  if (showingStaleCache.value) return 'offline'
+  return status.value === 'ok' ? level.value : status.value
+})
+
+const sourceText = computed(() => {
+  if (dataSource.value === 'network') return '云端 · 刚刚'
+  if (dataSource.value === 'cache') {
+    const rel = formatRelativeTime(cacheUpdatedAt.value, panelNow.value)
+    return rel ? `缓存 · ${rel}` : '缓存'
+  }
+  return '暂无数据'
+})
+
+const refreshText = computed(() => {
+  if (refreshState.value === 'refreshing') return '刷新中…'
+  if (refreshState.value === 'failed') {
+    return dataSource.value === 'cache' ? '失败 · 使用缓存' : '失败'
+  }
+  return '正常'
+})
 
 const capsuleText = computed(() => {
+  if (showingStaleCache.value) return '离线'
   if (status.value === 'ok') return formatLatency(latency.value)
   if (status.value === 'fail') return '连接失败'
   return '连接中…'
 })
 
 const capsuleTitle = computed(() => {
+  if (showingStaleCache.value) {
+    return `列表刷新失败，正在显示${sourceText.value}，点击查看详情`
+  }
   if (status.value === 'ok') return `连接正常 · ${formatLatency(latency.value)}，点击查看详情`
   if (status.value === 'fail') return '连接失败，点击查看详情'
   return '正在检测连接…'
@@ -128,6 +170,9 @@ const coloLabel = computed(() => {
 })
 
 const noteText = computed(() => {
+  if (showingStaleCache.value) {
+    return '正在显示本地缓存，列表刷新失败；恢复网络后会自动更新。'
+  }
   if (status.value === 'fail') return '如果书签列表仍能打开，说明只是测速请求失败，稍后重试即可。'
   if (status.value === 'ok') return '延迟取自 /api/ping 纯连接耗时（浏览器 → 最近 CF 节点），不含书签、分类等数据的加载时间。'
   return '正在测量与服务器的连接耗时。'
@@ -241,6 +286,11 @@ onBeforeUnmount(() => {
   box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.15);
 }
 
+.offline .conn-dot {
+  background: var(--warning);
+  box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.15);
+}
+
 .loading .conn-dot,
 .idle .conn-dot {
   background: #cbd5e1;
@@ -304,6 +354,10 @@ onBeforeUnmount(() => {
   color: var(--nav-text);
   font-weight: 600;
   font-variant-numeric: tabular-nums;
+}
+
+.conn-row strong.is-warn {
+  color: var(--warning);
 }
 
 .conn-note {

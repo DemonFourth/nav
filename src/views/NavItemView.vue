@@ -82,7 +82,17 @@
     </div>
 
     <div v-if="!needsLogin" class="content-section">
+      <div v-if="showSkeleton" class="nav-skeleton-grid" aria-hidden="true">
+        <div v-for="n in 8" :key="n" class="nav-skeleton-card">
+          <span class="nav-skeleton-icon"></span>
+          <span class="nav-skeleton-lines">
+            <span class="nav-skeleton-line is-title"></span>
+            <span class="nav-skeleton-line is-desc"></span>
+          </span>
+        </div>
+      </div>
       <NavCardGrid 
+        v-else
         :key="animationKey" 
         :bookmarks="currentBookmarks"
         :groups="resultGroups"
@@ -168,7 +178,7 @@ import { useAuthGuard } from '../composables/useAuthGuard'
 import { buildCategoryTree } from '../utils/categoryTree'
 import { buildTagStats, countBookmarksWithTags, buildTagGroups, buildCategoryGroups, toggleTagSelection, pruneMissingTags } from '../utils/tagBrowse.js'
 
-const { categories, bookmarks, fetchData, searchTags, updateBookmark, addBookmark, deleteBookmark, addCategory, allTags, getEmptyCategories, cleanupEmptyCategories, reorderItems } = useBookmarks()
+const { categories, bookmarks, fetchData, searchTags, updateBookmark, addBookmark, deleteBookmark, addCategory, allTags, getEmptyCategories, cleanupEmptyCategories, reorderItems, dataSource, refreshState } = useBookmarks()
 const { isAuthenticated, logout } = useAuth()
 const { customTitle, navWallpaper, showSearch, hideEmptyCategories, randomWallpaper, wallpaperApi, applyWallpaper, publicMode, footerContent } = useSettings()
 const { success: toastSuccess, error: errorToast, loading: toastLoading, update: toastUpdate } = useToast()
@@ -176,6 +186,11 @@ const { requireAuth } = useAuthGuard()
 
 // 非公开模式且未登录：用锁屏引导替代浏览区域
 const needsLogin = computed(() => !publicMode.value && !isAuthenticated.value)
+
+// 完全没有数据且正在拉取：显示骨架，避免把「加载中」误读成「没有书签」
+const showSkeleton = computed(
+  () => dataSource.value === 'empty' && refreshState.value === 'refreshing'
+)
 
 const emit = defineEmits(['toggleStyle'])
 
@@ -1121,6 +1136,74 @@ const handleLogout = async () => {
   width: 100%;
   background: transparent;
   min-height: calc(100vh - 180px);
+}
+
+.nav-skeleton-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 300px));
+  gap: 16px;
+  justify-content: center;
+  width: 100%;
+  padding-top: 1rem;
+}
+
+.nav-skeleton-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 100px;
+  max-width: 300px;
+  padding: 16px;
+  border-radius: 12px;
+  border: 1px solid var(--nav-border);
+  background: var(--nav-card-bg);
+}
+
+.nav-skeleton-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  flex-shrink: 0;
+  background: var(--nav-card-hover);
+}
+
+.nav-skeleton-lines {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.nav-skeleton-line {
+  height: 10px;
+  border-radius: 999px;
+  background: var(--nav-card-hover);
+}
+
+.nav-skeleton-line.is-title {
+  width: 68%;
+}
+
+.nav-skeleton-line.is-desc {
+  width: 92%;
+  height: 8px;
+}
+
+.nav-skeleton-icon,
+.nav-skeleton-line {
+  animation: nav-skeleton-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes nav-skeleton-pulse {
+  0%, 100% { opacity: 0.45; }
+  50% { opacity: 0.9; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nav-skeleton-icon,
+  .nav-skeleton-line {
+    animation: none;
+  }
 }
 
 @media (max-width: 778px) {

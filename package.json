@@ -13,6 +13,7 @@
     "ext:build:firefox": "bash -lc 'cd browser-extension && rm -rf dist && mkdir -p dist/firefox && cp manifest.firefox.json dist/firefox/manifest.json && cp popup.html popup.js shared.js content.js dist/firefox/ && cp options.html options.js dist/firefox/ && cp background.firefox.js dist/firefox/background.js && cp styles.css dist/firefox/ && cp -r icons dist/firefox/ && cd dist/firefox && zip -r ../bookmark-manager-firefox.zip . -q'",
     "test:ext": "node --test tests/extension-shared.test.js tests/url-variants.test.js",
     "test:tags": "node --test tests/tag-browse.test.js",
+    "test:cache": "node --test tests/cache-meta.test.js",
     "db:create": "wrangler d1 create bookmark-db",
     "db:init:local": "wrangler d1 execute bookmark-db --local --file=schema.sql",
     "db:init:remote": "wrangler d1 execute bookmark-db --remote --file=schema.sql",

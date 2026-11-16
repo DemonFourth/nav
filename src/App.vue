@@ -746,7 +746,8 @@ onMounted(async () => {
   
   // 监听登录状态变化，重新获取数据
   onAuthChange(async () => {
-    await fetchData()
+    // 账号桶变了，必须无视新鲜窗口重新拉取
+    await fetchData({ forceRefresh: true })
     // 登录后重新加载设置（确保获取最新数据）
     await loadSettingsFromDB()
     await loadThemeFromDB()
@@ -778,7 +779,7 @@ const handleLogout = async () => {
   if (confirmed) {
     logout()
     isEditMode.value = false
-    await fetchData()
+    await fetchData({ forceRefresh: true })
   }
 }
 

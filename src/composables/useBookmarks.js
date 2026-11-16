@@ -1,9 +1,15 @@
 import { ref, computed } from 'vue'
 import { useAuth } from './useAuth'
 import { useToast } from './useToast'
+import {
+  CACHE_KEY_PREFIX,
+  LEGACY_CACHE_KEYS,
+  isCacheExpired,
+  isCacheFresh,
+  parseCacheEntry,
+  resolveCacheKey
+} from '@/utils/cacheMeta'
 
-const CACHE_KEY = 'nav_bookmarks_cache'
-const CACHE_EXPIRY_MS = 5 * 60 * 1000 // 5 minutes
 const RETRY_ATTEMPTS = 3
 const RETRY_DELAY_MS = 500
 
@@ -42,51 +48,77 @@ const searchQuery = ref('')
 const searchCategoryId = ref(null)
 const searchTags = ref([])
 
-function getCacheKey(isAuth) {
-  return isAuth ? `${CACHE_KEY}_auth` : `${CACHE_KEY}_public`
+// 数据来源与刷新状态：empty | cache | network；idle | refreshing | failed
+const dataSource = ref('empty')
+const cacheUpdatedAt = ref(0)
+const refreshState = ref('idle')
+const cacheWriteFailed = ref(false)
+
+// 旧版 5 分钟缓存留着只会占空间，模块加载时清掉
+try {
+  LEGACY_CACHE_KEYS.forEach(key => localStorage.removeItem(key))
+} catch {
+  // localStorage 不可用时忽略
 }
 
-function loadFromCache(isAuth) {
+function loadFromCache(cacheKey) {
   try {
-    const cacheKey = getCacheKey(isAuth)
-    const cached = localStorage.getItem(cacheKey)
-    if (!cached) return null
-
-    const { data, timestamp } = JSON.parse(cached)
-    const isExpired = Date.now() - timestamp > CACHE_EXPIRY_MS
-
-    if (isExpired) {
+    const entry = parseCacheEntry(localStorage.getItem(cacheKey))
+    if (!entry) {
       localStorage.removeItem(cacheKey)
       return null
     }
-
-    return data
+    if (isCacheExpired(entry.age)) {
+      localStorage.removeItem(cacheKey)
+      return null
+    }
+    return entry
   } catch {
     return null
   }
 }
 
-function saveToCache(isAuth, data) {
+function saveToCache(cacheKey, data) {
   try {
-    const cacheKey = getCacheKey(isAuth)
-    const cacheData = {
+    localStorage.setItem(cacheKey, JSON.stringify({
       data,
       timestamp: Date.now()
-    }
-    localStorage.setItem(cacheKey, JSON.stringify(cacheData))
+    }))
+    cacheWriteFailed.value = false
+    return true
   } catch (e) {
+    cacheWriteFailed.value = true
     console.warn('Failed to save cache:', e)
+    return false
   }
 }
 
 function clearCache() {
-  localStorage.removeItem(`${CACHE_KEY}_auth`)
-  localStorage.removeItem(`${CACHE_KEY}_public`)
+  try {
+    Object.keys(localStorage)
+      .filter(key => key.startsWith(CACHE_KEY_PREFIX) || LEGACY_CACHE_KEYS.includes(key))
+      .forEach(key => localStorage.removeItem(key))
+  } catch {
+    // localStorage 不可用时忽略
+  }
 }
 
 export function useBookmarks() {
-  const { getAuthHeaders, logout, apiRequest, isAuthenticated } = useAuth()
-  const { error: toastError, warning: toastWarning } = useToast()
+  const { getAuthHeaders, logout, apiRequest, isAuthenticated, username } = useAuth()
+  const { error: toastError } = useToast()
+
+  const currentCacheKey = () => resolveCacheKey({
+    isAuth: isAuthenticated.value,
+    username: username.value
+  })
+
+  // 写成功后先把内存结果落到缓存，避免随后 GET 失败导致下次打开看到旧数据
+  const persistCache = () => {
+    saveToCache(currentCacheKey(), {
+      categories: categories.value,
+      bookmarks: bookmarks.value
+    })
+  }
 
 
   const filteredBookmarks = computed(() => {
@@ -152,76 +184,91 @@ export function useBookmarks() {
   })
 
   const fetchData = async (options = {}) => {
-    const { forceRefresh = false, background = false, silent = false } = options
-    const isAuth = isAuthenticated.value
+    const { forceRefresh = false, silent = false } = options
+    const cacheKey = currentCacheKey()
 
     if (!forceRefresh) {
-      const cached = loadFromCache(isAuth)
+      const cached = loadFromCache(cacheKey)
       if (cached) {
-        categories.value = cached.categories || []
-        bookmarks.value = cached.bookmarks || []
+        categories.value = cached.data.categories || []
+        bookmarks.value = cached.data.bookmarks || []
+        dataSource.value = 'cache'
+        cacheUpdatedAt.value = cached.savedAt
+        // 新鲜窗口内直接沿用缓存，不发请求；超过窗口才后台拉新
+        if (isCacheFresh(cached.age)) {
+          refreshState.value = 'idle'
+          return true
+        }
+      } else {
+        dataSource.value = 'empty'
       }
     }
 
-    const doFetch = async () => {
-      try {
-        const authHeaders = getAuthHeaders()
+    refreshState.value = 'refreshing'
 
-        const categoriesRes = await fetchWithRetry('/api/categories', {
-          headers: authHeaders
-        })
+    try {
+      const authHeaders = getAuthHeaders()
 
-        if (categoriesRes.status === 401) {
-          if (authHeaders.Authorization) {
-            logout()
-          }
-          categories.value = []
-          bookmarks.value = []
-          clearCache()
-          return false
+      const categoriesRes = await fetchWithRetry('/api/categories', {
+        headers: authHeaders
+      })
+
+      if (categoriesRes.status === 401) {
+        if (authHeaders.Authorization) {
+          logout()
         }
-
-        const categoriesData = await categoriesRes.json()
-        categories.value = categoriesData.data || []
-
-        const bookmarksRes = await fetchWithRetry('/api/bookmarks', {
-          headers: authHeaders
-        })
-
-        if (bookmarksRes.status === 401) {
-          if (authHeaders.Authorization) {
-            logout()
-          }
-          bookmarks.value = []
-          return false
-        }
-
-        const bookmarksData = await bookmarksRes.json()
-        bookmarks.value = bookmarksData.data || []
-
-        saveToCache(isAuth, {
-          categories: categories.value,
-          bookmarks: bookmarks.value
-        })
-        return true
-      } catch (error) {
-        console.error('Failed to fetch data (after retries):', error)
-        if (!silent) {
-          const hasData = bookmarks.value.length > 0 || categories.value.length > 0
-          if (hasData) {
-            toastWarning('数据加载失败，显示缓存数据')
-          } else {
-            toastError('数据加载失败，请刷新页面重试')
-          }
-        }
+        categories.value = []
+        bookmarks.value = []
+        dataSource.value = 'empty'
+        cacheUpdatedAt.value = 0
+        refreshState.value = 'idle'
         return false
       }
-    }
 
-    if (background) {
-      return doFetch()
+      const categoriesData = await categoriesRes.json()
+
+      const bookmarksRes = await fetchWithRetry('/api/bookmarks', {
+        headers: authHeaders
+      })
+
+      if (bookmarksRes.status === 401) {
+        if (authHeaders.Authorization) {
+          logout()
+        }
+        categories.value = []
+        bookmarks.value = []
+        dataSource.value = 'empty'
+        cacheUpdatedAt.value = 0
+        refreshState.value = 'idle'
+        return false
+      }
+
+      const bookmarksData = await bookmarksRes.json()
+
+      // 请求期间登录状态变了：丢弃这批数据，避免把上一个账号的数据写进当前缓存
+      if (currentCacheKey() !== cacheKey) {
+        return false
+      }
+
+      categories.value = categoriesData.data || []
+      bookmarks.value = bookmarksData.data || []
+      dataSource.value = 'network'
+      cacheUpdatedAt.value = Date.now()
+      refreshState.value = 'idle'
+      saveToCache(cacheKey, {
+        categories: categories.value,
+        bookmarks: bookmarks.value
+      })
+      return true
+    } catch (error) {
+      console.error('Failed to fetch data (after retries):', error)
+      refreshState.value = 'failed'
+      // 有缓存/已有数据时不再弹 toast，由连接面板体现；完全没数据才提示
+      if (!silent && dataSource.value === 'empty') {
+        toastError('数据加载失败，请刷新页面重试')
+      }
+      return false
     }
-    return await doFetch()
   }
 
   const addBookmark = async (data, options = {}) => {
@@ -254,6 +301,22 @@ export function useBookmarks() {
       }
 
       if (result.success) {
+        const categoryId = data.category_id == null ? null : Number(data.category_id)
+        const nextPosition = bookmarks.value
+          .filter(b => (b.category_id ?? null) === categoryId)
+          .reduce((max, b) => Math.max(max, Number(b.position) || 0), -1) + 1
+        bookmarks.value = [
+          ...bookmarks.value,
+          {
+            ...data,
+            id: result.id,
+            category_id: categoryId,
+            position: nextPosition,
+            category_name: categories.value.find(c => c.id === categoryId)?.name || ''
+          }
+        ]
+        persistCache()
+
         onPhase?.('syncing')
         const synced = await fetchData({ forceRefresh: true, silent: !!onPhase })
         onPhase?.(synced ? 'done' : 'sync-failed')
@@ -286,6 +349,11 @@ export function useBookmarks() {
       }
 
       if (result.success) {
+        bookmarks.value = bookmarks.value.map(b =>
+          b.id === id ? { ...b, ...data } : b
+        )
+        persistCache()
+
         onPhase?.('syncing')
         fetchData({ forceRefresh: true, silent: !!onPhase }).then(synced => {
           onPhase?.(synced ? 'done' : 'sync-failed')
@@ -311,6 +379,9 @@ export function useBookmarks() {
 
       const result = await response.json()
       if (result.success) {
+        bookmarks.value = bookmarks.value.filter(b => b.id !== id)
+        persistCache()
+
         onPhase?.('syncing')
         const synced = await fetchData({ forceRefresh: true, silent: !!onPhase })
         onPhase?.(synced ? 'done' : 'sync-failed')
@@ -424,6 +495,7 @@ export function useBookmarks() {
 
       const result = await response.json()
       if (result.success) {
+        persistCache()
         await fetchData({ forceRefresh: true })
         return { success: true }
       }
@@ -518,6 +590,10 @@ export function useBookmarks() {
     searchQuery,
     searchCategoryId,
     searchTags,
+    dataSource,
+    cacheUpdatedAt,
+    refreshState,
+    cacheWriteFailed,
     filteredBookmarks,
     bookmarksByCategory,
     allTags,
