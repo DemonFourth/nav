@@ -4,6 +4,7 @@ const token = ref(localStorage.getItem('authToken') || '')
 const username = ref(localStorage.getItem('authUsername') || '')
 const isAuthenticated = computed(() => !!token.value)
 const authCallbacks = []
+const LOGIN_TIMEOUT_MS = 10 * 1000
 
 function isTokenExpired(tokenStr) {
   if (!tokenStr) return true
@@ -25,13 +26,16 @@ function isTokenExpired(tokenStr) {
 
 export function useAuth() {
   const login = async (loginUsername, password, rememberMe = false) => {
+    const controller = new AbortController()
+    const timer = setTimeout(() => controller.abort(), LOGIN_TIMEOUT_MS)
     try {
       const response = await fetch('/api/login', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ username: loginUsername, password, rememberMe })
+        body: JSON.stringify({ username: loginUsername, password, rememberMe }),
+        signal: controller.signal
       })
       
       const data = await response.json()
@@ -46,7 +50,12 @@ export function useAuth() {
         return { success: false, error: data.error || '登录失败' }
       }
     } catch (error) {
+      if (error?.name === 'AbortError') {
+        return { success: false, error: '登录请求超时，请检查网络后重试' }
+      }
       return { success: false, error: '网络错误' }
+    } finally {
+      clearTimeout(timer)
     }
   }
   

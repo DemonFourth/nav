@@ -30,8 +30,10 @@
           </div>
           <p v-if="error" class="error-message">{{ error }}</p>
           <div class="dialog-buttons">
-            <button class="btn btn-secondary" @click="close">取消</button>
-            <button class="btn btn-primary" @click="handleLogin">登录</button>
+            <button class="btn btn-secondary" :disabled="submitting" @click="close">取消</button>
+            <button class="btn btn-primary" :disabled="submitting" @click="handleLogin">
+              {{ submitting ? '登录中…' : '登录' }}
+            </button>
           </div>
         </div>
       </div>
@@ -50,6 +52,7 @@ const username = ref('')
 const password = ref('')
 const rememberMe = ref(false)
 const error = ref('')
+const submitting = ref(false)
 
 const open = () => {
   show.value = true
@@ -57,24 +60,34 @@ const open = () => {
   password.value = ''
   rememberMe.value = false
   error.value = ''
+  submitting.value = false
 }
 
 const close = () => {
+  if (submitting.value) return
   show.value = false
 }
 
 const handleLogin = async () => {
+  if (submitting.value) return
   if (!username.value || !password.value) {
     error.value = '请输入用户名和密码'
     return
   }
-  
-  const result = await login(username.value, password.value, rememberMe.value)
-  
-  if (result.success) {
-    close()
-  } else {
-    error.value = result.error || '登录失败'
+
+  submitting.value = true
+  error.value = ''
+
+  try {
+    const result = await login(username.value, password.value, rememberMe.value)
+
+    if (result.success) {
+      show.value = false
+    } else {
+      error.value = result.error || '登录失败'
+    }
+  } finally {
+    submitting.value = false
   }
 }
 
@@ -85,6 +98,11 @@ defineExpose({
 </script>
 
 <style scoped>
+.login-modal .btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 .remember-me-label {
   display: flex;
   align-items: center;

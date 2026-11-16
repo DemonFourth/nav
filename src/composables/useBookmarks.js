@@ -54,6 +54,9 @@ const cacheUpdatedAt = ref(0)
 const refreshState = ref('idle')
 const cacheWriteFailed = ref(false)
 
+// 当前内存数据属于哪个缓存作用域；登录/登出后必须切换，避免残留上一个账号的数据
+let loadedScopeKey = null
+
 // 旧版 5 分钟缓存留着只会占空间，模块加载时清掉
 try {
   LEGACY_CACHE_KEYS.forEach(key => localStorage.removeItem(key))
@@ -186,21 +189,29 @@ export function useBookmarks() {
   const fetchData = async (options = {}) => {
     const { forceRefresh = false, silent = false } = options
     const cacheKey = currentCacheKey()
+    const scopeChanged = loadedScopeKey !== null && loadedScopeKey !== cacheKey
 
-    if (!forceRefresh) {
+    // 作用域变化（登录/登出）时必须先换到新作用域的缓存，即使调用方要求强制刷新
+    if (!forceRefresh || scopeChanged) {
       const cached = loadFromCache(cacheKey)
       if (cached) {
         categories.value = cached.data.categories || []
         bookmarks.value = cached.data.bookmarks || []
         dataSource.value = 'cache'
         cacheUpdatedAt.value = cached.savedAt
+        loadedScopeKey = cacheKey
         // 新鲜窗口内直接沿用缓存，不发请求；超过窗口才后台拉新
-        if (isCacheFresh(cached.age)) {
+        if (!forceRefresh && isCacheFresh(cached.age)) {
           refreshState.value = 'idle'
           return true
         }
-      } else {
+      } else if (scopeChanged) {
+        // 新作用域没有缓存：立刻清掉旧账号数据，宁可空态也不串号
+        categories.value = []
+        bookmarks.value = []
         dataSource.value = 'empty'
+        cacheUpdatedAt.value = 0
+        loadedScopeKey = cacheKey
       }
     }
 
@@ -254,6 +265,7 @@ export function useBookmarks() {
       bookmarks.value = bookmarksData.data || []
       dataSource.value = 'network'
       cacheUpdatedAt.value = Date.now()
+      loadedScopeKey = cacheKey
       refreshState.value = 'idle'
       saveToCache(cacheKey, {
         categories: categories.value,

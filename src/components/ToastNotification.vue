@@ -136,7 +136,8 @@ defineExpose({
   position: fixed;
   top: 1rem;
   right: 1rem;
-  z-index: 10001;
+  /* 高于弹窗遮罩（99999），否则 token 过期等提示会被登录框盖住 */
+  z-index: 100000;
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
