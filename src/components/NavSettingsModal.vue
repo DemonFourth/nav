@@ -155,6 +155,16 @@
                       <span class="toggle-slider"></span>
                     </label>
                   </div>
+                  <div class="toggle-row">
+                    <div class="toggle-info">
+                      <div class="toggle-name">书签死链检测</div>
+                      <div class="toggle-desc">关闭后不自动检测，也不显示卡片圆点</div>
+                    </div>
+                    <label class="toggle-switch">
+                      <input type="checkbox" :checked="checksEnabled" @change="setEnabled($event.target.checked)" />
+                      <span class="toggle-slider"></span>
+                    </label>
+                  </div>
                 </div>
 
                 <div v-if="showSearch" class="setting-card">
@@ -693,6 +703,32 @@
                   新增
                 </button>
               </div>
+              <div v-if="hasExtension" class="link-health-bar">
+                <span class="link-health-stat">
+                  <span class="link-health-dot" style="background: var(--error)"></span>
+                  {{ linkHealthStats.dead }} 个已失效
+                  <span class="link-health-sep">·</span>
+                  <span class="link-health-dot" style="background: var(--text-tertiary)"></span>
+                  {{ linkHealthStats.unsure }} 个待确认
+                  <span class="link-health-sep">·</span>
+                  <span class="link-health-when">{{ linkHealthStats.lastCheckedAt ? formatCheckedAt(linkHealthStats.lastCheckedAt) + '检测' : '尚未检测' }}</span>
+                </span>
+                <div class="link-health-actions">
+                  <button
+                    v-for="opt in linkHealthFilters"
+                    :key="opt.value"
+                    class="link-health-chip"
+                    :class="{ active: linkHealthFilter === opt.value }"
+                    @click="linkHealthFilter = opt.value"
+                  >{{ opt.label }}</button>
+                  <button class="btn-secondary-sm" @click="recheckVisible">重新检测</button>
+                </div>
+              </div>
+              <div v-else class="link-health-bar">
+                <button class="btn-secondary-sm" @click="showLinkHealthInstall = true">
+                  死链检测 · 需安装扩展
+                </button>
+              </div>
               <div class="bookmark-toolbar elevated">
                 <div class="bookmark-search-wrap">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
@@ -815,6 +851,21 @@
                   <button class="btn-primary-sm" :disabled="!bookmarkMoveTarget" @click="batchMoveBookmarks">移动</button>
                 </div>
               </div>
+
+              <BaseDialog :show="showLinkHealthInstall" title="需要安装浏览器扩展" max-width="440px" @close="showLinkHealthInstall = false">
+                <p class="link-health-install-text">
+                  死链检测要在你的浏览器里读取目标网站的真实状态码，网页本身受跨域限制做不到。
+                  安装本项目的浏览器扩展后即可使用，检测请求直接从你的浏览器发出，不经过云端。
+                </p>
+                <ol class="link-health-install-steps">
+                  <li>Chrome/Edge：打开 <code>chrome://extensions</code> → 开发者模式 → 加载 <code>browser-extension/</code></li>
+                  <li>Firefox：<code>about:debugging</code> → 临时载入 <code>manifest.firefox.json</code></li>
+                  <li>装好后刷新本页，入口会自动变成可用的统计行</li>
+                </ol>
+                <template #footer>
+                  <button class="btn-primary-sm" @click="showLinkHealthInstall = false">知道了</button>
+                </template>
+              </BaseDialog>
             </div>
 
             <!-- Tags -->
@@ -1343,6 +1394,8 @@ import { useSearchEngines } from '@/composables/useSearchEngines'
 import { useToast } from '@/composables/useToast'
 import { useAuthGuard } from '@/composables/useAuthGuard'
 import { useCategoryEditor } from '@/composables/useCategoryEditor'
+import { useLinkHealth } from '@/composables/useLinkHealth'
+import { formatCheckedAt } from '@/utils/linkHealth'
 import { buildCategoryTree, getCategoryPath } from '@/utils/categoryTree'
 import { searchBookmarks, SEARCH_FIELD_OPTIONS } from '@/utils/search'
 import { findPublicBookmarksInPrivateCategories } from '@/utils/privacyCheck'
@@ -1429,6 +1482,23 @@ const {
 const { bookmarks, fetchData, deleteBookmark, batchOperation, addBookmark, updateBookmark, allTags } = useBookmarks()
 const { success: toastSuccess, error: toastError } = useToast()
 const { requireAuth } = useAuthGuard()
+
+const {
+  hasExtension,
+  checksEnabled,
+  setEnabled,
+  stateOf,
+  stats: linkHealthStats,
+  checkBookmarks: checkLinkHealth
+} = useLinkHealth()
+
+const showLinkHealthInstall = ref(false)
+const linkHealthFilter = ref('all')
+const linkHealthFilters = [
+  { value: 'all', label: '全部' },
+  { value: 'dead', label: '已失效' },
+  { value: 'unsure', label: '待确认' }
+]
 
 const activeTab = ref('appearance')
 const sidebarCollapsed = ref(localStorage.getItem('navSettingsSidebarCollapsed') === 'true')
@@ -1848,9 +1918,18 @@ const filteredBookmarks = computed(() => {
   return result
 })
 
+const linkHealthFilteredBookmarks = computed(() => {
+  if (linkHealthFilter.value === 'all') return filteredBookmarks.value
+  return filteredBookmarks.value.filter(bm => stateOf(bm.url) === linkHealthFilter.value)
+})
+
+const recheckVisible = () => {
+  checkLinkHealth(filteredBookmarks.value, { force: true })
+}
+
 const groupedBookmarks = computed(() => {
   const groups = {}
-  filteredBookmarks.value.forEach(bm => {
+  linkHealthFilteredBookmarks.value.forEach(bm => {
     const catId = bm.category_id || '__none__'
     if (!groups[catId]) {
       groups[catId] = { categoryId: bm.category_id, bookmarks: [] }
@@ -5345,6 +5424,80 @@ textarea.setting-input {
 }
 .trend-filter-clear:hover {
   background: color-mix(in srgb, var(--primary) 12%, transparent);
+}
+
+/* ===== 死链检测 ===== */
+.link-health-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+}
+
+.link-health-stat {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.link-health-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  display: inline-block;
+  flex-shrink: 0;
+}
+
+.link-health-sep {
+  color: var(--text-tertiary);
+}
+
+.link-health-when {
+  color: var(--text-tertiary);
+}
+
+.link-health-actions {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.link-health-chip {
+  padding: 3px 10px;
+  border-radius: 9999px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 12px;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.15s;
+}
+
+.link-health-chip.active {
+  background: color-mix(in srgb, var(--primary) 14%, transparent);
+  border-color: color-mix(in srgb, var(--primary) 40%, transparent);
+  color: var(--primary);
+}
+
+.link-health-install-text {
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--text-secondary);
+}
+
+.link-health-install-steps {
+  margin-top: 10px;
+  padding-left: 18px;
+  font-size: 12px;
+  line-height: 1.8;
+  color: var(--text-secondary);
 }
 </style>
 
