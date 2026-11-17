@@ -1929,12 +1929,14 @@ const linkHealthFilteredBookmarks = computed(() => {
 })
 
 const recheckVisible = async () => {
-  const result = await checkLinkHealth(linkHealthFilteredBookmarks.value, { force: true })
-  if (result && result.requested > 0) {
-    toastSuccess(`正在重新检测 ${result.requested} 个链接`)
-  } else {
-    toastError('没有可检测的链接（可能正在检测中）')
-  }
+  const result = await checkLinkHealth(linkHealthFilteredBookmarks.value, {
+    force: true,
+    onQueued: (count) => toastSuccess(`正在重新检测 ${count} 个链接`)
+  })
+  if (result.requested > 0) return
+  if (result.reason === 'unavailable') toastError('死链检测不可用：请安装浏览器扩展并开启检测')
+  else if (result.reason === 'busy') toastError('正在检测中，请稍后再试')
+  else toastError('当前筛选结果里没有需要检测的链接')
 }
 
 const groupedBookmarks = computed(() => {

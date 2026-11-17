@@ -178,9 +178,9 @@ function runBatch(urls) {
   })
 }
 
-async function checkBookmarks(list, { force = false } = {}) {
-  if (!checksEnabled.value || !hasExtension.value) return { requested: 0 }
-  if (running) return { requested: 0 }
+async function checkBookmarks(list, { force = false, onQueued } = {}) {
+  if (!checksEnabled.value || !hasExtension.value) return { requested: 0, reason: 'unavailable' }
+  if (running) return { requested: 0, reason: 'busy' }
 
   const now = Date.now()
   const urls = selectUrlsToCheck(list, cache, now, force).filter((url) => {
@@ -188,7 +188,10 @@ async function checkBookmarks(list, { force = false } = {}) {
     const at = inflightAt.get(url)
     return !at || now - at > COOLDOWN_MS
   })
-  if (urls.length === 0) return { requested: 0 }
+  if (urls.length === 0) return { requested: 0, reason: 'none' }
+
+  // 后台整批跑完才回包，大批量可能几十秒；先通知调用方「已开始」，避免点了没反应
+  if (typeof onQueued === 'function') onQueued(urls.length)
 
   running = true
   try {
