@@ -26,12 +26,13 @@ export function resolveDropPosition(event, element, orientation) {
  * @param {Function} options.menus - 返回当前菜单树数组
  * @param {Function} [options.canReorder] - 是否允许拖动（登录态）
  * @param {Function} options.onReorder - 排序结果回调 ({ parentId, ids })
- * @param {Function} [options.onInvalidDrop] - 跨层级无效落点回调
+ * @param {Function} [options.onInvalidDrop] - 跨层级无效落点回调 ({ id, name })
  */
 export function useMenuReorder({ menus, canReorder = () => true, onReorder, onInvalidDrop }) {
   const state = reactive({
     draggingId: null,
     draggingParentId: null,
+    draggingName: '',
     targetId: null,
     targetParentId: null,
     targetName: '',
@@ -88,7 +89,7 @@ export function useMenuReorder({ menus, canReorder = () => true, onReorder, onIn
       event.dataTransfer.effectAllowed = 'move'
       try {
         event.dataTransfer.setData('text/plain', String(item.id))
-        const trigger = event.currentTarget?.closest?.('button')
+        const trigger = event.currentTarget?.closest?.('button, .menu-row')
         if (trigger) {
           event.dataTransfer.setDragImage(trigger, 16, Math.min(trigger.offsetHeight - 1, 24))
         }
@@ -98,6 +99,7 @@ export function useMenuReorder({ menus, canReorder = () => true, onReorder, onIn
     }
     state.draggingId = item.id
     state.draggingParentId = parentId
+    state.draggingName = item.name || ''
     clearTarget()
     return true
   }
@@ -118,6 +120,7 @@ export function useMenuReorder({ menus, canReorder = () => true, onReorder, onIn
   function endDrag() {
     state.draggingId = null
     state.draggingParentId = null
+    state.draggingName = ''
     clearTarget()
     lastDragEndAt = Date.now()
   }
@@ -151,7 +154,7 @@ export function useMenuReorder({ menus, canReorder = () => true, onReorder, onIn
       return null
     }
     if (parentId !== state.draggingParentId) {
-      onInvalidDrop?.()
+      onInvalidDrop?.({ id: state.draggingId, name: state.draggingName })
       endDrag()
       return 'invalid'
     }

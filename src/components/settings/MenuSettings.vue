@@ -55,7 +55,7 @@
           :counts="counts"
           :editing="editing"
           :reorder="reorder"
-          :reorderable="isAuthenticated"
+          :reorderable="canReorder"
           :highlight="searchQuery"
           @toggle="toggleExpand"
           @start-edit="handleStartEdit"
@@ -85,15 +85,34 @@
     />
 
     <ConfirmDialog ref="confirmDialog" />
+
+    <Teleport to="body">
+      <Transition name="hint-fade">
+        <div v-if="moveHint" class="menu-move-hint" role="status">
+          <span class="menu-move-hint-text">
+            「{{ moveHint.name }}」只能在同一层级内排序
+          </span>
+          <button class="menu-move-hint-action" type="button" @click="openMoveFromHint">
+            移动到其他分类…
+          </button>
+          <button class="menu-move-hint-close" type="button" aria-label="关闭提示" @click="dismissMoveHint">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M18 6L6 18M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+      </Transition>
+    </Teleport>
   </div>
 </template>
 
 <script setup>
-import { computed, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { useBookmarks } from '@/composables/useBookmarks'
 import { useAuth } from '@/composables/useAuth'
 import { useAuthGuard } from '@/composables/useAuthGuard'
 import { useToast } from '@/composables/useToast'
+import { useMenuReorder } from '@/composables/useMenuReorder'
 import { buildCategoryTree, getDescendantIds } from '@/utils/categoryTree.js'
 import { buildCategoryBookmarkCounts } from '@/utils/categoryCounts.js'
 import { debounce } from '@/utils/helpers'
@@ -104,7 +123,7 @@ import ConfirmDialog from '@/components/ConfirmDialog.vue'
 
 const emit = defineEmits(['migrate-bookmarks'])
 
-const { categories, bookmarks, addCategory, updateCategory, deleteCategory } = useBookmarks()
+const { categories, bookmarks, addCategory, updateCategory, deleteCategory, reorderItems } = useBookmarks()
 const { isAuthenticated } = useAuth()
 const { requireAuth } = useAuthGuard()
 const { success: toastSuccess, error: toastError } = useToast()
@@ -386,8 +405,70 @@ const handleAction = ({ action, node }) => {
   }
 }
 
-/* ===== 拖拽排序（Task 5） ===== */
-const reorder = ref(null)
+/* ===== 拖拽排序（仅同级，复用导航栏语义） ===== */
+const canReorder = computed(() => isAuthenticated.value && !searchQuery.value)
+
+const handleMenuReorder = async ({ parentId, ids }) => {
+  if (!isAuthenticated.value || !ids || ids.length < 2) return
+
+  const originalPositions = {}
+  categories.value.forEach(category => {
+    if (ids.includes(category.id)) originalPositions[category.id] = category.position
+  })
+  if (Object.keys(originalPositions).length !== ids.length) return
+
+  categories.value = categories.value.map(category => {
+    const index = ids.indexOf(category.id)
+    return index === -1 ? category : { ...category, position: index + 1 }
+  })
+
+  const items = ids.map((id, index) => ({ id, position: index + 1 }))
+  const result = await reorderItems('categories', items)
+  if (!result.success) {
+    categories.value = categories.value.map(category => (
+      originalPositions[category.id] !== undefined
+        ? { ...category, position: originalPositions[category.id] }
+        : category
+    ))
+    toastError(result.error || '菜单排序保存失败')
+  }
+}
+
+/* 跨层级落点提示：给「只能同级排序」一个出口 */
+const moveHint = ref(null)
+let moveHintTimer = null
+
+const dismissMoveHint = () => {
+  clearTimeout(moveHintTimer)
+  moveHintTimer = null
+  moveHint.value = null
+}
+
+const showMoveHint = ({ id, name }) => {
+  moveHint.value = { id, name }
+  clearTimeout(moveHintTimer)
+  moveHintTimer = setTimeout(() => {
+    moveHint.value = null
+    moveHintTimer = null
+  }, 8000)
+}
+
+const openMoveFromHint = () => {
+  const hint = moveHint.value
+  if (!hint) return
+  dismissMoveHint()
+  const node = categories.value.find(c => c.id === hint.id)
+  if (node) openMoveDialog(node)
+}
+
+const reorder = useMenuReorder({
+  menus: () => tree.value,
+  canReorder: () => canReorder.value,
+  onReorder: handleMenuReorder,
+  onInvalidDrop: showMoveHint
+})
+
+onBeforeUnmount(() => clearTimeout(moveHintTimer))
 </script>
 
 <style scoped>
@@ -573,6 +654,90 @@ const reorder = ref(null)
   text-align: center;
   font-size: 0.8125rem;
   color: var(--text-tertiary);
+}
+
+/* 跨层级落点提示条（Teleport 到 body） */
+.menu-move-hint {
+  position: fixed;
+  left: 50%;
+  bottom: 24px;
+  transform: translateX(-50%);
+  z-index: 10020;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: min(560px, calc(100vw - 32px));
+  padding: 9px 10px 9px 14px;
+  border-radius: 12px;
+  background: var(--nav-glass, var(--bg));
+  backdrop-filter: blur(20px) saturate(1.4);
+  -webkit-backdrop-filter: blur(20px) saturate(1.4);
+  border: 1px solid var(--nav-border, var(--border));
+  box-shadow: 0 12px 32px -12px var(--shadow-lg, rgba(0, 0, 0, 0.35));
+}
+
+.menu-move-hint-text {
+  flex: 1;
+  min-width: 0;
+  font-size: 0.75rem;
+  line-height: 1.45;
+  color: var(--text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.menu-move-hint-action {
+  flex-shrink: 0;
+  padding: 5px 10px;
+  border: 1px solid color-mix(in srgb, var(--nav-primary) 45%, transparent);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--nav-primary) 12%, transparent);
+  color: var(--nav-primary);
+  font-size: 0.75rem;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.12s ease;
+}
+
+.menu-move-hint-action:hover {
+  background: color-mix(in srgb, var(--nav-primary) 20%, transparent);
+}
+
+.menu-move-hint-close {
+  flex: 0 0 22px;
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-tertiary);
+  cursor: pointer;
+}
+
+.menu-move-hint-close:hover {
+  background: var(--nav-bg-hover, var(--bg-hover));
+  color: var(--text);
+}
+
+.menu-move-hint-close svg {
+  width: 12px;
+  height: 12px;
+}
+
+.hint-fade-enter-active,
+.hint-fade-leave-active {
+  transition: opacity 0.18s ease, transform 0.18s ease;
+}
+
+.hint-fade-enter-from,
+.hint-fade-leave-to {
+  opacity: 0;
+  transform: translateX(-50%) translateY(8px);
 }
 
 @media (max-width: 720px) {
