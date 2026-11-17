@@ -115,6 +115,35 @@
     return `⚠️ 已在「${category}」保存过`
   }
 
+  const LINK_STATES = { OK: 'ok', DEAD: 'dead', UNSURE: 'unsure' }
+  const DEAD_STATUSES = [404, 410]
+  const DEAD_FAST_FAIL_MS = 3000
+
+  /**
+   * 把一次链接探测的结果归成三态。
+   * 只有 404/410 算「已失效」，其余一律「待确认」，避免误删书签。
+   * @param {{ status?: number|null, error?: string|null, timedOut?: boolean, durationMs?: number }} input
+   * @returns {{ state: 'ok'|'dead'|'unsure', reason: string }}
+   */
+  function classifyLinkResult(input) {
+    const { status, error, timedOut, durationMs } = input || {}
+    if (timedOut) return { state: LINK_STATES.UNSURE, reason: '超时' }
+    if (typeof status === 'number' && status > 0) {
+      if (status >= 200 && status < 400) return { state: LINK_STATES.OK, reason: '' }
+      if (DEAD_STATUSES.includes(status)) return { state: LINK_STATES.DEAD, reason: `HTTP ${status}` }
+      if (status >= 400 && status < 500) {
+        return { state: LINK_STATES.UNSURE, reason: `HTTP ${status} · 需要登录或有防护` }
+      }
+      if (status >= 500) return { state: LINK_STATES.UNSURE, reason: `HTTP ${status} · 源站不可达` }
+      return { state: LINK_STATES.UNSURE, reason: `HTTP ${status}` }
+    }
+    if (error) {
+      const fast = typeof durationMs === 'number' && durationMs < DEAD_FAST_FAIL_MS
+      return { state: LINK_STATES.UNSURE, reason: fast ? '域名或连接失败' : '请求失败' }
+    }
+    return { state: LINK_STATES.UNSURE, reason: '未取得结果' }
+  }
+
   global.BMExt = {
     SHORT_TTL,
     LONG_TTL,
@@ -126,6 +155,8 @@
     latencyLevel,
     formatLatency,
     formatRelativeTime,
-    buildDuplicateHint
+    buildDuplicateHint,
+    LINK_STATES,
+    classifyLinkResult
   }
 })(typeof globalThis !== 'undefined' ? globalThis : self)

@@ -84,3 +84,27 @@ test('boundary values stay on the documented side', () => {
   assert.equal(B.shouldRenewToken(now + B.RENEW_THRESHOLD, now), false)
   assert.equal(B.shouldRenewToken(now + B.RENEW_THRESHOLD - 1, now), true)
 })
+
+test('classifyLinkResult only marks 404/410 as dead', () => {
+  const c = B.classifyLinkResult
+  assert.deepEqual(c({ status: 200 }), { state: 'ok', reason: '' })
+  assert.deepEqual(c({ status: 204 }), { state: 'ok', reason: '' })
+  assert.deepEqual(c({ status: 301 }), { state: 'ok', reason: '' })
+  assert.equal(c({ status: 404 }).state, 'dead')
+  assert.equal(c({ status: 410 }).state, 'dead')
+  assert.equal(c({ status: 404 }).reason, 'HTTP 404')
+})
+
+test('classifyLinkResult never marks protected or failing sites as dead', () => {
+  const c = B.classifyLinkResult
+  for (const status of [400, 401, 403, 405, 429, 451, 500, 502, 522, 523, 530]) {
+    assert.equal(c({ status }).state, 'unsure', `status ${status}`)
+  }
+})
+
+test('classifyLinkResult buckets network failures as unsure', () => {
+  const c = B.classifyLinkResult
+  assert.deepEqual(c({ error: 'Failed to fetch', durationMs: 120 }), { state: 'unsure', reason: '域名或连接失败' })
+  assert.deepEqual(c({ error: 'Failed to fetch', durationMs: 9000 }), { state: 'unsure', reason: '请求失败' })
+  assert.deepEqual(c({ timedOut: true }), { state: 'unsure', reason: '超时' })
+})
