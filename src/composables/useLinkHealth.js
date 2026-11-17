@@ -12,7 +12,9 @@ import {
 
 const STORAGE_KEY = 'linkHealthCache'
 const ENABLED_KEY = 'linkHealthEnabled'
-const REPLY_TIMEOUT = 10 * 1000
+// 软超时只用于结束「等待」，监听不撤，迟到的回包仍会写缓存；硬超时才丢弃
+const REPLY_SOFT_BASE = 8000
+const REPLY_HARD_TIMEOUT = 3 * 60 * 1000
 const COOLDOWN_MS = 5 * 60 * 1000
 // content script 默认在 document_idle 注入，慢网络下可能晚于首屏，轮询给足 10 秒
 const EXT_POLL_TIMES = 40
@@ -25,6 +27,10 @@ const lastError = ref('')
 
 // 同一 URL 的检测冷却，避免来回切菜单反复打请求
 const inflightAt = new Map()
+// 已发出但还没回包的批次：reqId -> { urls, settle, hardTimer }
+const pendingBatches = new Map()
+let replyListenerReady = false
+let running = false
 let pollStarted = false
 
 function readEnabled() {
@@ -90,19 +96,25 @@ function detectExtension() {
 }
 
 function applyResults(requested, results) {
-  const canonToRaw = new Map()
-  for (const raw of requested) canonToRaw.set(canonicalKey(raw), raw)
+  // 后台按 new URL().href 归一化（会补尾斜杠），一个 canonical 可能对应多条原始 URL
+  const canonToRaws = new Map()
+  for (const raw of requested) {
+    const key = canonicalKey(raw)
+    if (!canonToRaws.has(key)) canonToRaws.set(key, [])
+    canonToRaws.get(key).push(raw)
+  }
 
   const at = Date.now()
   for (const item of results) {
     if (!item || !item.url) continue
-    const raw = canonToRaw.get(item.url) || (requested.includes(item.url) ? item.url : '')
-    if (!raw) continue
-    cache[raw] = {
-      state: item.state,
-      reason: item.reason || '',
-      status: typeof item.status === 'number' ? item.status : null,
-      at
+    const raws = canonToRaws.get(item.url) || (requested.includes(item.url) ? [item.url] : [])
+    for (const raw of raws) {
+      cache[raw] = {
+        state: item.state,
+        reason: item.reason || '',
+        status: typeof item.status === 'number' ? item.status : null,
+        at
+      }
     }
   }
 
@@ -110,49 +122,84 @@ function applyResults(requested, results) {
   persist()
 }
 
+// 单例监听：批次软超时后仍保留，迟到回包照样落缓存
+function ensureReplyListener() {
+  if (replyListenerReady) return
+  replyListenerReady = true
+  window.addEventListener('message', (event) => {
+    if (event.source !== window) return
+    const data = event.data
+    if (!data || data.source !== 'bm-link-health-reply' || typeof data.reqId !== 'string') return
+
+    const pending = pendingBatches.get(data.reqId)
+    if (!pending) return
+    pendingBatches.delete(data.reqId)
+    clearTimeout(pending.hardTimer)
+
+    const results = Array.isArray(data.results) ? data.results : []
+    if (data.error) lastError.value = data.error
+    else if (results.length) lastError.value = ''
+    if (results.length) applyResults(pending.urls, results)
+    pending.settle()
+  })
+}
+
+// 后台整批跑完才回包：并发 5、单条 8s，按批大小放宽等待
+function replySoftTimeout(count) {
+  return REPLY_SOFT_BASE + Math.ceil(count / 5) * 8500
+}
+
 function runBatch(urls) {
+  ensureReplyListener()
   return new Promise((resolve) => {
     const reqId = `lh-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
     let settled = false
 
-    const finish = (results, error) => {
+    const settle = () => {
       if (settled) return
       settled = true
-      window.removeEventListener('message', onReply)
-      clearTimeout(timer)
-      lastError.value = error || ''
-      if (results.length) applyResults(urls, results)
+      clearTimeout(softTimer)
       resolve()
     }
 
-    const onReply = (event) => {
-      if (event.source !== window) return
-      const data = event.data
-      if (!data || data.source !== 'bm-link-health-reply' || data.reqId !== reqId) return
-      finish(Array.isArray(data.results) ? data.results : [], data.error || '')
-    }
+    const softTimer = setTimeout(() => {
+      lastError.value = '扩展响应较慢，结果到达后会自动更新'
+      settle()
+    }, replySoftTimeout(urls.length))
 
-    const timer = setTimeout(() => finish([], '扩展无响应'), REPLY_TIMEOUT)
-    window.addEventListener('message', onReply)
+    const hardTimer = setTimeout(() => {
+      pendingBatches.delete(reqId)
+      lastError.value = '扩展无响应'
+      settle()
+    }, REPLY_HARD_TIMEOUT)
+
+    pendingBatches.set(reqId, { urls, settle, hardTimer })
     window.postMessage({ source: 'bm-link-health', reqId, urls }, location.origin)
   })
 }
 
 async function checkBookmarks(list, { force = false } = {}) {
-  if (!checksEnabled.value || !hasExtension.value) return
+  if (!checksEnabled.value || !hasExtension.value) return { requested: 0 }
+  if (running) return { requested: 0 }
 
   const now = Date.now()
   const urls = selectUrlsToCheck(list, cache, now, force).filter((url) => {
+    if (force) return true
     const at = inflightAt.get(url)
     return !at || now - at > COOLDOWN_MS
   })
-  if (urls.length === 0) return
+  if (urls.length === 0) return { requested: 0 }
 
-  for (const url of urls) inflightAt.set(url, now)
-
-  for (const chunk of chunkUrls(urls)) {
-    await runBatch(chunk)
+  running = true
+  try {
+    for (const url of urls) inflightAt.set(url, now)
+    for (const chunk of chunkUrls(urls)) {
+      await runBatch(chunk)
+    }
+  } finally {
+    running = false
   }
+  return { requested: urls.length }
 }
 
 export function useLinkHealth() {

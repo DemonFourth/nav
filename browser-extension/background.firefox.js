@@ -264,10 +264,42 @@ const LINK_HEALTH_CONCURRENCY = 5
 const LINK_HEALTH_TIMEOUT = 8000
 const LINK_HEALTH_MAX_URLS = 40
 
+// 只允许公网主机：网页可以把 postMessage 发给扩展，若不拦内网地址，
+// 任意网页都能借扩展当端口扫描器（127.0.0.1 / 192.168.x / 169.254.169.254 等）
+function isBlockedHost(hostname) {
+  const host = String(hostname || '').toLowerCase()
+  if (!host) return true
+  if (host === 'localhost' || host.endsWith('.localhost')) return true
+  if (host.endsWith('.local') || host.endsWith('.internal') || host.endsWith('.home.arpa')) return true
+  if (host === '0.0.0.0') return true
+
+  const v4 = host.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/)
+  if (v4) {
+    const a = Number(v4[1])
+    const b = Number(v4[2])
+    if (a === 0 || a === 10 || a === 127) return true
+    if (a === 169 && b === 254) return true
+    if (a === 172 && b >= 16 && b <= 31) return true
+    if (a === 192 && b === 168) return true
+    if (a === 100 && b >= 64 && b <= 127) return true
+    if (a >= 224) return true
+  }
+
+  if (host.startsWith('[')) {
+    const v6 = host.slice(1, -1)
+    if (v6 === '::' || v6 === '::1') return true
+    if (v6.startsWith('fc') || v6.startsWith('fd') || v6.startsWith('fe80')) return true
+  }
+
+  return false
+}
+
 function normalizeCheckUrl(raw) {
   try {
     const u = new URL(String(raw || ''))
-    return (u.protocol === 'http:' || u.protocol === 'https:') ? u.href : ''
+    if (u.protocol !== 'http:' && u.protocol !== 'https:') return ''
+    if (isBlockedHost(u.hostname)) return ''
+    return u.href
   } catch {
     return ''
   }
@@ -328,6 +360,19 @@ async function checkLinks(rawUrls) {
   const width = Math.min(LINK_HEALTH_CONCURRENCY, urls.length)
   await Promise.all(Array.from({ length: width }, run))
   return results
+}
+
+// Firefox 把 http(s)://*/* 放在 optional_permissions，未授权时后台跨站 fetch 会被拦。
+// 提前判定，避免每次都发一批注定失败的请求，并把原因带回页面。
+const LINK_HEALTH_ORIGINS = ['http://*/*', 'https://*/*']
+
+async function hasLinkHealthHostAccess() {
+  try {
+    if (!browser.permissions || !browser.permissions.contains) return true
+    return await browser.permissions.contains({ origins: LINK_HEALTH_ORIGINS })
+  } catch (e) {
+    return true
+  }
 }
 
 browser.runtime.onInstalled.addListener(() => {
@@ -423,9 +468,17 @@ browser.runtime.onMessage.addListener((request, sender, sendResponse) => {
   }
 
   if (request.type === 'link-health-check') {
-    return checkLinks(request.urls)
-      .then(results => ({ results }))
-      .catch(error => ({ results: [], error: String(error) }));
+    return hasLinkHealthHostAccess().then(granted => {
+      if (!granted) {
+        return {
+          results: [],
+          error: 'Firefox 需要先在扩展设置页授予「访问所有网站」权限，否则无法读取目标网站状态码'
+        };
+      }
+      return checkLinks(request.urls)
+        .then(results => ({ results }))
+        .catch(error => ({ results: [], error: String(error) }));
+    });
   }
 });
 

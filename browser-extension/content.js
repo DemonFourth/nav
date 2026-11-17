@@ -77,13 +77,15 @@ window.addEventListener('message', (event) => {
 
   try {
     chrome.runtime.sendMessage({ type: 'link-health-check', urls }, (reply) => {
+      // 扩展被更新/后台被回收时 reply 为 undefined，要把原因带给页面，而不是当作「0 个结果」
+      const runtimeError = chrome.runtime.lastError
       const payload = reply && Array.isArray(reply.results) ? reply.results : []
       window.postMessage(
         {
           source: 'bm-link-health-reply',
           reqId: data.reqId,
           results: payload,
-          error: reply && reply.error
+          error: runtimeError ? runtimeError.message : (reply && reply.error)
         },
         location.origin
       )

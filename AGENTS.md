@@ -794,8 +794,11 @@ token TTL 必须与 `functions/_middleware.js` 的 `validateToken` 保持一致�
 ### 触发与请求控制
 
 - 只在**当前列表变化**时触发：切根分类、点子菜单、标签筛选、站内搜索。滚动不触发。
-- 只挑「没检测过」或「超过 24h」的 URL；单批 ≤ 40、并发 5、单条超时 8s、同 URL 5 分钟冷却。
+- 只挑「没检测过」或「超过 24h」的 URL；单批 ≤ 20、并发 5、单条超时 8s、同 URL 5 分钟冷却（手动「重新检测」绕过冷却）。
+- 单次检测不并发：新的触发在上一轮结束前直接跳过（`running` 门闩）。
 - 缓存 24h 新鲜期、30 天过期、上限 2000 条，只存 `localStorage`（key `linkHealthCache` / `linkHealthEnabled`），不写 D1、不跨设备同步。
+- 关闭检测开关或没装扩展时，卡片**不显示**残留缓存里的圆点（`NavCard` 先看 `checksEnabled && hasExtension`）。
+- 后台拒绝内网/环回/链路本地地址：content script 对任意页面开放，不拦就等于把扩展变成内网端口扫描器。
 
 ### 数据流
 

@@ -1928,8 +1928,13 @@ const linkHealthFilteredBookmarks = computed(() => {
   return filteredBookmarks.value.filter(bm => stateOf(bm.url) === linkHealthFilter.value)
 })
 
-const recheckVisible = () => {
-  checkLinkHealth(filteredBookmarks.value, { force: true })
+const recheckVisible = async () => {
+  const result = await checkLinkHealth(linkHealthFilteredBookmarks.value, { force: true })
+  if (result && result.requested > 0) {
+    toastSuccess(`正在重新检测 ${result.requested} 个链接`)
+  } else {
+    toastError('没有可检测的链接（可能正在检测中）')
+  }
 }
 
 const groupedBookmarks = computed(() => {

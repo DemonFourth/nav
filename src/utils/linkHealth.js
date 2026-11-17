@@ -4,7 +4,7 @@
 export const LINK_HEALTH_TTL = 24 * 60 * 60 * 1000
 export const LINK_HEALTH_MAX_AGE = 30 * 24 * 60 * 60 * 1000
 export const LINK_HEALTH_MAX_ENTRIES = 2000
-export const LINK_HEALTH_BATCH_SIZE = 40
+export const LINK_HEALTH_BATCH_SIZE = 20
 
 export function isHttpUrl(raw) {
   try {

@@ -36,9 +36,9 @@ test('selectUrlsToCheck skips fresh entries and dedupes', () => {
 test('chunkUrls never exceeds batch size', () => {
   const urls = Array.from({ length: 95 }, (_, i) => `https://x${i}.com`)
   const chunks = chunkUrls(urls)
-  assert.equal(chunks.length, 3)
-  assert.equal(chunks[0].length, 40)
-  assert.equal(chunks[2].length, 15)
+  assert.equal(chunks.length, 5)
+  assert.equal(chunks[0].length, 20)
+  assert.equal(chunks[4].length, 15)
 })
 
 test('pruneEntries drops expired and caps count', () => {

@@ -59,7 +59,8 @@
           v-if="linkMeta.label"
           class="link-health-dot"
           :style="{ background: linkMeta.color }"
-          aria-hidden="true"
+          role="img"
+          :aria-label="'链接状态：' + linkMeta.label"
         ></span>
         <span v-else class="link-health-dot link-health-dot-empty" aria-hidden="true"></span>
         <span class="nav-card-url-text">{{ bookmark.url }}</span>
@@ -152,9 +153,13 @@ const isTitleTruncated = ref(false)
 const isDescTruncated = ref(false)
 
 // 死链检测状态（结果由浏览器扩展写入 localStorage，这里只读缓存）
-const { stateOf, reasonOf, checkedAtOf } = useLinkHealth()
-const linkState = computed(() => stateOf(props.bookmark.url))
-const reasonText = computed(() => reasonOf(props.bookmark.url) || '')
+const { hasExtension, checksEnabled, stateOf, reasonOf, checkedAtOf } = useLinkHealth()
+// 关掉检测或没装扩展时，残留缓存也不再显示圆点
+const linkState = computed(() => {
+  if (!checksEnabled.value || !hasExtension.value) return ''
+  return stateOf(props.bookmark.url)
+})
+const reasonText = computed(() => (linkState.value ? reasonOf(props.bookmark.url) || '' : ''))
 const linkMeta = computed(() => linkStateMeta(linkState.value))
 
 // 状态正常时绿点自解释，不额外弹 tooltip；异常状态才并入卡片 tooltip 说明原因

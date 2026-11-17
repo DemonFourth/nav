@@ -184,7 +184,7 @@ const { isAuthenticated, logout } = useAuth()
 const { customTitle, navWallpaper, showSearch, hideEmptyCategories, randomWallpaper, wallpaperApi, applyWallpaper, publicMode, footerContent } = useSettings()
 const { success: toastSuccess, error: errorToast, loading: toastLoading, update: toastUpdate } = useToast()
 const { requireAuth } = useAuthGuard()
-const { checkBookmarks: checkLinkHealth } = useLinkHealth()
+const { checkBookmarks: checkLinkHealth, hasExtension: linkHealthReady } = useLinkHealth()
 
 // 非公开模式且未登录：用锁屏引导替代浏览区域
 const needsLogin = computed(() => !publicMode.value && !isAuthenticated.value)
@@ -384,6 +384,13 @@ watch(
   },
   { immediate: true }
 )
+
+// 扩展标识是异步探测的：晚于首屏出现时补检当前列表，避免要等用户再切一次分类
+watch(linkHealthReady, (ready) => {
+  if (!ready) return
+  const list = currentBookmarks.value
+  if (list && list.length) checkLinkHealth(list)
+})
 
 const gridEmptyText = computed(() => {
   if (searchResults.value) {
