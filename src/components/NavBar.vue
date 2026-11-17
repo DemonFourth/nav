@@ -188,6 +188,22 @@
       </div>
     </Transition>
   </Teleport>
+
+  <Teleport to="body">
+    <Transition name="move-hint">
+      <div v-if="invalidDrop" class="move-hint" role="status">
+        <span class="move-hint-text">「{{ invalidDrop.name }}」只能在同一层级内排序</span>
+        <button class="move-hint-action" type="button" @click="openMoveFromInvalidDrop">
+          移动到其他分类…
+        </button>
+        <button class="move-hint-close" type="button" aria-label="关闭提示" @click="dismissInvalidDrop">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M18 6L6 18M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+    </Transition>
+  </Teleport>
 </template>
 
 <script setup>
@@ -232,7 +248,7 @@ const props = defineProps({
   }
 })
 
-const emit = defineEmits(['select-menu', 'select-submenu', 'toggle-style', 'open-settings', 'logout', 'reorder-categories', 'create-category'])
+const emit = defineEmits(['select-menu', 'select-submenu', 'toggle-style', 'open-settings', 'logout', 'reorder-categories', 'create-category', 'move-category'])
 
 const { isAuthenticated, username, logout, validateAuthState } = useAuth()
 const { warning: warningToast } = useToast()
@@ -245,11 +261,48 @@ watch(avatarUrl, () => { avatarError.value = false })
 // 内置默认头像：白色描边，适配主色渐变圆钮
 const defaultAvatarIcon = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="%23ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>'
 
+/* 跨层级落点：不再直接 toast，改为给出「移动到其他分类…」入口 */
+const invalidDrop = ref(null)
+let invalidDropTimer = null
+
+const dismissInvalidDrop = () => {
+  clearTimeout(invalidDropTimer)
+  invalidDropTimer = null
+  invalidDrop.value = null
+}
+
+const handleInvalidDrop = ({ id, name }) => {
+  invalidDrop.value = { id, name }
+  clearTimeout(invalidDropTimer)
+  invalidDropTimer = setTimeout(() => {
+    invalidDrop.value = null
+    invalidDropTimer = null
+  }, 8000)
+}
+
+const findMenuById = (nodes, id) => {
+  for (const node of nodes) {
+    if (node.id === id) return node
+    if (node.children?.length) {
+      const found = findMenuById(node.children, id)
+      if (found) return found
+    }
+  }
+  return null
+}
+
+const openMoveFromInvalidDrop = () => {
+  const item = invalidDrop.value
+  if (!item) return
+  dismissInvalidDrop()
+  emit('move-category', findMenuById(props.menus, item.id) || item)
+}
+
 const menuReorder = useMenuReorder({
   menus: () => props.menus,
   canReorder: () => props.reorderable,
   onReorder: (payload) => emit('reorder-categories', payload),
-  onInvalidDrop: () => warningToast('只能在同一层级内排序')
+  onInvalidDrop: handleInvalidDrop
 })
 
 const hoveredMenuId = ref(null)
@@ -445,6 +498,7 @@ onMounted(() => {
 onUnmounted(() => {
   window.removeEventListener('resize', updateHeight)
   resizeObserver?.disconnect()
+  if (invalidDropTimer) clearTimeout(invalidDropTimer)
 })
 
 defineExpose({
@@ -749,6 +803,90 @@ defineExpose({
 .reorder-hint-leave-to {
   opacity: 0;
   transform: translate(-50%, 6px);
+}
+
+/* 跨层级松手后的可操作浮条 */
+.move-hint {
+  position: fixed;
+  left: 50%;
+  bottom: 24px;
+  transform: translateX(-50%);
+  z-index: 500;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: min(560px, calc(100vw - 32px));
+  padding: 9px 10px 9px 14px;
+  border-radius: 12px;
+  background: var(--nav-glass);
+  border: 1px solid var(--nav-border);
+  box-shadow: 0 12px 32px -12px var(--shadow-lg);
+  backdrop-filter: blur(20px) saturate(1.4);
+  -webkit-backdrop-filter: blur(20px) saturate(1.4);
+}
+
+.move-hint-text {
+  flex: 1;
+  min-width: 0;
+  font-size: 0.78rem;
+  line-height: 1.45;
+  color: var(--nav-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.move-hint-action {
+  flex-shrink: 0;
+  padding: 5px 10px;
+  border: 1px solid color-mix(in srgb, var(--nav-primary) 45%, transparent);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--nav-primary) 12%, transparent);
+  color: var(--nav-primary);
+  font-size: 0.75rem;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.12s ease;
+}
+
+.move-hint-action:hover {
+  background: color-mix(in srgb, var(--nav-primary) 20%, transparent);
+}
+
+.move-hint-close {
+  flex: 0 0 22px;
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-tertiary);
+  cursor: pointer;
+}
+
+.move-hint-close:hover {
+  background: var(--bg-hover);
+  color: var(--text);
+}
+
+.move-hint-close svg {
+  width: 12px;
+  height: 12px;
+}
+
+.move-hint-enter-active,
+.move-hint-leave-active {
+  transition: opacity 0.18s ease, transform 0.18s ease;
+}
+
+.move-hint-enter-from,
+.move-hint-leave-to {
+  opacity: 0;
+  transform: translateX(-50%) translateY(8px);
 }
 
 @media (hover: none) {

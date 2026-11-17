@@ -51,7 +51,7 @@ export function useMenuReorder({ menus, canReorder = () => true, onReorder, onIn
   const hintText = computed(() => {
     if (!isActive.value) return ''
     if (state.targetId === null) return '拖到同级菜单上调整顺序'
-    if (isInvalid.value) return '只能在同一层级内排序 · 跨层级请到 设置 → 菜单 修改父分类'
+    if (isInvalid.value) return '只能在同一层级内排序'
     const before = state.dropPosition === DROP_BEFORE
     const side = state.orientation === 'horizontal'
       ? (before ? '左侧' : '右侧')

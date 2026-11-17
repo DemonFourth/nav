@@ -12,6 +12,7 @@
       @select-submenu="handleSelectSubMenu"
       @reorder-categories="handleMenuReorder"
       @create-category="handleCreateCategory"
+      @move-category="openMoveDialog"
       @toggle-style="handleToggleStyle"
       @open-settings="handleOpenSettings"
       @logout="handleLogout"
@@ -146,6 +147,15 @@
       @confirm="handleConfirmCreateCategory"
     />
 
+    <MoveCategoryDialog
+      :show="!!moveCategoryTarget"
+      :category="moveCategoryTarget"
+      :categories="categories"
+      :saving="moveCategorySaving"
+      @close="closeMoveDialog"
+      @confirm="handleMoveConfirm"
+    />
+
     <TagOverviewDialog
       :show="showTagOverview"
       :tags="tagStats"
@@ -170,6 +180,7 @@ import BackupDialog from '../components/BackupDialog.vue'
 import ConfirmDialog from '../components/ConfirmDialog.vue'
 import CategoryCreateDialog from '../components/CategoryCreateDialog.vue'
 import TagOverviewDialog from '../components/TagOverviewDialog.vue'
+import MoveCategoryDialog from '../components/MoveCategoryDialog.vue'
 import { useBookmarks } from '../composables/useBookmarks'
 import { useSettings } from '../composables/useSettings'
 import { useAuth } from '../composables/useAuth'
@@ -180,7 +191,7 @@ import { buildCategoryTree } from '../utils/categoryTree'
 import { buildCategoryBookmarkCounts } from '../utils/categoryCounts'
 import { buildTagStats, countBookmarksWithTags, buildTagGroups, buildCategoryGroups, toggleTagSelection, pruneMissingTags } from '../utils/tagBrowse.js'
 
-const { categories, bookmarks, fetchData, searchTags, updateBookmark, addBookmark, deleteBookmark, addCategory, allTags, getEmptyCategories, cleanupEmptyCategories, reorderItems, dataSource, refreshState } = useBookmarks()
+const { categories, bookmarks, fetchData, searchTags, updateBookmark, addBookmark, deleteBookmark, addCategory, updateCategory, allTags, getEmptyCategories, cleanupEmptyCategories, reorderItems, dataSource, refreshState } = useBookmarks()
 const { isAuthenticated, logout } = useAuth()
 const { customTitle, navWallpaper, showSearch, hideEmptyCategories, randomWallpaper, wallpaperApi, applyWallpaper, publicMode, footerContent } = useSettings()
 const { success: toastSuccess, error: errorToast, loading: toastLoading, update: toastUpdate } = useToast()
@@ -747,6 +758,44 @@ const handleCreateCategory = (parentId = null) => {
   if (!isAuthenticated.value) return
   createCategoryParentId.value = parentId
   showCreateCategory.value = true
+}
+
+/* 跨层级移动：导航栏拒绝提示条的出口 */
+const moveCategoryTarget = ref(null)
+const moveCategorySaving = ref(false)
+
+const openMoveDialog = (category) => {
+  if (!isAuthenticated.value) return
+  const fresh = categories.value.find(c => c.id === category?.id)
+  moveCategoryTarget.value = fresh || category || null
+}
+
+const closeMoveDialog = () => {
+  if (moveCategorySaving.value) return
+  moveCategoryTarget.value = null
+}
+
+const handleMoveConfirm = async ({ parentId }) => {
+  const category = moveCategoryTarget.value
+  if (!category || moveCategorySaving.value) return
+  if (parentId === (category.parent_id ?? null)) {
+    moveCategoryTarget.value = null
+    return
+  }
+
+  moveCategorySaving.value = true
+  try {
+    const result = await updateCategory(category.id, category.name, parentId)
+    if (result.success) {
+      const parent = parentId == null ? null : categories.value.find(c => c.id === parentId)
+      toastSuccess(parent ? `已移动到「${parent.name}」下` : '已移动到根分类')
+      moveCategoryTarget.value = null
+    } else {
+      errorToast(result.error || '移动失败')
+    }
+  } finally {
+    moveCategorySaving.value = false
+  }
 }
 
 const handleConfirmCreateCategory = async ({ name, parentId }) => {
