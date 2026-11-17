@@ -264,46 +264,8 @@ const LINK_HEALTH_CONCURRENCY = 5
 const LINK_HEALTH_TIMEOUT = 8000
 const LINK_HEALTH_MAX_URLS = 40
 
-// 只允许公网主机：网页可以把 postMessage 发给扩展，若不拦内网地址，
-// 任意网页都能借扩展当端口扫描器（127.0.0.1 / 192.168.x / 169.254.169.254 等）
-function isBlockedHost(hostname) {
-  const host = String(hostname || '').toLowerCase()
-  if (!host) return true
-  if (host === 'localhost' || host.endsWith('.localhost')) return true
-  if (host.endsWith('.local') || host.endsWith('.internal') || host.endsWith('.home.arpa')) return true
-  if (host === '0.0.0.0') return true
-
-  const v4 = host.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/)
-  if (v4) {
-    const a = Number(v4[1])
-    const b = Number(v4[2])
-    if (a === 0 || a === 10 || a === 127) return true
-    if (a === 169 && b === 254) return true
-    if (a === 172 && b >= 16 && b <= 31) return true
-    if (a === 192 && b === 168) return true
-    if (a === 100 && b >= 64 && b <= 127) return true
-    if (a >= 224) return true
-  }
-
-  if (host.startsWith('[')) {
-    const v6 = host.slice(1, -1)
-    if (v6 === '::' || v6 === '::1') return true
-    if (v6.startsWith('fc') || v6.startsWith('fd') || v6.startsWith('fe80')) return true
-  }
-
-  return false
-}
-
-function normalizeCheckUrl(raw) {
-  try {
-    const u = new URL(String(raw || ''))
-    if (u.protocol !== 'http:' && u.protocol !== 'https:') return ''
-    if (isBlockedHost(u.hostname)) return ''
-    return u.href
-  } catch {
-    return ''
-  }
-}
+// 内网/环回地址过滤在 shared.js 里（可单测），manifest 已保证 shared.js 先加载
+const normalizeCheckUrl = (raw) => BMExt.normalizeCheckUrl(raw);
 
 async function probeOne(url) {
   const controller = new AbortController()

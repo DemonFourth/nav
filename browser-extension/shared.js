@@ -120,6 +120,56 @@
   const DEAD_FAST_FAIL_MS = 3000
 
   /**
+   * 只允许公网主机。content script 对任意页面开放，若不过滤内网地址，
+   * 任何网页都能借扩展探测 127.0.0.1 / 192.168.x / 169.254.169.254。
+   * @param {string} hostname
+   * @returns {boolean}
+   */
+  function isBlockedHost(hostname) {
+    const host = String(hostname || '').toLowerCase()
+    if (!host) return true
+    if (host === 'localhost' || host.endsWith('.localhost')) return true
+    if (host.endsWith('.local') || host.endsWith('.internal') || host.endsWith('.home.arpa')) return true
+    if (host === '0.0.0.0') return true
+
+    const v4 = host.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/)
+    if (v4) {
+      const a = Number(v4[1])
+      const b = Number(v4[2])
+      if (a === 0 || a === 10 || a === 127) return true
+      if (a === 169 && b === 254) return true
+      if (a === 172 && b >= 16 && b <= 31) return true
+      if (a === 192 && b === 168) return true
+      if (a === 100 && b >= 64 && b <= 127) return true
+      if (a >= 224) return true
+    }
+
+    if (host.startsWith('[')) {
+      const v6 = host.slice(1, -1)
+      if (v6 === '::' || v6 === '::1') return true
+      if (v6.startsWith('fc') || v6.startsWith('fd') || v6.startsWith('fe80')) return true
+    }
+
+    return false
+  }
+
+  /**
+   * 把书签 URL 归一化成可探测的地址；非 http(s) 或内网地址返回空字符串。
+   * @param {string} raw
+   * @returns {string}
+   */
+  function normalizeCheckUrl(raw) {
+    try {
+      const u = new URL(String(raw || ''))
+      if (u.protocol !== 'http:' && u.protocol !== 'https:') return ''
+      if (isBlockedHost(u.hostname)) return ''
+      return u.href
+    } catch (e) {
+      return ''
+    }
+  }
+
+  /**
    * 把一次链接探测的结果归成三态。
    * 只有 404/410 算「已失效」，其余一律「待确认」，避免误删书签。
    * @param {{ status?: number|null, error?: string|null, timedOut?: boolean, durationMs?: number }} input
@@ -157,6 +207,8 @@
     formatRelativeTime,
     buildDuplicateHint,
     LINK_STATES,
-    classifyLinkResult
+    classifyLinkResult,
+    isBlockedHost,
+    normalizeCheckUrl
   }
 })(typeof globalThis !== 'undefined' ? globalThis : self)

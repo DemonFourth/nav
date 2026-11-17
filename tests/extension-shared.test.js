@@ -108,3 +108,35 @@ test('classifyLinkResult buckets network failures as unsure', () => {
   assert.deepEqual(c({ error: 'Failed to fetch', durationMs: 9000 }), { state: 'unsure', reason: '请求失败' })
   assert.deepEqual(c({ timedOut: true }), { state: 'unsure', reason: '超时' })
 })
+
+test('normalizeCheckUrl allows public hosts and rejects internal ones', () => {
+  const n = B.normalizeCheckUrl
+  assert.equal(n('https://example.com/a'), 'https://example.com/a')
+  assert.equal(n('http://example.com'), 'http://example.com/')
+  assert.equal(n('ftp://example.com'), '')
+  assert.equal(n('not a url'), '')
+  assert.equal(n(''), '')
+
+  for (const blocked of [
+    'http://localhost:3000/',
+    'http://foo.localhost/',
+    'http://printer.local/',
+    'http://metadata.internal/',
+    'http://0.0.0.0/',
+    'http://127.0.0.1:8787/',
+    'http://10.0.0.5/',
+    'http://172.16.0.1/',
+    'http://172.31.255.255/',
+    'http://192.168.1.1/',
+    'http://169.254.169.254/latest/meta-data/',
+    'http://100.64.0.1/',
+    'http://[::1]/',
+    'http://[fd00::1]/',
+    'http://[fe80::1]/'
+  ]) {
+    assert.equal(n(blocked), '', blocked)
+  }
+
+  assert.equal(n('http://172.32.0.1/'), 'http://172.32.0.1/')
+  assert.equal(n('http://8.8.8.8/'), 'http://8.8.8.8/')
+})
