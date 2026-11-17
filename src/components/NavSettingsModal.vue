@@ -1205,7 +1205,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, watch, nextTick, onMounted, onUnmounted } from 'vue'
+import { ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue'
 import { useSettings } from '@/composables/useSettings'
 import { getIconUrl, handleIconError } from '@/composables/useIcon'
 import { useIncrementalRender } from '@/composables/useIncrementalRender'
@@ -1435,10 +1435,6 @@ const categoryOptions = computed(() => {
   }))
 })
 
-// Sortable category state
-const dragId = ref(null)
-const categoryOrder = ref([])
-
 const tabs = [
   {
     id: 'appearance', name: '外观',
@@ -1554,59 +1550,6 @@ const versionInfo = computed(() => {
   const stored = localStorage.getItem('version')
   return stored || '1.0.0'
 })
-
-const sortedCategories = computed(() => {
-  if (categoryOrder.value.length > 0) {
-    const ordered = categoryOrder.value.map(id => categories.value.find(c => c.id === id)).filter(Boolean)
-    const remaining = categories.value.filter(c => !categoryOrder.value.includes(c.id))
-    return [...ordered, ...remaining]
-  }
-  return categories.value
-})
-
-const onListDragStart = (id) => {
-  dragId.value = id
-}
-
-const onListDragOver = (id) => {
-  if (dragId.value === null || dragId.value === id) return
-  const list = sortedCategories.value
-  const fromIdx = list.findIndex(c => c.id === dragId.value)
-  const toIdx = list.findIndex(c => c.id === id)
-  if (fromIdx === -1 || toIdx === -1) return
-
-  const newOrder = list.map(c => c.id)
-  const [moved] = newOrder.splice(fromIdx, 1)
-  newOrder.splice(toIdx, 0, moved)
-  categoryOrder.value = newOrder
-}
-
-const onListDragEnd = () => {
-  dragId.value = null
-}
-
-const onListDrop = (targetId) => {
-  if (dragId.value === null || dragId.value === targetId) return
-  const list = sortedCategories.value
-  const fromIdx = list.findIndex(c => c.id === dragId.value)
-  const toIdx = list.findIndex(c => c.id === targetId)
-  if (fromIdx === -1 || toIdx === -1) return
-
-  const newOrder = list.map(c => c.id)
-  const [moved] = newOrder.splice(fromIdx, 1)
-  newOrder.splice(toIdx, 0, moved)
-  categoryOrder.value = newOrder
-}
-
-const moveCategory = (index, direction) => {
-  const list = sortedCategories.value
-  const newIndex = index + direction
-  if (newIndex < 0 || newIndex >= list.length) return
-  const newOrder = list.map(c => c.id)
-  const [moved] = newOrder.splice(index, 1)
-  newOrder.splice(newIndex, 0, moved)
-  categoryOrder.value = newOrder
-}
 
 // Bookmark tab computed
 // 收集选中分类及其所有后代分类的 ID（用于筛选书签）
