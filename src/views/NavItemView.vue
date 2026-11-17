@@ -175,6 +175,7 @@ import { useSettings } from '../composables/useSettings'
 import { useAuth } from '../composables/useAuth'
 import { useToast } from '../composables/useToast'
 import { useAuthGuard } from '../composables/useAuthGuard'
+import { useLinkHealth } from '../composables/useLinkHealth'
 import { buildCategoryTree } from '../utils/categoryTree'
 import { buildTagStats, countBookmarksWithTags, buildTagGroups, buildCategoryGroups, toggleTagSelection, pruneMissingTags } from '../utils/tagBrowse.js'
 
@@ -183,6 +184,7 @@ const { isAuthenticated, logout } = useAuth()
 const { customTitle, navWallpaper, showSearch, hideEmptyCategories, randomWallpaper, wallpaperApi, applyWallpaper, publicMode, footerContent } = useSettings()
 const { success: toastSuccess, error: errorToast, loading: toastLoading, update: toastUpdate } = useToast()
 const { requireAuth } = useAuthGuard()
+const { checkBookmarks: checkLinkHealth } = useLinkHealth()
 
 // 非公开模式且未登录：用锁屏引导替代浏览区域
 const needsLogin = computed(() => !publicMode.value && !isAuthenticated.value)
@@ -371,6 +373,17 @@ const currentBookmarks = computed(() => {
     .filter(b => b.category_id === categoryId)
     .sort((a, b) => a.position - b.position)
 })
+
+// 列表变化（根分类/子菜单/标签筛选/站内搜索）后补检缺失或过期的链接。
+// 只挑没检测过或超过 24h 的 URL，滚动不触发。
+watch(
+  currentBookmarks,
+  (list) => {
+    if (!list || list.length === 0) return
+    checkLinkHealth(list)
+  },
+  { immediate: true }
+)
 
 const gridEmptyText = computed(() => {
   if (searchResults.value) {
