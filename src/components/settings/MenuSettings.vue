@@ -75,6 +75,15 @@
       @confirm="handleConfirmCreate"
     />
 
+    <MoveCategoryDialog
+      :show="!!moveTarget"
+      :category="moveTarget"
+      :categories="categories"
+      :saving="moveSaving"
+      @close="closeMoveDialog"
+      @confirm="handleMoveConfirm"
+    />
+
     <ConfirmDialog ref="confirmDialog" />
   </div>
 </template>
@@ -85,14 +94,17 @@ import { useBookmarks } from '@/composables/useBookmarks'
 import { useAuth } from '@/composables/useAuth'
 import { useAuthGuard } from '@/composables/useAuthGuard'
 import { useToast } from '@/composables/useToast'
-import { buildCategoryTree } from '@/utils/categoryTree.js'
+import { buildCategoryTree, getDescendantIds } from '@/utils/categoryTree.js'
 import { buildCategoryBookmarkCounts } from '@/utils/categoryCounts.js'
 import { debounce } from '@/utils/helpers'
 import MenuCategoryRow from '@/components/settings/MenuCategoryRow.vue'
 import CategoryCreateDialog from '@/components/CategoryCreateDialog.vue'
+import MoveCategoryDialog from '@/components/MoveCategoryDialog.vue'
 import ConfirmDialog from '@/components/ConfirmDialog.vue'
 
-const { categories, bookmarks, addCategory, updateCategory } = useBookmarks()
+const emit = defineEmits(['migrate-bookmarks'])
+
+const { categories, bookmarks, addCategory, updateCategory, deleteCategory } = useBookmarks()
 const { isAuthenticated } = useAuth()
 const { requireAuth } = useAuthGuard()
 const { success: toastSuccess, error: toastError } = useToast()
@@ -276,6 +288,90 @@ const handleConfirmCreate = async ({ name, parentId }) => {
 }
 
 /* ===== 行操作 ===== */
+const moveTarget = ref(null)
+const moveSaving = ref(false)
+
+const openMoveDialog = (node) => {
+  if (!requireAuth()) return
+  moveTarget.value = categories.value.find(c => c.id === node.id) || node
+}
+
+const closeMoveDialog = () => {
+  if (moveSaving.value) return
+  moveTarget.value = null
+}
+
+const handleMoveConfirm = async ({ parentId }) => {
+  const category = moveTarget.value
+  if (!category || moveSaving.value) return
+  if (!requireAuth()) return
+  if (parentId === (category.parent_id ?? null)) {
+    moveTarget.value = null
+    return
+  }
+
+  moveSaving.value = true
+  try {
+    const result = await updateCategory(category.id, category.name, parentId)
+    if (result.success) {
+      const parent = parentId == null ? null : categories.value.find(c => c.id === parentId)
+      toastSuccess(parent ? `已移动到「${parent.name}」下` : '已移动到根分类')
+      moveTarget.value = null
+    } else {
+      toastError(result.error || '移动失败')
+    }
+  } finally {
+    moveSaving.value = false
+  }
+}
+
+const handleDeleteCategory = async (node) => {
+  if (!requireAuth()) return
+  const category = categories.value.find(c => c.id === node.id)
+  if (!category) return
+
+  const { map } = buildCategoryTree(categories.value)
+  const descendantCount = getDescendantIds(category.id, map).length
+  let message = `确定要删除"${category.name}"吗？`
+  if (descendantCount > 0) {
+    message += `\n此分类下有 ${descendantCount} 个子分类，它们也会被一并删除。此操作不可恢复。`
+  }
+
+  const confirmed = await confirmDialog.value?.open(message, '删除分类')
+  if (!confirmed) return
+
+  const result = await deleteCategory(category.id)
+  if (result.success) {
+    toastSuccess('分类已删除')
+    return
+  }
+
+  if (result.needsDecision) {
+    const choice = await confirmDialog.value?.openWithChoices(
+      `分类"${category.name}"下有 ${result.bookmarkCount} 个书签，如何处理？`,
+      '删除分类',
+      [
+        { text: '取消', value: null },
+        { text: '查看并迁移书签', value: 'migrate' },
+        { text: '连同书签一起删除', value: 'cascade', primary: true }
+      ]
+    )
+    if (choice === 'cascade') {
+      const cascadeResult = await deleteCategory(category.id, { cascade: 'true' })
+      if (cascadeResult.success) {
+        toastSuccess(`分类已删除，${cascadeResult.deletedBookmarks ?? result.bookmarkCount} 个书签已一并删除`)
+      } else {
+        toastError(cascadeResult.error || '删除失败')
+      }
+    } else if (choice === 'migrate') {
+      emit('migrate-bookmarks', { id: category.id, name: category.name })
+    }
+    return
+  }
+
+  toastError(result.error || '删除失败')
+}
+
 const handleAction = ({ action, node }) => {
   if (action === 'rename') {
     editing.value = { id: node.id, field: 'name' }
@@ -283,6 +379,10 @@ const handleAction = ({ action, node }) => {
     editing.value = { id: node.id, field: 'description' }
   } else if (action === 'create-child') {
     openCreate(node.id)
+  } else if (action === 'move') {
+    openMoveDialog(node)
+  } else if (action === 'delete') {
+    handleDeleteCategory(node)
   }
 }
 

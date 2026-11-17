@@ -594,7 +594,7 @@
 
             <!-- Menu -->
             <div v-show="activeTab === 'menu'" class="tab-panel menu-tab">
-              <MenuSettings />
+              <MenuSettings @migrate-bookmarks="handleMigrateCategoryBookmarks" />
             </div>
 
             <!-- Bookmark Tab -->
@@ -2273,6 +2273,12 @@ const handleMoveItem = (node, direction) => {
     moveChildItem(parentId, node.id, direction)
   }
 }
+const handleMigrateCategoryBookmarks = ({ id, name }) => {
+  bookmarkCategoryFilter.value = id
+  activeTab.value = 'bookmark'
+  toastSuccess(`已切换到书签管理，可迁移或删除"${name}"分类及其子分类下的书签`)
+}
+
 const handleDeleteCategory = async () => {
   if (!requireAuth()) return
   const cat = selectedCategoryData.value
