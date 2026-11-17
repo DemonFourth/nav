@@ -177,6 +177,7 @@ import { useToast } from '../composables/useToast'
 import { useAuthGuard } from '../composables/useAuthGuard'
 import { useLinkHealth } from '../composables/useLinkHealth'
 import { buildCategoryTree } from '../utils/categoryTree'
+import { buildCategoryBookmarkCounts } from '../utils/categoryCounts'
 import { buildTagStats, countBookmarksWithTags, buildTagGroups, buildCategoryGroups, toggleTagSelection, pruneMissingTags } from '../utils/tagBrowse.js'
 
 const { categories, bookmarks, fetchData, searchTags, updateBookmark, addBookmark, deleteBookmark, addCategory, allTags, getEmptyCategories, cleanupEmptyCategories, reorderItems, dataSource, refreshState } = useBookmarks()
@@ -243,24 +244,9 @@ const backgroundStyle = computed(() => {
 })
 
 // 每个分类的书签数（含所有子孙分类），菜单计数与空分类过滤共用
-const categoryCountMap = computed(() => {
-  const { tree } = buildCategoryTree(categories.value)
-  const directCounts = new Map()
-  for (const bookmark of bookmarks.value) {
-    if (bookmark.category_id == null) continue
-    const key = Number(bookmark.category_id)
-    directCounts.set(key, (directCounts.get(key) || 0) + 1)
-  }
-
-  const counts = {}
-  const walk = (nodes) => nodes.reduce((sum, node) => {
-    const total = (directCounts.get(Number(node.id)) || 0) + walk(node.children || [])
-    counts[node.id] = total
-    return sum + total
-  }, 0)
-  walk(tree)
-  return counts
-})
+const categoryCountMap = computed(() =>
+  buildCategoryBookmarkCounts(categories.value, bookmarks.value)
+)
 
 const menuTree = computed(() => {
   const { tree } = buildCategoryTree(categories.value)
