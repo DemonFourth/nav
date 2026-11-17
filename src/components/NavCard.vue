@@ -54,7 +54,16 @@
           {{ expanded ? '收起' : `+${remainingCount}` }}
         </span>
       </div>
-      <div class="nav-card-url">{{ bookmark.url }}</div>
+      <div class="nav-card-url">
+        <span
+          v-if="linkMeta.label"
+          class="link-health-dot"
+          :style="{ background: linkMeta.color }"
+          aria-hidden="true"
+        ></span>
+        <span v-else class="link-health-dot link-health-dot-empty" aria-hidden="true"></span>
+        <span class="nav-card-url-text">{{ bookmark.url }}</span>
+      </div>
       <div v-if="bookmark.notes && bookmark.notes.trim()" class="nav-card-notes">
         {{ bookmark.notes }}
       </div>
@@ -103,6 +112,8 @@
 <script setup>
 import { ref, computed, onMounted, onUpdated, nextTick } from 'vue'
 import { getIconUrl, handleIconError } from '../composables/useIcon'
+import { useLinkHealth } from '../composables/useLinkHealth'
+import { linkStateMeta, formatCheckedAt } from '../utils/linkHealth'
 import LazyIcon from './LazyIcon.vue'
 
 const props = defineProps({
@@ -140,7 +151,14 @@ const descRef = ref(null)
 const isTitleTruncated = ref(false)
 const isDescTruncated = ref(false)
 
-const shouldShowTitle = computed(() => isTitleTruncated.value || isDescTruncated.value)
+// 死链检测状态（结果由浏览器扩展写入 localStorage，这里只读缓存）
+const { stateOf, reasonOf, checkedAtOf } = useLinkHealth()
+const reasonText = computed(() => reasonOf(props.bookmark.url) || '')
+const linkMeta = computed(() => linkStateMeta(stateOf(props.bookmark.url)))
+
+const shouldShowTitle = computed(
+  () => isTitleTruncated.value || isDescTruncated.value || !!linkMeta.value.label
+)
 
 function checkTruncation() {
   nextTick(() => {
@@ -183,6 +201,12 @@ const hoverTitle = computed(() => {
   if (props.bookmark.description) parts.push(`描述：${props.bookmark.description}`)
   if (props.bookmark.tags && props.bookmark.tags.trim()) parts.push(`标签：${props.bookmark.tags}`)
   if (props.bookmark.notes && props.bookmark.notes.trim()) parts.push(`备注：${props.bookmark.notes}`)
+  if (linkMeta.value.label) {
+    const when = formatCheckedAt(checkedAtOf(props.bookmark.url))
+    parts.push(
+      `状态：${linkMeta.value.label}${reasonText.value ? ' · ' + reasonText.value : ''}${when ? ' · 检测于 ' + when : ''}`
+    )
+  }
   return parts.join('\n')
 })
 
@@ -451,9 +475,30 @@ const handleDrop = (e) => {
 .nav-card-url {
   font-size: 12px;
   color: var(--nav-text-secondary);
-  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.nav-card-url-text {
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 死链检测圆点：位置固定，未检测时用同尺寸透明占位保证 URL 不抖动 */
+.link-health-dot {
+  flex-shrink: 0;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.link-health-dot-empty {
+  background: transparent;
 }
 
 .nav-card-notes {
