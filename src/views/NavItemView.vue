@@ -24,7 +24,7 @@
         ref="navSearchRef"
         :bookmarks="allBookmarks"
         @search-results="handleSearchResults"
-        @clear-results="clearSearchResults"
+        @clear-results="handleClearResults"
       />
     </div>
 
@@ -464,20 +464,27 @@ watch(menuTree, (newMenus) => {
   }
 })
 
+// 列表整体更换（切菜单 / 站内搜索 / 标签筛选）时回到顶部；否则浏览器会沿用上一次的滚动位置
+// 用 instant 覆盖全局 html { scroll-behavior: smooth }，避免旧列表在滚动动画期间仍然可见
+const resetScrollToTop = () => {
+  window.scrollTo({ top: 0, behavior: 'instant' })
+}
+
 const clearSearchResults = () => {
   searchResults.value = null
   searchQueryText.value = ''
   activeTags.value = []
 }
 
-const clearSearchFromSummary = () => {
-  navSearchRef.value?.clearSearch()
+// 用户主动清空搜索（搜索框 X / 「清除搜索」）也要回顶部；
+// 菜单切换内部调用 clearSearchResults 时由各自的 handler 重置，避免重复滚动
+const handleClearResults = () => {
+  clearSearchResults()
+  resetScrollToTop()
 }
 
-// 切换菜单后列表整体更换，必须回到顶部；否则浏览器会沿用上一个菜单的滚动位置
-// 用 instant 覆盖全局 html { scroll-behavior: smooth }，避免旧列表在滚动动画期间仍然可见
-const resetScrollToTop = () => {
-  window.scrollTo({ top: 0, behavior: 'instant' })
+const clearSearchFromSummary = () => {
+  navSearchRef.value?.clearSearch()
 }
 
 const handleSelectMenu = (menu) => {
@@ -501,6 +508,7 @@ const handleSearchResults = (results, query = '') => {
   searchQueryText.value = query
   activeTags.value = []
   animationKey.value++
+  resetScrollToTop()
 }
 
 const handleTagClick = (name) => {
@@ -511,16 +519,19 @@ const handleTagClick = (name) => {
   activeTags.value = next
   searchResults.value = null
   animationKey.value++
+  resetScrollToTop()
 }
 
 const removeTag = (name) => {
   activeTags.value = toggleTagSelection(activeTags.value, name)
   animationKey.value++
+  resetScrollToTop()
 }
 
 const clearTagFilter = () => {
   activeTags.value = []
   animationKey.value++
+  resetScrollToTop()
 }
 
 const findCategoryInMenu = (id, nodes, root = null, trail = []) => {
@@ -545,7 +556,7 @@ const handleGroupClick = (group) => {
   activeSubMenu.value = found.root === found.node ? null : found.node
   clearSearchResults()
   animationKey.value++
-  window.scrollTo({ top: 0, behavior: 'smooth' })
+  resetScrollToTop()
 }
 
 // 标签在当前数据中消失（他端删除）时自动移除该标签，其余选择保留
