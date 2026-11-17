@@ -56,6 +56,16 @@ function showTooltip(el, text) {
   positionTooltip(pointerX, pointerY)
 }
 
+// 记录最近的带 tooltip 祖先（如卡片内按钮 → 卡片本体），用于移回祖先时恢复显示
+function findTooltipAncestor(el) {
+  let node = el.parentElement
+  while (node) {
+    if (node.__vTooltipText) return node
+    node = node.parentElement
+  }
+  return null
+}
+
 function hideTooltip() {
   if (tooltipEl) tooltipEl.classList.remove('visible')
 }
@@ -64,6 +74,7 @@ const onMouseEnter = (event) => {
   const el = event.currentTarget
   const text = el.__vTooltipText
   if (!text) return
+  el.__vTooltipAncestor = findTooltipAncestor(el)
   activeEl = el
   pointerX = event.clientX
   pointerY = event.clientY
@@ -87,15 +98,26 @@ const onMouseMove = (event) => {
   })
 }
 
-const onMouseLeave = () => {
+const onMouseLeave = (event) => {
   clearTimeout(showTimeout)
   if (followRaf) {
     cancelAnimationFrame(followRaf)
     followRaf = null
   }
   if (!activeEl) return
+  const el = event.currentTarget
+  const ancestor = el.__vTooltipAncestor
+  const toEl = event.relatedTarget
   hideTimeout = setTimeout(hideTooltip, 100)
   activeEl = null
+  // 从子元素（如卡片内按钮）移回带 tooltip 的祖先时，稍后恢复祖先的 tooltip
+  if (ancestor && toEl && ancestor.contains(toEl) && ancestor.__vTooltipText) {
+    activeEl = ancestor
+    showTimeout = setTimeout(() => {
+      if (activeEl !== ancestor) return
+      showTooltip(ancestor, ancestor.__vTooltipText)
+    }, SHOW_DELAY)
+  }
 }
 
 const onScroll = () => {
@@ -128,6 +150,7 @@ export const tooltipDirective = {
     el.removeEventListener('mousemove', onMouseMove)
     el.removeEventListener('mouseleave', onMouseLeave)
     delete el.__vTooltipText
+    delete el.__vTooltipAncestor
     if (activeEl === el) {
       clearTimeout(showTimeout)
       if (followRaf) {

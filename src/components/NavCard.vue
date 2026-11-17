@@ -1,5 +1,6 @@
 <template>
   <div 
+    ref="cardRef"
     class="nav-card-horizontal"
     :class="{
       'reorderable': reorderable,
@@ -63,9 +64,9 @@
           :aria-label="'链接状态：' + linkMeta.label"
         ></span>
         <span v-else class="link-health-dot link-health-dot-empty" aria-hidden="true"></span>
-        <span class="nav-card-url-text">{{ bookmark.url }}</span>
+        <span ref="urlRef" class="nav-card-url-text">{{ bookmark.url }}</span>
       </div>
-      <div v-if="bookmark.notes && bookmark.notes.trim()" class="nav-card-notes">
+      <div v-if="bookmark.notes && bookmark.notes.trim()" ref="notesRef" class="nav-card-notes">
         {{ bookmark.notes }}
       </div>
     </div>
@@ -111,7 +112,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUpdated, nextTick } from 'vue'
+import { ref, computed, onMounted, onUpdated, onUnmounted, nextTick } from 'vue'
 import { getIconUrl, handleIconError } from '../composables/useIcon'
 import { useLinkHealth } from '../composables/useLinkHealth'
 import { linkStateMeta, formatCheckedAt } from '../utils/linkHealth'
@@ -147,10 +148,16 @@ let dragPreviewEl = null
 const expanded = ref(false)
 const MAX_VISIBLE_TAGS = 6
 
+const cardRef = ref(null)
 const titleRef = ref(null)
 const descRef = ref(null)
+const urlRef = ref(null)
+const notesRef = ref(null)
 const isTitleTruncated = ref(false)
 const isDescTruncated = ref(false)
+const isUrlTruncated = ref(false)
+const isNotesTruncated = ref(false)
+let resizeObserver = null
 
 // 死链检测状态（结果由浏览器扩展写入 localStorage，这里只读缓存）
 const { hasExtension, checksEnabled, stateOf, reasonOf, checkedAtOf } = useLinkHealth()
@@ -163,21 +170,44 @@ const reasonText = computed(() => (linkState.value ? reasonOf(props.bookmark.url
 const linkMeta = computed(() => linkStateMeta(linkState.value))
 
 // 状态正常时绿点自解释，不额外弹 tooltip；异常状态才并入卡片 tooltip 说明原因
+// 任一文本被截断（标题/描述/URL/备注）或状态异常时显示，保证用户能看到被省略的完整内容
 const shouldShowTitle = computed(
-  () => isTitleTruncated.value || isDescTruncated.value || (!!linkState.value && linkState.value !== 'ok')
+  () =>
+    isTitleTruncated.value ||
+    isDescTruncated.value ||
+    isUrlTruncated.value ||
+    isNotesTruncated.value ||
+    (!!linkState.value && linkState.value !== 'ok')
 )
 
 function checkTruncation() {
   nextTick(() => {
     const titleEl = titleRef.value
     const descEl = descRef.value
+    const urlEl = urlRef.value
+    const notesEl = notesRef.value
     isTitleTruncated.value = titleEl ? titleEl.scrollWidth > titleEl.clientWidth : false
     isDescTruncated.value = descEl ? descEl.scrollHeight > descEl.clientHeight : false
+    isUrlTruncated.value = urlEl ? urlEl.scrollWidth > urlEl.clientWidth : false
+    isNotesTruncated.value = notesEl ? notesEl.scrollWidth > notesEl.clientWidth : false
   })
 }
 
-onMounted(checkTruncation)
+onMounted(() => {
+  checkTruncation()
+  // 卡片宽度随窗口/列数变化时重算截断，避免“变窄后仍不弹 tooltip”
+  if (window.ResizeObserver && cardRef.value) {
+    resizeObserver = new ResizeObserver(checkTruncation)
+    resizeObserver.observe(cardRef.value)
+  }
+})
 onUpdated(checkTruncation)
+onUnmounted(() => {
+  if (resizeObserver) {
+    resizeObserver.disconnect()
+    resizeObserver = null
+  }
+})
 
 // 标签相关
 const parsedTags = computed(() => {
