@@ -1186,101 +1186,9 @@
               </div>
             </div>
           </main>
-
-          <!-- Pending Bar -->
-          <div class="pending-bar" :class="{ visible: hasPendingChanges() }">
-            <div class="pending-bar-left">
-              <button class="pending-count-btn" @click="showSaveDialog = true">
-                {{ getPendingChangeCount() }} 项更改
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12"><path d="M6 9l6 6 6-6"/></svg>
-              </button>
-              <span class="pending-detail-link" @click="showSaveDialog = true">查看详情</span>
-            </div>
-            <div class="pending-bar-right">
-              <button class="btn-discard" @click="handleDiscardAll">放弃</button>
-            </div>
-          </div>
         </div>
       </div>
     </Transition>
-
-    <!-- Dialog: Add Category -->
-    <BaseDialog :show="showAddDialog" title="新增分类" @close="showAddDialog = false">
-      <div class="form-group-menu">
-        <label>分类名称</label>
-        <input
-          ref="newCategoryNameInput"
-          v-model="newCategoryName"
-          type="text"
-          class="setting-input"
-          placeholder="输入分类名称"
-          @keyup.enter="handleConfirmAdd"
-        />
-      </div>
-      <div class="form-group-menu">
-        <label>父分类</label>
-        <div class="custom-select" :class="{ open: catSelectOpen }">
-          <div class="select-trigger" @click="toggleCatSelect">
-            <span class="select-value" :class="{ placeholder: !selectedCatParentName }">{{ selectedCatParentName || '作为根分类' }}</span>
-            <svg class="select-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M6 9l6 6 6-6"/>
-            </svg>
-          </div>
-          <Teleport to="body">
-            <div v-if="catSelectOpen" class="select-dropdown-fixed" :style="catDropdownStyle" @click.stop @mousedown.stop>
-              <input
-                v-model="catSelectSearch"
-                type="text"
-                class="select-search"
-                placeholder="搜索分类..."
-                @click.stop
-                ref="catSelectSearchInput"
-              />
-              <div class="select-options">
-                <div
-                  class="select-option"
-                  :class="{ selected: newCategoryParentId === null }"
-                  @click="selectCatParent(null)"
-                >作为根分类</div>
-                <div
-                  v-for="cat in filteredCatOptions"
-                  :key="cat.id"
-                  class="select-option"
-                  :class="{ selected: cat.id === newCategoryParentId }"
-                  @click="selectCatParent(cat.id)"
-                >{{ cat.displayName }}</div>
-                <div v-if="filteredCatOptions.length === 0 && catSelectSearch" class="select-no-results">未找到分类</div>
-              </div>
-            </div>
-          </Teleport>
-        </div>
-      </div>
-      <template #footer>
-        <button class="btn-secondary-sm" @click="showAddDialog = false">取消</button>
-        <button class="btn-primary-sm" :disabled="!newCategoryName.trim() || categorySaving" @click="handleConfirmAdd">
-          {{ categorySaving ? '创建中...' : '创建' }}
-        </button>
-      </template>
-    </BaseDialog>
-
-    <!-- Dialog: Save Confirmation -->
-    <BaseDialog :show="showSaveDialog" title="确认保存" max-width="520px" @close="showSaveDialog = false">
-      <p class="save-summary">共 {{ getPendingChangeCount() }} 项更改：</p>
-      <ul class="change-list">
-        <li
-          v-for="(change, idx) in pendingChanges"
-          :key="idx"
-          :class="['change-item', `change-${change.type}`]"
-        >
-          <span class="change-type">{{ getChangeTypeLabel(change.type) }}</span>
-          <span class="change-desc">{{ getChangeDescription(change) }}</span>
-        </li>
-      </ul>
-      <template #footer>
-        <button class="btn-secondary-sm" @click="showSaveDialog = false">取消</button>
-        <button class="btn-primary-sm" @click="handleConfirmSave">确认保存</button>
-      </template>
-    </BaseDialog>
 
     <!-- Bookmark Add/Edit Dialog -->
     <NavBookmarkEditModal
@@ -1308,7 +1216,6 @@ import { useAI } from '@/composables/useAI'
 import { useSearchEngines } from '@/composables/useSearchEngines'
 import { useToast } from '@/composables/useToast'
 import { useAuthGuard } from '@/composables/useAuthGuard'
-import { useCategoryEditor } from '@/composables/useCategoryEditor'
 import { useLinkHealth } from '@/composables/useLinkHealth'
 import { formatCheckedAt } from '@/utils/linkHealth'
 import { buildCategoryTree, getCategoryPath } from '@/utils/categoryTree'
@@ -1357,44 +1264,10 @@ const {
 } = useSearchEngines()
 
 // Category editor (uses useBookmarks internally)
-const {
-  categories,
-  categoryTree,
-  categoryFlatList,
-  selectedCategoryId,
-  selectedCategory: selectedCategoryData,
-  expandedCategoryIds,
-  editForm: editCategoryForm,
-  availableParentCategories,
-  toggleExpand,
-  selectCategory,
-  moveChildItem,
-  dragState,
-  dragHintText,
-  onDragStart,
-  onDragEnd,
-  onDragOver,
-  onDrop,
-  // Pending system
-  pendingChanges,
-  initialDataSnapshot,
-  captureInitialSnapshot,
-  applyFormChanges,
-  recordCategoryDetailChange,
-  confirmDelete,
-  confirmAddCategory,
-  confirmSave,
-  discardAll,
-  getChangeDescription,
-  getChangeTypeLabel,
-  getPendingChangeCount,
-  hasPendingChanges,
-  getPath,
-  findItem,
-  moveRootItem,
-} = useCategoryEditor()
+const { categories, bookmarks, fetchData, deleteBookmark, batchOperation, addBookmark, updateBookmark, allTags } = useBookmarks()
 
-const { bookmarks, fetchData, deleteBookmark, batchOperation, addBookmark, updateBookmark, allTags } = useBookmarks()
+const categoryFlatList = computed(() => buildCategoryTree(categories.value).flatList)
+
 const { success: toastSuccess, error: toastError } = useToast()
 const { requireAuth } = useAuthGuard()
 
@@ -1482,64 +1355,6 @@ const runDiagnose = async () => {
   } finally {
     diagDiagnosing.value = false
   }
-}
-
-// Dialog state
-const showAddDialog = ref(false)
-const showSaveDialog = ref(false)
-const newCategoryName = ref('')
-const newCategoryParentId = ref(null)
-const newCategoryNameInput = ref(null)
-const categorySaving = ref(false)
-const catSelectOpen = ref(false)
-const catSelectSearch = ref('')
-const catSelectSearchInput = ref(null)
-const catDropdownRect = reactive({ top: 0, left: 0, width: 0 })
-
-const catDropdownStyle = computed(() => (
-  `top: ${catDropdownRect.top}px; left: ${catDropdownRect.left}px; min-width: ${catDropdownRect.width}px;`
-))
-
-const toggleCatSelect = (e) => {
-  const rect = e.currentTarget.getBoundingClientRect()
-  catDropdownRect.top = rect.bottom + 4
-  catDropdownRect.left = rect.left
-  catDropdownRect.width = rect.width
-  catSelectOpen.value = !catSelectOpen.value
-}
-
-const filteredCatOptions = computed(() => {
-  if (!catSelectSearch.value) return categoryFlatList.value
-  const q = catSelectSearch.value.toLowerCase()
-  return categoryFlatList.value.filter(cat =>
-    (cat.displayName || cat.name || '').toLowerCase().includes(q)
-  )
-})
-
-const selectedCatParentName = computed(() => {
-  if (newCategoryParentId.value === null) return ''
-  const cat = categoryFlatList.value.find(c => c.id === newCategoryParentId.value)
-  return cat?.displayName || cat?.name || ''
-})
-
-const selectCatParent = (id) => {
-  newCategoryParentId.value = id
-  catSelectOpen.value = false
-  catSelectSearch.value = ''
-}
-
-watch(catSelectOpen, (val) => {
-  if (val) {
-    nextTick(() => catSelectSearchInput.value?.focus())
-    document.addEventListener('mousedown', closeCatSelect)
-  } else {
-    document.removeEventListener('mousedown', closeCatSelect)
-  }
-})
-
-const closeCatSelect = () => {
-  catSelectOpen.value = false
-  catSelectSearch.value = ''
 }
 
 // Bookmark tab state
@@ -1711,18 +1526,6 @@ const checkEmptyCategories = () => {
 
 watch([() => categories.value, () => bookmarks.value], () => {
   checkEmptyCategories()
-  // Auto capture initial snapshot when data loads and snapshot is empty
-  if (categories.value.length > 0 && initialDataSnapshot.value.length === 0) {
-    captureInitialSnapshot()
-  }
-  // Auto expand root categories to show second level
-  if (categories.value.length > 0 && expandedCategoryIds.value.length === 0) {
-    categoryTree.value.forEach(cat => {
-      if (cat.children?.length > 0 && !expandedCategoryIds.value.includes(cat.id)) {
-        expandedCategoryIds.value.push(cat.id)
-      }
-    })
-  }
 }, { deep: true })
 
 onMounted(() => {
@@ -1804,8 +1607,6 @@ const moveCategory = (index, direction) => {
   newOrder.splice(newIndex, 0, moved)
   categoryOrder.value = newOrder
 }
-
-// Use functions from useCategoryEditor (already imported)
 
 // Bookmark tab computed
 // 收集选中分类及其所有后代分类的 ID（用于筛选书签）
@@ -2216,123 +2017,10 @@ function getCategoryName(categoryId) {
   return cat ? cat.displayName : '未分类'
 }
 
-// Category dialog handlers
-const categoryDetailChanged = ref(false)
-
-const handleRecordCategoryChange = () => {
-  categoryDetailChanged.value = true
-  recordCategoryDetailChange()
-}
-
-const handleApplyCategoryChanges = async () => {
-  if (!requireAuth()) return
-  if (categorySaving.value) return
-  categorySaving.value = true
-  try {
-    await applyFormChanges()
-    categoryDetailChanged.value = false
-  } finally {
-    categorySaving.value = false
-  }
-}
-
-const handleConfirmCategoryChanges = () => {
-  if (!categoryDetailChanged.value) return
-  handleApplyCategoryChanges()
-}
-
-const openAddDialog = () => {
-  showAddDialog.value = true
-  newCategoryName.value = ''
-  newCategoryParentId.value = null
-  setTimeout(() => newCategoryNameInput.value?.focus(), 100)
-}
-const handleConfirmAdd = async () => {
-  if (!requireAuth()) return
-  categorySaving.value = true
-  try {
-    const result = await confirmAddCategory(newCategoryName.value, newCategoryParentId.value)
-    if (result.success) {
-      showAddDialog.value = false
-      newCategoryName.value = ''
-      newCategoryParentId.value = null
-    } else {
-      toastError(result.error || '创建失败')
-    }
-  } finally {
-    categorySaving.value = false
-  }
-}
-
-
-const handleMoveItem = (node, direction) => {
-  const parentId = node.parent_id ?? null
-  if (parentId === null) {
-    moveRootItem(node.id, direction)
-  } else {
-    moveChildItem(parentId, node.id, direction)
-  }
-}
 const handleMigrateCategoryBookmarks = ({ id, name }) => {
   bookmarkCategoryFilter.value = id
   activeTab.value = 'bookmark'
   toastSuccess(`已切换到书签管理，可迁移或删除"${name}"分类及其子分类下的书签`)
-}
-
-const handleDeleteCategory = async () => {
-  if (!requireAuth()) return
-  const cat = selectedCategoryData.value
-  if (!cat) return
-  let msg = `确定要删除分类"${cat.name}"吗？`
-  if (cat.children?.length) {
-    msg += `\n此分类下有 ${cat.children.length} 个子分类，它们也会被一并删除。此操作不可恢复。`
-  }
-  const confirmed = await confirmDialog.value.open(msg, '删除分类')
-  if (!confirmed) return
-  categorySaving.value = true
-  try {
-    const result = await confirmDelete(selectedCategoryId.value)
-    if (result.success) {
-      toastSuccess('分类已删除')
-      return
-    }
-    if (result.needsDecision) {
-      const choice = await confirmDialog.value.openWithChoices(
-        `分类"${cat.name}"下有 ${result.bookmarkCount} 个书签，如何处理？`,
-        '删除分类',
-        [
-          { text: '取消', value: null },
-          { text: '查看并迁移书签', value: 'migrate' },
-          { text: '连同书签一起删除', value: 'cascade', primary: true }
-        ]
-      )
-      if (choice === 'cascade') {
-        const cascadeResult = await confirmDelete(selectedCategoryId.value, { cascade: 'true' })
-        if (cascadeResult.success) {
-          toastSuccess(`分类已删除，${cascadeResult.deletedBookmarks ?? result.bookmarkCount} 个书签已一并删除`)
-        } else {
-          toastError(cascadeResult.error || '删除失败')
-        }
-      } else if (choice === 'migrate') {
-        bookmarkCategoryFilter.value = selectedCategoryId.value
-        activeTab.value = 'bookmark'
-        toastSuccess(`已切换到书签管理，可迁移或删除"${cat.name}"分类及其子分类下的书签`)
-      }
-      return
-    }
-    toastError(result.error || '删除失败')
-  } finally {
-    categorySaving.value = false
-  }
-}
-const handleConfirmSave = async () => {
-  await confirmSave()
-  showSaveDialog.value = false
-}
-const handleDiscardAll = async () => {
-  const confirmed = await confirmDialog.value.open('确定要放弃全部更改吗？此操作不可恢复。', '确认放弃')
-  if (!confirmed) return
-  discardAll()
 }
 
 // Bookmark handlers
@@ -2714,18 +2402,6 @@ watch(() => props.show, async (newVal) => {
   } else {
     document.body.style.overflow = ''
   }
-})
-
-watch(showAddDialog, (val) => {
-  if (val) {
-    catSelectOpen.value = false
-    catSelectSearch.value = ''
-    setTimeout(() => newCategoryNameInput.value?.focus(), 100)
-  }
-})
-
-watch(selectedCategoryId, () => {
-  categoryDetailChanged.value = false
 })
 </script>
 
@@ -3711,198 +3387,6 @@ textarea.setting-input {
   height: 100%;
 }
 
-.menu-editor-grid {
-  display: grid;
-  grid-template-columns: 1fr 380px;
-  gap: 0.75rem;
-  min-height: 500px;
-  padding: 0.5rem;
-}
-
-.menu-left-panel {
-  border-right: 1px solid var(--card-border);
-  padding: 1rem;
-  overflow-y: auto;
-  max-height: 600px;
-  background: var(--card-bg);
-  border: 1px solid var(--card-border);
-  border-radius: 10px;
-  margin: 0.5rem;
-}
-
-.menu-right-panel {
-  padding: 1rem;
-  overflow-y: auto;
-  max-height: 600px;
-  background: var(--card-bg);
-  border: 1px solid var(--card-border);
-  border-radius: 10px;
-  margin: 0.5rem;
-}
-
-.panel-section-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 1rem;
-  padding: 0.5rem 0.75rem;
-  border: 1px solid var(--card-border);
-  border-radius: 8px;
-  background: var(--card-bg);
-}
-
-.panel-section-header h3 {
-  font-size: 0.875rem;
-  font-weight: 600;
-  color: var(--text);
-}
-
-.btn-text-primary {
-  background: none;
-  border: none;
-  color: var(--accent);
-  font-size: 0.8125rem;
-  font-weight: 500;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  gap: 0.25rem;
-  padding: 0.25rem 0.5rem;
-  border-radius: 6px;
-  transition: all 0.15s;
-}
-
-.btn-text-primary:hover {
-  background: var(--accent-alpha-10);
-}
-
-.drag-hint-menu {
-  background: var(--accent-alpha-10);
-  border: 1px solid var(--accent);
-  border-radius: 8px;
-  padding: 0.5rem 0.75rem;
-  margin-bottom: 0.75rem;
-  font-size: 0.8rem;
-  color: var(--accent);
-  text-align: center;
-}
-
-.category-tree-menu {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.drag-hint-menu {
-  background: var(--accent-alpha-10);
-  border: 1px solid var(--accent);
-  border-radius: 8px;
-  padding: 0.5rem 0.75rem;
-  margin-bottom: 0.75rem;
-  font-size: 0.8rem;
-  color: var(--accent);
-  text-align: center;
-}
-
-/* Detail Form */
-.detail-form-menu {
-  padding: 0.5rem 0;
-}
-
-.detail-form-menu .form-group-menu:first-child {
-  margin-top: 0.5rem;
-}
-
-.detail-form-menu .form-group-menu:last-of-type {
-  margin-bottom: 1.5rem;
-}
-
-.form-group-menu {
-  margin-bottom: 1rem;
-}
-
-.form-group-menu label {
-  display: block;
-  font-size: 0.8rem;
-  font-weight: 600;
-  color: var(--text);
-  margin-bottom: 0.375rem;
-}
-
-.form-group-menu .setting-input {
-  width: 100%;
-  padding: 0.5rem 0.75rem;
-  border: 2px solid var(--border);
-  border-radius: 8px;
-  background: var(--card-bg);
-  color: var(--text);
-  font-size: 0.875rem;
-  transition: all 0.2s;
-}
-
-.form-group-menu .setting-input:focus {
-  outline: none;
-  border-color: var(--accent);
-  box-shadow: 0 0 0 3px var(--accent-alpha-10);
-}
-
-.char-count {
-  font-size: 0.75rem;
-  color: var(--text-secondary);
-  margin-top: 0.25rem;
-  display: block;
-}
-
-.position-controls-menu {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-}
-
-.icon-btn-menu {
-  width: 32px;
-  height: 32px;
-  padding: 0;
-  border: 2px solid var(--card-border);
-  border-radius: 8px;
-  background: var(--card-bg);
-  color: var(--text);
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.15s;
-}
-
-.icon-btn-menu:hover:not(:disabled) {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: var(--ov-bg);
-}
-
-.icon-btn-menu:disabled {
-  opacity: 0.35;
-  cursor: not-allowed;
-}
-
-.position-value-menu {
-  font-size: 1rem;
-  font-weight: 700;
-  color: var(--accent);
-  min-width: 2rem;
-  text-align: center;
-}
-
-.form-actions-menu {
-  display: flex;
-  gap: 0.5rem;
-  padding: 0.75rem;
-  border: 1px solid var(--card-border);
-  border-radius: 8px;
-  margin-top: 0.75rem;
-  background: var(--card-bg);
-}
-
 .btn-secondary-sm {
   flex: 1;
   padding: 0.5rem 0.75rem;
@@ -3937,21 +3421,6 @@ textarea.setting-input {
   filter: brightness(1.1);
 }
 
-.danger-zone-menu {
-  margin-top: 1.5rem;
-  padding: 1rem;
-  border: 1px solid var(--error-alpha-20);
-  border-radius: 8px;
-  background: color-mix(in srgb, var(--error) 4%, transparent);
-}
-
-.danger-zone-menu h4 {
-  font-size: 0.75rem;
-  font-weight: 600;
-  color: var(--error);
-  margin-bottom: 0.5rem;
-}
-
 .btn-danger-sm {
   width: 100%;
   padding: 0.5rem 0.75rem;
@@ -3971,66 +3440,6 @@ textarea.setting-input {
 
 .btn-danger-sm:hover {
   filter: brightness(1.1);
-}
-
-.detail-unsaved-hint {
-  display: flex;
-  align-items: center;
-  gap: 0.375rem;
-  padding: 0.375rem 0.625rem;
-  background: color-mix(in srgb, var(--accent) 8%, transparent);
-  border: 1px solid var(--accent-border);
-  border-radius: 6px;
-  font-size: 0.7rem;
-  color: var(--accent);
-  margin-bottom: 0.75rem;
-}
-
-.detail-unsaved-hint svg {
-  flex-shrink: 0;
-}
-
-.detail-actions-menu {
-  display: flex;
-  gap: 0.5rem;
-  margin-bottom: 0.375rem;
-}
-
-.detail-actions-menu .btn-primary-sm {
-  flex: 1;
-}
-
-.detail-actions-menu .btn-danger-sm {
-  width: auto;
-  flex: 0 0 auto;
-}
-
-.danger-hint-menu {
-  font-size: 0.7rem;
-  color: var(--text-muted);
-  margin-top: 0.375rem;
-}
-
-.no-selection-menu {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 3rem 1rem;
-  color: var(--text-muted);
-  text-align: center;
-  border: 1px dashed var(--card-border);
-  border-radius: 8px;
-  margin: 0.5rem 0;
-}
-
-.no-selection-menu svg {
-  opacity: 0.3;
-  margin-bottom: 0.75rem;
-}
-
-.no-selection-menu p {
-  font-size: 0.875rem;
 }
 
 /* ===== Avatar ===== */
@@ -4463,158 +3872,6 @@ textarea.setting-input {
       .settings-grid { grid-template-columns: 1fr; }
 }
 
-/* ===== Pending Bar ===== */
-.pending-bar {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  background: var(--card-bg);
-  border-top: 1px solid var(--card-border);
-  padding: 0.875rem 1.5rem;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  transform: translateY(100%);
-  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  z-index: 10;
-}
-.pending-bar.visible {
-  transform: translateY(0);
-}
-.pending-bar-left {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-.pending-bar-right {
-  display: flex;
-  align-items: center;
-}
-.pending-count-btn {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 12px;
-  background: var(--accent-bg);
-  border: 1px solid var(--accent-border);
-  border-radius: 8px;
-  color: var(--accent);
-  font-size: 0.8125rem;
-  font-weight: 600;
-  cursor: pointer;
-  font-family: inherit;
-  transition: all 0.2s;
-}
-.pending-count-btn:hover {
-  background: rgba(16, 185, 129, 0.18);
-}
-.pending-count-btn svg {
-  transition: transform 0.2s;
-}
-.pending-count-btn:hover svg {
-  transform: rotate(180deg);
-}
-.pending-detail-link {
-  font-size: 0.75rem;
-  color: var(--text-secondary);
-  cursor: pointer;
-  text-decoration: underline;
-  text-decoration-color: transparent;
-  transition: all 0.2s;
-}
-.pending-detail-link:hover {
-  color: var(--accent);
-  text-decoration-color: var(--accent);
-}
-.btn-discard {
-  padding: 6px 14px;
-  background: transparent;
-  border: 1px solid var(--card-border);
-  border-radius: 8px;
-  color: var(--text-secondary);
-  font-size: 0.75rem;
-  font-weight: 500;
-  cursor: pointer;
-  font-family: inherit;
-  transition: all 0.2s;
-}
-.btn-discard:hover {
-  background: color-mix(in srgb, var(--error) 12%, transparent);
-  border-color: color-mix(in srgb, var(--error) 22%, transparent);
-  color: var(--error);
-}
-
-/* Save confirmation */
-.save-summary {
-  font-size: 0.8125rem;
-  color: var(--text-secondary);
-  margin: 0 0 12px 0;
-}
-.change-list {
-  list-style: none;
-  max-height: 300px;
-  overflow-y: auto;
-  padding: 0;
-  margin: 0;
-}
-.change-item {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  padding: 10px 12px;
-  border-radius: 8px;
-  margin-bottom: 6px;
-  font-size: 0.8125rem;
-}
-.change-item:last-child {
-  margin-bottom: 0;
-}
-.change-create {
-  background: color-mix(in srgb, var(--success) 10%, transparent);
-  border-left: 3px solid var(--success);
-}
-.change-rename {
-  background: color-mix(in srgb, var(--primary) 10%, transparent);
-  border-left: 3px solid var(--primary);
-}
-.change-reorder {
-  background: color-mix(in srgb, var(--warning) 10%, transparent);
-  border-left: 3px solid var(--warning);
-}
-.change-move {
-  background: color-mix(in srgb, var(--info) 10%, transparent);
-  border-left: 3px solid var(--info);
-}
-.change-delete {
-  background: color-mix(in srgb, var(--error) 10%, transparent);
-  border-left: 3px solid var(--error);
-}
-.change-type {
-  font-size: 0.7rem;
-  font-weight: 600;
-  padding: 2px 6px;
-  border-radius: 4px;
-  white-space: nowrap;
-  flex-shrink: 0;
-}
-.change-create .change-type { color: var(--success); background: color-mix(in srgb, var(--success) 18%, transparent); }
-.change-rename .change-type { color: var(--primary); background: color-mix(in srgb, var(--primary) 18%, transparent); }
-.change-reorder .change-type { color: var(--warning); background: color-mix(in srgb, var(--warning) 18%, transparent); }
-.change-move .change-type { color: var(--info); background: color-mix(in srgb, var(--info) 18%, transparent); }
-.change-delete .change-type { color: var(--error); background: color-mix(in srgb, var(--error) 18%, transparent); }
-.change-desc {
-  color: var(--text-primary);
-  line-height: 1.4;
-}
-
-/* Position display */
-.position-display {
-  font-size: 0.875rem;
-  color: var(--text-secondary);
-  padding: 8px 0;
-}
-
 /* ===== Bookmark Tab ===== */
 .bookmark-tab {
   padding: 0 !important;
@@ -4968,119 +4225,6 @@ textarea.setting-input {
   cursor: pointer;
   outline: none;
   max-width: 120px;
-}
-
-/* ===== Custom Select (新增分类父分类下拉) ===== */
-.custom-select {
-  position: relative;
-}
-.select-trigger {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 9px 12px;
-  background: var(--card-bg);
-  border: 2px solid var(--border);
-  border-radius: 8px;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-.select-trigger:hover {
-  border-color: var(--nav-text-secondary);
-}
-.custom-select.open .select-trigger {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 3px var(--accent-alpha-10);
-}
-.select-value {
-  color: var(--text);
-  font-size: 0.875rem;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.select-value.placeholder {
-  color: var(--text-secondary);
-}
-.select-arrow {
-  width: 14px;
-  height: 14px;
-  color: var(--text-secondary);
-  transition: transform 0.2s;
-  flex-shrink: 0;
-}
-.custom-select.open .select-arrow {
-  transform: rotate(180deg);
-}
-.select-dropdown {
-  position: absolute;
-  top: calc(100% + 4px);
-  left: 0;
-  right: 0;
-  background: var(--bg);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  box-shadow: 0 10px 40px rgba(0,0,0,0.15);
-  z-index: 100;
-  overflow: hidden;
-}
-.select-dropdown-fixed {
-  position: fixed;
-  box-sizing: border-box;
-  background: var(--bg);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  box-shadow: 0 10px 40px rgba(0,0,0,0.15);
-  z-index: 99999;
-  overflow: hidden;
-}
-.select-search {
-  width: 100%;
-  padding: 10px 12px;
-  background: var(--input-bg);
-  border: none;
-  border-bottom: 1px solid var(--border);
-  color: var(--text);
-  font-size: 0.875rem;
-  outline: none;
-  box-sizing: border-box;
-}
-.select-search::placeholder {
-  color: var(--text-secondary);
-}
-.select-options {
-  max-height: 200px;
-  overflow-y: auto;
-}
-.select-option {
-  padding: 9px 12px;
-  color: var(--text);
-  font-size: 0.875rem;
-  cursor: pointer;
-  transition: all 0.15s;
-}
-.select-option:hover {
-  background: color-mix(in srgb, var(--accent) 12%, transparent);
-}
-.select-option.selected {
-  background: color-mix(in srgb, var(--accent) 22%, transparent);
-  color: var(--accent);
-}
-.select-no-results {
-  padding: 16px;
-  text-align: center;
-  color: var(--text-secondary);
-  font-size: 0.875rem;
-}
-.select-options::-webkit-scrollbar {
-  width: 6px;
-}
-.select-options::-webkit-scrollbar-track {
-  background: transparent;
-}
-.select-options::-webkit-scrollbar-thumb {
-  background: var(--border);
-  border-radius: 3px;
 }
 
 /* ===== Trend tab ===== */
@@ -5569,65 +4713,6 @@ textarea.setting-input {
 }
 
 /* Non-scoped: Teleported dropdown needs these */
-.select-dropdown-fixed {
-  position: fixed;
-  box-sizing: border-box;
-  background: var(--bg);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  box-shadow: 0 10px 40px rgba(0,0,0,0.15);
-  z-index: 99999;
-  overflow: hidden;
-}
-.select-dropdown-fixed .select-search {
-  width: 100%;
-  padding: 10px 12px;
-  background: var(--input-bg);
-  border: none;
-  border-bottom: 1px solid var(--border);
-  color: var(--text);
-  font-size: 0.875rem;
-  outline: none;
-  box-sizing: border-box;
-}
-.select-dropdown-fixed .select-search::placeholder {
-  color: var(--text-secondary);
-}
-.select-dropdown-fixed .select-options {
-  max-height: 200px;
-  overflow-y: auto;
-}
-.select-dropdown-fixed .select-option {
-  padding: 9px 12px;
-  color: var(--text);
-  font-size: 0.875rem;
-  cursor: pointer;
-  transition: all 0.15s;
-}
-.select-dropdown-fixed .select-option:hover {
-  background: color-mix(in srgb, var(--accent) 12%, transparent);
-}
-.select-dropdown-fixed .select-option.selected {
-  background: color-mix(in srgb, var(--accent) 22%, transparent);
-  color: var(--accent);
-}
-.select-dropdown-fixed .select-no-results {
-  padding: 16px;
-  text-align: center;
-  color: var(--text-secondary);
-  font-size: 0.875rem;
-}
-.select-dropdown-fixed .select-options::-webkit-scrollbar {
-  width: 6px;
-}
-.select-dropdown-fixed .select-options::-webkit-scrollbar-track {
-  background: transparent;
-}
-.select-dropdown-fixed .select-options::-webkit-scrollbar-thumb {
-  background: var(--border);
-  border-radius: 3px;
-}
-
 .api-examples {
   display: flex;
   gap: 8px;

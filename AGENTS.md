@@ -564,17 +564,17 @@ NavBar / NavMenuItem（共用 useMenuReorder）
 
 - 顺序未变、拖到自身、拖到无效区域都不发请求。
 - 失败时按快照回滚该组 `position` 并提示。
-- 与设置页菜单 Tab 的区别：nav 导航栏是**即时保存**；设置页是“待保存 → 确认”（`useCategoryEditor.confirmSave`）。
-- **跨父级移动不在本机制内**：`/api/reorder` 不写 `parent_id`。改父级仍走设置 → 菜单 → 右侧「父分类」表单（已知：设置页把分类拖到另一分类上只改本地，保存不会落库父级）。
+- 与设置页菜单 Tab 一致：两者都用 `useMenuReorder` 并**即时保存**。
+- **跨父级移动不在本机制内**：`/api/reorder` 不写 `parent_id`。跨层级松手会弹出浮条「移动到其他分类…」，打开共享 `MoveCategoryDialog`（设置 → 菜单的行 `⋯` 也有同一入口）。
 
 ### 相关文件
 
 | 文件 | 作用 |
 |------|------|
 | `src/composables/useMenuReorder.js` | 统一拖拽状态机、同父级判定、落点方向、提示文案 |
-| `src/components/NavBar.vue` | 根菜单把手与横向拖拽、冻结 hover 定时器、底部提示条（Teleport）、emit `reorder-categories` |
+| `src/components/NavBar.vue` | 根菜单把手与横向拖拽、冻结 hover 定时器、跨级浮条（Teleport）、emit `reorder-categories` / `move-category` |
 | `src/components/NavMenuItem.vue` | 各层级纵向拖拽、递归透传 `reorder` / `activePath`、祖先递减标记 |
-| `src/views/NavItemView.vue` | `activePath`、`handleMenuReorder`（乐观更新+回滚+持久化）、传入 `reorderable` |
+| `src/views/NavItemView.vue` | `activePath`、`handleMenuReorder`（乐观更新+回滚+持久化）、`MoveCategoryDialog` 承载、传入 `reorderable` |
 
 ### 布局与已知限制
 
@@ -862,7 +862,7 @@ Nav 模式（`displayMode === 'nav-item'`）白屏通常由以下原因导致：
 
 **症状**：控制台有 `useXXX is not defined` 或 `useXXX is not a function` 错误。
 
-**原因**：组件调用了某个 composable（如 `useCategoryEditor`）但没有 import 它。
+**原因**：组件调用了某个 composable（如 `useMenuReorder`）但没有 import 它。
 
 **预防**：
 - 重构时删除函数调用后，确保同步删除 import 语句
@@ -918,141 +918,6 @@ npm run db:init:remote
 npm run db:migrate:indexes
 ```
 
-## useCategoryEditor composable
-
-分类编辑器 composable，提供分类树的构建、选择、编辑、拖拽排序等完整功能。
-
-### 引入
-
-```javascript
-import { useCategoryEditor } from '@/composables/useCategoryEditor'
-```
-
-### 主要状态
-
-| 状态 | 类型 | 说明 |
-|------|------|------|
-| `categoryTree` | `ComputedRef<Category[]>` | 嵌套结构的分类树 |
-| `categoryFlatList` | `ComputedRef<FlatCategory[]>` | 带 depth 信息的扁平列表 |
-| `selectedCategoryId` | `Ref<string \| null>` | 当前选中的分类 ID |
-| `selectedCategory` | `ComputedRef<Category \| null>` | 当前选中的分类对象 |
-| `expandedCategoryIds` | `Ref<string[]>` | 展开的分类 ID 列表 |
-| `editForm` | `Reactive<{ name, parentId, position, maxPosition }>` | 编辑表单状态 |
-| `dragState` | `Reactive<{ draggingId, dropTargetId, dropPosition }>` | 拖拽状态 |
-| `dragHintText` | `ComputedRef<string>` | 拖拽提示文本 |
-
-### 主要函数
-
-#### 选择与展开
-
-```javascript
-// 选择分类进行编辑
-selectCategory(category)
-
-// 切换分类展开/折叠
-toggleExpand(categoryId)
-
-// 重置编辑表单
-resetEditForm()
-```
-
-#### CRUD 操作
-
-```javascript
-// 创建分类
-createCategory(name, parentId = null, isPrivate = false)
-// 返回 { success, error?, id? }
-
-// 编辑分类
-editCategory(id, name, parentId, isPrivate = undefined)
-// 返回 { success, error? }
-
-// 删除分类（会提示确认）
-removeCategory(id)
-// 返回 { success, error? }
-
-// 应用编辑表单的更改
-applyChanges()
-// 返回 { success, error? }
-```
-
-#### 位置调整
-
-```javascript
-// 调整分类在同级中的位置
-changePosition(delta) // delta 为 1 上移，-1 下移
-```
-
-#### 子项重排序（本地）
-
-```javascript
-// 在同级中移动子项
-moveChildItem(parentId, childId, direction) // direction: 1 上移，-1 下移
-
-// 获取子项索引
-getChildIndex(parent, child)
-```
-
-#### 拖拽排序（stubbed for future API）
-
-```javascript
-onDragStart(event, category)
-onDragEnd()
-onDragOver(event, category)
-onDrop(event, category)
-```
-
-### availableParentCategories
-
-计算属性，返回可选的父分类列表。**排除自身及所有后代分类**，避免创建循环引用。
-
-```javascript
-availableParentCategories.value = [
-  { id: 'xxx', displayName: '父分类/子分类', depth: 1, parent_id: 'xxx' },
-  // ...
-]
-```
-
-### findParent
-
-查找分类的父分类。
-
-```javascript
-findParent(childId)
-// 返回父分类对象或 null
-```
-
-### 使用示例
-
-```javascript
-const {
-  categoryTree,
-  selectedCategoryId,
-  editForm,
-  selectCategory,
-  changePosition,
-  createCategory,
-  applyChanges,
-  removeCategory
-} = useCategoryEditor()
-
-// 选择分类
-selectCategory(category)
-
-// 创建新分类
-await createCategory('新分类', null)
-
-// 调整位置
-changePosition(1) // 上移
-changePosition(-1) // 下移
-
-// 保存更改
-await applyChanges()
-
-// 删除分类
-await removeCategory(categoryId)
-```
-
 ## NavSettingsModal 设置弹窗 UI 设计
 
 `src/components/NavSettingsModal.vue` 是导航站模式的设置弹窗，包含以下 UI 设计决策：
@@ -1097,20 +962,31 @@ const selectedBookmarks = ref(new Set()) // 批量选中
 
 ### 菜单 Tab — 分类管理
 
-分类管理使用 `useCategoryEditor` composable，与默认风格共享同一套分类编辑逻辑：
+菜单 Tab 由 `src/components/settings/MenuSettings.vue` + 递归行组件 `MenuCategoryRow.vue` 实现，交互与导航栏菜单同源：
 
-| 功能 | composable 方法 | 说明 |
-|------|----------------|------|
-| 创建分类 | `confirmAddCategory(name, parentId)` | 调用 `useBookmarks.addCategory` API，成功后刷新数据 |
-| 编辑分类 | `applyFormChanges()` | 修改分类名称、父分类 |
-| 删除分类 | `confirmDelete(id)` | 删除分类及所有子分类 |
-| 拖拽排序 | `onDragStart/onDragOver/onDrop` | 拖拽移动分类位置 |
+| 功能 | 实现 |
+|------|------|
+| 创建分类 | `useBookmarks.addCategory`，弹窗复用 `CategoryCreateDialog`（根级 / 行内「新建子分类」） |
+| 重命名 / 描述 | 行内编辑：Enter 保存、Esc 取消、blur 保存；空值或未变化不提交 |
+| 删除分类 | `useBookmarks.deleteCategory`，三选一（取消 / 查看并迁移书签 / 连同书签一起删除） |
+| 同级拖拽排序 | 复用 `useMenuReorder`（与导航栏同一状态机），乐观更新 + `reorderItems('categories')` + 失败回滚 |
+| 跨层级移动 | 拖拽落到不同父级只提示不写库；底部浮条「移动到其他分类…」打开共享 `MoveCategoryDialog` |
 
-**数据刷新**：打开设置弹窗时调用 `fetchData({ forceRefresh: true })` 确保分类数据最新。
+- **即时保存**：菜单 Tab 不再有 pending bar / 放弃 / 查看详情 / 确认保存。
+- **计数口径**：书籍数走 `src/utils/categoryCounts.js`（含所有后代），与导航栏徽标一致；子分类数单独显示为 `N子`。
+- **同级拖拽约束**：仅登录可用，搜索态禁用；跨父级松手不写库，浮条 8 秒自动消失。
+- `categoryFlatList` 由 `NavSettingsModal` 内 `buildCategoryTree(categories.value).flatList` 派生，供书签 Tab 的分类下拉使用。
 
-**父分类下拉**：
-- 新增分类时使用 `categoryFlatList`（完整分类树）
-- 编辑分类时使用 `availableParentCategories`（排除自身及后代，避免循环引用）
+### 相关文件
+
+| 文件 | 作用 |
+|------|------|
+| `src/components/settings/MenuSettings.vue` | 菜单 Tab：工具栏、搜索、树渲染、即时保存、拖拽、浮条 |
+| `src/components/settings/MenuCategoryRow.vue` | 递归行：行内编辑、`⋯` 操作菜单、拖拽落点样式、键盘操作 |
+| `src/components/MoveCategoryDialog.vue` | 共享「移动到…」弹窗（搜索、自身/后代/深度禁用、当前位置标记） |
+| `src/utils/categoryMove.js` | 纯函数：`getSubtreeHeight` / `canMoveToParent` / `buildMoveTargets` |
+| `src/utils/categoryCounts.js` | 纯函数：`buildCategoryBookmarkCounts`（含后代汇总） |
+| `src/composables/useMenuReorder.js` | 同级拖拽状态机（导航栏与设置菜单共用） |
 
 ## Token 过期预检机制
 
