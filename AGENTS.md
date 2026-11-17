@@ -814,6 +814,16 @@ NavItemView watch(currentBookmarks) → useLinkHealth.checkBookmarks
 - 扩展是否装好靠 content script 写入的 `document.documentElement.dataset.bmExt`；网页轮询最多 10 秒（content script 是 `document_end` 注入）。
 - 未装扩展：卡片不显示圆点，设置 → 书签 tab 显示「死链检测 · 需安装扩展」并弹出 `BaseDialog` 安装说明。**不做纯网页 `no-cors` 兜底**——网页读不到跨域状态码（实测 200 与 404 都是 `opaque, status 0`）。
 
+### 设置页统计口径
+
+统计行是 `已检测 66/334 · 可访问 48 · 待确认 17 · 已失效 1 · 最近检测 7 分钟前`（`NavSettingsModal.linkHealthSummary`）：
+
+- **以书签集为准**（按 URL 去重），不是数缓存条目：缓存 30 天过期、书签删除后条目仍在，直接数缓存会得到对不上的数字。
+- `已检测 X/总数` 提供分母，`未检测 = 总数 - 已检测`。**不要只显示「N 个已失效 · N 个待确认」**——没有分母时用户会误以为书签就那么点（曾出现 334 个书签只显示「1 个已失效 · 18 个待确认」）。
+- 「可访问」必须显示，否则统计行只有坏消息。
+- `最近检测` 取这批书签条目里最大的 `at`，语义是「最新一次检测」，不是「整库刚检测过」。
+- 检测由列表变化触发，**不做全库扫描**，所以「已检测」覆盖率取决于用户翻过多少分类；要做全库检测需先加按域名节流（单域名可能上百条）+ 小批次回包（MV3 30s 回收）。
+
 ### Firefox 需要额外授权
 
 `manifest.firefox.json` 里 `http://*/*`、`https://*/*` 是 `optional_permissions`，默认未授予，后台跨站 fetch 会被拦（结果全为「待确认」）。扩展 options 页新增「死链检测」区块，用户点「授予访问所有网站权限」后调用 `permissions.request`。Chromium 版是必需 `host_permissions`，无需授权。

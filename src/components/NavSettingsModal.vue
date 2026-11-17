@@ -705,13 +705,18 @@
               </div>
               <div v-if="hasExtension" class="link-health-bar">
                 <span class="link-health-stat">
-                  <span class="link-health-dot" style="background: var(--error)"></span>
-                  {{ linkHealthStats.dead }} 个已失效
+                  已检测 {{ linkHealthSummary.checked }}/{{ linkHealthSummary.total }}
+                  <span class="link-health-sep">·</span>
+                  <span class="link-health-dot" style="background: var(--success)"></span>
+                  可访问 {{ linkHealthSummary.ok }}
                   <span class="link-health-sep">·</span>
                   <span class="link-health-dot" style="background: var(--text-tertiary)"></span>
-                  {{ linkHealthStats.unsure }} 个待确认
+                  待确认 {{ linkHealthSummary.unsure }}
                   <span class="link-health-sep">·</span>
-                  <span class="link-health-when">{{ linkHealthStats.lastCheckedAt ? formatCheckedAt(linkHealthStats.lastCheckedAt) + '检测' : '尚未检测' }}</span>
+                  <span class="link-health-dot" style="background: var(--error)"></span>
+                  已失效 {{ linkHealthSummary.dead }}
+                  <span class="link-health-sep">·</span>
+                  <span class="link-health-when">{{ linkHealthSummary.lastCheckedAt ? '最近检测 ' + formatCheckedAt(linkHealthSummary.lastCheckedAt) : '尚未检测' }}</span>
                 </span>
                 <div class="link-health-actions">
                   <button
@@ -1492,7 +1497,7 @@ const {
   checksEnabled,
   setEnabled,
   stateOf,
-  stats: linkHealthStats,
+  checkedAtOf,
   lastError: linkHealthLastError,
   checkBookmarks: checkLinkHealth
 } = useLinkHealth()
@@ -1921,6 +1926,27 @@ const filteredBookmarks = computed(() => {
     result = searchBookmarks(result, bookmarkSearch.value, { field: bookmarkSearchField.value })
   }
   return result
+})
+
+// 统计以「书签集」为准，不是数缓存条目：缓存里可能残留已删除的书签，
+// 而且只列失效/待确认两个数会丢掉分母，让人误以为「就这么多书签」。
+const linkHealthSummary = computed(() => {
+  const seen = new Set()
+  const summary = { total: 0, checked: 0, ok: 0, unsure: 0, dead: 0, lastCheckedAt: 0 }
+  for (const bm of bookmarks.value || []) {
+    const url = typeof bm.url === 'string' ? bm.url.trim() : ''
+    if (!url || seen.has(url)) continue
+    seen.add(url)
+    summary.total++
+
+    const state = stateOf(url)
+    if (state !== 'ok' && state !== 'unsure' && state !== 'dead') continue
+    summary[state]++
+    summary.checked++
+    const at = checkedAtOf(url)
+    if (at > summary.lastCheckedAt) summary.lastCheckedAt = at
+  }
+  return summary
 })
 
 const linkHealthFilteredBookmarks = computed(() => {

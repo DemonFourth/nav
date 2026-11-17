@@ -1,4 +1,4 @@
-import { ref, reactive, computed } from 'vue'
+import { ref, reactive } from 'vue'
 import {
   chunkUrls,
   isEntryFresh,
@@ -208,26 +208,10 @@ async function checkBookmarks(list, { force = false, onQueued } = {}) {
 export function useLinkHealth() {
   detectExtension()
 
-  const stats = computed(() => {
-    let ok = 0
-    let dead = 0
-    let unsure = 0
-    let lastCheckedAt = 0
-    for (const entry of Object.values(cache)) {
-      if (!entry || !entry.state) continue
-      if (entry.state === 'ok') ok++
-      else if (entry.state === 'dead') dead++
-      else if (entry.state === 'unsure') unsure++
-      if (entry.at > lastCheckedAt) lastCheckedAt = entry.at
-    }
-    return { ok, dead, unsure, lastCheckedAt }
-  })
-
   return {
     hasExtension,
     checksEnabled,
     lastError,
-    stats,
     setEnabled(value) {
       checksEnabled.value = !!value
       try {
