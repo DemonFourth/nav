@@ -33,7 +33,7 @@
             </svg>
           </button>
 
-          <main class="settings-content" ref="settingsContentRef">
+          <main class="settings-content" :class="{ 'content-flush': activeTab === 'menu' }" ref="settingsContentRef">
             <!-- Appearance -->
             <div v-show="activeTab === 'appearance'" class="tab-panel">
               <div class="panel-header">
@@ -594,101 +594,7 @@
 
             <!-- Menu -->
             <div v-show="activeTab === 'menu'" class="tab-panel menu-tab">
-              <div class="menu-editor-grid">
-                <!-- Left: Category Tree -->
-                <div class="menu-left-panel">
-                  <div class="panel-section-header">
-                    <h3>菜单结构</h3>
-                    <button class="btn-text-primary" @click="openAddDialog">
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M12 5v14M5 12h14"/></svg>
-                      新增分类
-                    </button>
-                  </div>
-                  <div class="category-tree-menu">
-                    <div v-if="dragState.draggingId" class="drag-hint-menu">{{ dragHintText }}</div>
-                    <MenuTreeNode
-                      v-for="(category, idx) in categoryTree"
-                      :key="category.id"
-                      :node="category"
-                      :depth="0"
-                      :sibling-index="idx"
-                      :sibling-count="categoryTree.length"
-                      :selected-id="selectedCategoryId"
-                      :expanded-ids="expandedCategoryIds"
-                      :drag-state="dragState"
-                      @select="selectCategory"
-                      @drag-start="onDragStart"
-                      @drag-end="onDragEnd"
-                      @drag-over="onDragOver"
-                      @drop="onDrop"
-                      @toggle-expand="toggleExpand"
-                      @move-item="handleMoveItem"
-                    />
-                  </div>
-                </div>
-
-                <!-- Right: Category Detail Form -->
-                <div class="menu-right-panel">
-                  <div class="panel-section-header">
-                    <h3>分类详情</h3>
-                  </div>
-                  <div v-if="selectedCategoryData" class="detail-form-menu">
-                    <div class="form-group-menu">
-                      <label>分类名称</label>
-                      <input type="text" v-model="editCategoryForm.name" class="setting-input" @change="handleRecordCategoryChange" />
-                    </div>
-                    <div class="form-group-menu">
-                      <label>描述</label>
-                      <input
-                        type="text"
-                        v-model="editCategoryForm.description"
-                        class="setting-input"
-                        maxlength="50"
-                        placeholder="可选，悬浮时显示"
-                        @change="handleRecordCategoryChange"
-                      />
-                      <span class="char-count">{{ (editCategoryForm.description || '').length }}/50</span>
-                    </div>
-                    <div class="form-group-menu">
-                      <label>父分类</label>
-                      <select v-model="editCategoryForm.parentId" class="setting-input" @change="handleRecordCategoryChange">
-                        <option :value="null">无（根分类）</option>
-                        <option v-for="cat in availableParentCategories" :key="cat.id" :value="cat.id" :disabled="cat.id === selectedCategoryId">
-                          {{ cat.displayName }}
-                        </option>
-                      </select>
-                    </div>
-                    <div class="form-group-menu">
-                      <label>位置</label>
-                      <div class="position-display">
-                        第 {{ editCategoryForm.position }} / 共 {{ editCategoryForm.maxPosition }} 项
-                      </div>
-                    </div>
-                    <div v-if="categoryDetailChanged" class="detail-unsaved-hint">
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-                      有未保存的更改
-                    </div>
-                    <div class="detail-actions-menu">
-                      <button class="btn-primary-sm" :disabled="!categoryDetailChanged || categorySaving" @click="handleConfirmCategoryChanges">
-                        {{ categorySaving ? '保存中...' : '确认' }}
-                      </button>
-                      <button class="btn-danger-sm" @click="handleDeleteCategory">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
-                          <path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/>
-                        </svg>
-                        删除此分类
-                      </button>
-                    </div>
-                    <p class="danger-hint-menu">确认后将立即保存更改，删除分类将同时删除所有子分类和书签</p>
-                  </div>
-                  <div v-else class="no-selection-menu">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="48" height="48">
-                      <path d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5"/>
-                    </svg>
-                    <p>选择左侧分类以编辑详情</p>
-                  </div>
-                </div>
-              </div>
+              <MenuSettings />
             </div>
 
             <!-- Bookmark Tab -->
@@ -1408,7 +1314,7 @@ import { formatCheckedAt } from '@/utils/linkHealth'
 import { buildCategoryTree, getCategoryPath } from '@/utils/categoryTree'
 import { searchBookmarks, SEARCH_FIELD_OPTIONS } from '@/utils/search'
 import { findPublicBookmarksInPrivateCategories } from '@/utils/privacyCheck'
-import MenuTreeNode from '@/components/MenuTreeNode.vue'
+import MenuSettings from '@/components/settings/MenuSettings.vue'
 import NavBookmarkEditModal from '@/components/NavBookmarkEditModal.vue'
 import BaseDialog from '@/components/BaseDialog.vue'
 import ConfirmDialog from '@/components/ConfirmDialog.vue'
@@ -3047,6 +2953,11 @@ watch(selectedCategoryId, () => {
   z-index: 1;
 }
 
+.settings-content.content-flush {
+  padding: 0;
+  overflow: hidden;
+}
+
 .settings-content::-webkit-scrollbar { width: 4px; }
 .settings-content::-webkit-scrollbar-track { background: transparent; }
 .settings-content::-webkit-scrollbar-thumb { background: var(--scrollbar-thumb); border-radius: 2px; }
@@ -3791,6 +3702,7 @@ textarea.setting-input {
 /* ===== Menu Editor Grid ===== */
 .menu-tab {
   padding: 0 !important;
+  height: 100%;
 }
 
 .menu-editor-grid {
