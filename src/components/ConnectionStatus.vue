@@ -116,8 +116,11 @@ const showingStaleCache = computed(
   () => refreshState.value === 'failed' && dataSource.value === 'cache'
 )
 const dotClass = computed(() => {
-  if (showingStaleCache.value) return 'offline'
-  return status.value === 'ok' ? level.value : status.value
+  // 状态类必须带 is- 前缀：main.css 里有全局的 .loading（flex-direction: column），
+  // 直接挂 loading 会把胶囊变成竖排，圆点跑到文字上方（看起来像换行）
+  if (showingStaleCache.value) return 'is-offline'
+  if (status.value === 'ok') return level.value ? `is-${level.value}` : 'is-idle'
+  return status.value ? `is-${status.value}` : ''
 })
 
 const sourceText = computed(() => {
@@ -270,35 +273,35 @@ onBeforeUnmount(() => {
   background: #cbd5e1;
 }
 
-.fast .conn-dot {
+.is-fast .conn-dot {
   background: var(--success);
   box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.15);
 }
 
-.mid .conn-dot {
+.is-mid .conn-dot {
   background: var(--warning);
   box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.15);
 }
 
-.slow .conn-dot,
-.fail .conn-dot {
+.is-slow .conn-dot,
+.is-fail .conn-dot {
   background: var(--error);
   box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.15);
 }
 
-.offline .conn-dot {
+.is-offline .conn-dot {
   background: var(--warning);
   box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.15);
 }
 
-.loading .conn-dot,
-.idle .conn-dot {
+.is-loading .conn-dot,
+.is-idle .conn-dot {
   background: #cbd5e1;
   animation: conn-pulse 1.1s ease-in-out infinite;
 }
 
-.loading,
-.idle {
+.is-loading,
+.is-idle {
   color: var(--text-tertiary);
 }
 

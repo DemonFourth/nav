@@ -322,6 +322,14 @@ const toggleDisplayMode = () => {
 - 导航站风格下右侧按钮区独立于80%菜单区域，始终可见
 - 导航站模式支持完整的登录/登出功能和设置页面访问
 
+## 导航站连接状态胶囊（左上角）
+
+`src/components/ConnectionStatus.vue` 在 nav 顶栏左侧显示 `/api/ping` 延迟，点击展开详情面板。
+
+- 胶囊状态类必须带 `is-` 前缀：`is-fast` / `is-mid` / `is-slow` / `is-fail` / `is-offline` / `is-loading` / `is-idle`。
+- **原因**：`main.css` 里有全局 `.loading { display:flex; flex-direction:column; ... }`。胶囊直接挂 `loading` 会被改成竖排 flex：圆点跑到文字上方、文字被压到胶囊底部，看起来就是「连接中…」换行。`idle` / `fast` 这类通用词都有同样风险，所以统一加前缀。
+- 胶囊本身没有 `max-width`，且 `white-space: nowrap`，文字不会折行；窄窗口（769~960px）下它会伸进菜单区，但不会换行。
+
 ## 导航站搜索结果展示
 
 站内搜索（Google/Baidu/Bing/GitHub 除外）的结果**不再以弹窗显示**，而是在 `content-section` 卡片区域直接展示。
