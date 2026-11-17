@@ -430,6 +430,7 @@ async function handleLogout() {
 
 async function init() {
   await updateStatusView();
+  await refreshLinkHealthPermission();
 
   const { theme } = await storageGet('local', ['theme']);
   if (theme === 'dark') {
@@ -438,6 +439,60 @@ async function init() {
 
   document.getElementById('settings-form').addEventListener('submit', handleLogin);
   document.getElementById('logout-btn').addEventListener('click', handleLogout);
+  document.getElementById('link-health-permission-btn').addEventListener('click', grantLinkHealthPermission);
+}
+
+/* ===== 死链检测：跨站读取状态码需要的 host 权限 =====
+ * Chromium 版在 manifest 里是必需 host_permissions，天然已授权；
+ * Firefox 版是 optional_permissions，需要用户在这里点一下授权。 */
+const LINK_HEALTH_ORIGINS = ['http://*/*', 'https://*/*'];
+
+function permissionsCall(method, details) {
+  if (!permissionsApi || !permissionsApi[method]) return Promise.resolve(method === 'contains');
+  const fn = permissionsApi[method];
+
+  if (fn.length >= 2) {
+    return new Promise(resolve => fn(details, resolve));
+  }
+
+  try {
+    const result = fn(details);
+    if (result && typeof result.then === 'function') return result;
+    return Promise.resolve(result);
+  } catch (error) {
+    console.warn(`Permissions ${method} failed:`, error);
+    return Promise.resolve(method === 'contains');
+  }
+}
+
+async function refreshLinkHealthPermission() {
+  const hint = document.getElementById('link-health-hint');
+  const button = document.getElementById('link-health-permission-btn');
+  if (!hint || !button) return;
+
+  const granted = await permissionsCall('contains', { origins: LINK_HEALTH_ORIGINS });
+  if (granted) {
+    button.style.display = 'none';
+    hint.textContent = '检测请求直接从浏览器发出，不经过你的服务器。当前已获得访问网站权限。';
+  } else {
+    button.style.display = '';
+    hint.textContent = '检测书签链接是否可访问，需要从浏览器直接请求目标网站（不经过你的服务器）。请先授权下方权限，否则检测会把所有链接判为「待确认」。';
+  }
+}
+
+async function grantLinkHealthPermission() {
+  const button = document.getElementById('link-health-permission-btn');
+  if (button) button.disabled = true;
+
+  const granted = await permissionsCall('request', { origins: LINK_HEALTH_ORIGINS });
+  if (button) button.disabled = false;
+
+  if (granted) {
+    displayConnectionStatus('已获得访问网站权限，可以开始死链检测', 'success');
+  } else {
+    displayConnectionStatus('未获得权限，死链检测无法读取目标网站状态码', 'error');
+  }
+  await refreshLinkHealthPermission();
 }
 
 document.addEventListener('DOMContentLoaded', init);

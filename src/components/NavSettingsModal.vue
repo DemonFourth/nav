@@ -729,6 +729,9 @@
                   死链检测 · 需安装扩展
                 </button>
               </div>
+              <div v-if="hasExtension && linkHealthLastError" class="link-health-error">
+                {{ linkHealthLastError }}
+              </div>
               <div class="bookmark-toolbar elevated">
                 <div class="bookmark-search-wrap">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
@@ -860,6 +863,7 @@
                 <ol class="link-health-install-steps">
                   <li>Chrome/Edge：打开 <code>chrome://extensions</code> → 开发者模式 → 加载 <code>browser-extension/</code></li>
                   <li>Firefox：<code>about:debugging</code> → 临时载入 <code>manifest.firefox.json</code></li>
+                  <li>Firefox 还需在扩展设置页点「授予访问所有网站权限」，否则检测一律为「待确认」</li>
                   <li>装好后刷新本页，入口会自动变成可用的统计行</li>
                 </ol>
                 <template #footer>
@@ -1489,6 +1493,7 @@ const {
   setEnabled,
   stateOf,
   stats: linkHealthStats,
+  lastError: linkHealthLastError,
   checkBookmarks: checkLinkHealth
 } = useLinkHealth()
 
@@ -5458,6 +5463,13 @@ textarea.setting-input {
 
 .link-health-when {
   color: var(--text-tertiary);
+}
+
+.link-health-error {
+  padding: 6px 14px;
+  border-bottom: 1px solid var(--border);
+  font-size: 12px;
+  color: var(--error);
 }
 
 .link-health-actions {

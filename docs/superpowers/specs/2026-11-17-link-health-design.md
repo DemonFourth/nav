@@ -187,6 +187,7 @@ background.js / background.firefox.js（新增 onMessage 分支）
 | `browser-extension/content.js` | 新增 postMessage 桥 + `data-bm-ext` 标记 |
 | `browser-extension/manifest.json` / `.firefox.json` | 版本号 1.7.2 → 1.8.0（权限不变） |
 | `browser-extension/package.ps1` / `package.sh` | 确认文件白名单无需新增（本次不改文件名） |
+| `browser-extension/options.html` / `options.js` | 新增「死链检测」授权区块（Firefox 需要手动授予访问所有网站权限） |
 | `src/composables/useLinkHealth.js` | 新增：扩展探测、桥接、分片、超时、缓存 |
 | `src/components/NavCard.vue` | URL 行右侧状态徽标 |
 | `src/views/NavItemView.vue` | 进入分类时按缓存条件触发检测 |
@@ -204,6 +205,7 @@ background.js / background.firefox.js（新增 onMessage 分支）
 | 风险 | 处理 |
 |------|------|
 | 扩展后台能否请求 `http://`（扩展页面的混合内容策略） | 实现时验证；若被拦，该类书签一律标 `unsure`，不标死链 |
+| Firefox 的 `optional_permissions` 默认未授予，后台跨站 fetch 会被拦 | options 页新增「死链检测 · 授予访问所有网站权限」，`permissions.request` 只能在扩展页面用户手势里调用；未授权时不误判，只显示「待确认」 |
 | MV3 service worker 被回收导致无回包 | composable 10s 超时 → 提示「扩展无响应」，不清空已有缓存 |
 | 站点有 bot 防护返回 403/挑战页 | 归 `unsure`，不会误标死链 |
 | 检测向目标站暴露用户 IP | 24h 缓存 + 每次分类触发一次 |

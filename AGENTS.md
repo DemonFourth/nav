@@ -775,6 +775,61 @@ token TTL 必须与 `functions/_middleware.js` 的 `validateToken` 保持一致�
 - Firefox：`about:debugging#/runtime/this-firefox` → 临时载入 `browser-extension/manifest.firefox.json`，改后点「重新载入」（Firefox 重启后临时扩展失效）
 - `/api/ping`、`/api/bootstrap` 是新端点，需随主站一起部署（`npm run deploy` 或 Git 自动部署），否则扩展走降级路径（功能正常，只是没有一次请求与 ping 数值）
 
+## 书签死链检测（Link Health）
+
+在书签卡片 URL 行最前面显示一个 6px 状态圆点，帮助识别已失效的书签。**检测请求全部由浏览器扩展后台发出，不经过 `/api/*`，不消耗 Cloudflare 请求数**。
+
+### 状态模型（三态）
+
+| 状态 | 圆点 | 判定 |
+|------|------|------|
+| `ok` | 绿 `var(--success)` | HTTP 2xx / 3xx |
+| `dead` | 红 `var(--error)` | **仅** HTTP 404 / 410 |
+| `unsure` | 灰 `var(--text-tertiary)` | 5xx、401/403/429、超时、DNS/连接失败、`http://` 被拦 |
+
+- **只有 404/410 判死链**，其余一律「待确认」，永不自动删除。
+- 未检测不显示圆点，但保留同尺寸透明占位，避免 URL 文字左右跳动。
+- 状态行并入卡片已有的 tooltip（`状态：已失效 · HTTP 404 · 检测于 3 小时前`）；**圆点绝不单独挂 `v-tooltip`**——全局单例会被两个 500ms 计时器抢写同一元素导致闪烁。
+
+### 触发与请求控制
+
+- 只在**当前列表变化**时触发：切根分类、点子菜单、标签筛选、站内搜索。滚动不触发。
+- 只挑「没检测过」或「超过 24h」的 URL；单批 ≤ 40、并发 5、单条超时 8s、同 URL 5 分钟冷却。
+- 缓存 24h 新鲜期、30 天过期、上限 2000 条，只存 `localStorage`（key `linkHealthCache` / `linkHealthEnabled`），不写 D1、不跨设备同步。
+
+### 数据流
+
+```
+NavItemView watch(currentBookmarks) → useLinkHealth.checkBookmarks
+  → window.postMessage {source:'bm-link-health', reqId, urls}
+  → content.js（校验 source/协议/长度）→ chrome.runtime.sendMessage
+  → background checkLinks（并发 5、8s 超时、读完取消 body）
+  → BMExt.classifyLinkResult → 回包 → localStorage
+```
+
+- 页面侧缓存 key 用**原始 URL**，后台返回的是 `new URL().href`（会补尾斜杠），`applyResults` 用 canonical 映射回原始 key，勿改成直接按 `result.url` 存。
+- 扩展是否装好靠 content script 写入的 `document.documentElement.dataset.bmExt`；网页轮询最多 10 秒（content script 是 `document_end` 注入）。
+- 未装扩展：卡片不显示圆点，设置 → 书签 tab 显示「死链检测 · 需安装扩展」并弹出 `BaseDialog` 安装说明。**不做纯网页 `no-cors` 兜底**——网页读不到跨域状态码（实测 200 与 404 都是 `opaque, status 0`）。
+
+### Firefox 需要额外授权
+
+`manifest.firefox.json` 里 `http://*/*`、`https://*/*` 是 `optional_permissions`，默认未授予，后台跨站 fetch 会被拦（结果全为「待确认」）。扩展 options 页新增「死链检测」区块，用户点「授予访问所有网站权限」后调用 `permissions.request`。Chromium 版是必需 `host_permissions`，无需授权。
+
+### 相关文件
+
+| 文件 | 作用 |
+|------|------|
+| `browser-extension/shared.js` | `BMExt.classifyLinkResult` / `LINK_STATES`（三态判定） |
+| `browser-extension/background.js` / `background.firefox.js` | `probeOne` / `checkLinks`（两处逻辑必须同步，后者 `browser.*` Promise 风格） |
+| `browser-extension/content.js` | postMessage 桥 + `data-bm-ext` 标记 |
+| `browser-extension/options.html` / `options.js` | Firefox 授权入口 |
+| `src/utils/linkHealth.js` | 纯函数：TTL、筛选、分片、裁剪、状态文案（可 Node 单测） |
+| `src/composables/useLinkHealth.js` | 扩展探测、批量请求、缓存与统计 |
+| `src/components/NavCard.vue` | URL 行圆点 + tooltip 状态行 |
+| `src/views/NavItemView.vue` | 列表变化触发检测 |
+| `src/components/NavSettingsModal.vue` | 统计行、状态筛选、重新检测、未装扩展提示、总开关（外观面板） |
+| `tests/extension-shared.test.js` / `tests/link-health.test.js` | `npm run test:ext` / `npm run test:links` |
+
 ## 故障排查：白屏问题
 
 Nav 模式（`displayMode === 'nav-item'`）白屏通常由以下原因导致：
