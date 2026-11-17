@@ -265,6 +265,77 @@ async function prefetchBookmarkData() {
   }
 }
 
+// ---- 死链检测：从浏览器直接请求目标站，只读状态码，不经过云端 ----
+const LINK_HEALTH_CONCURRENCY = 5
+const LINK_HEALTH_TIMEOUT = 8000
+const LINK_HEALTH_MAX_URLS = 40
+
+function normalizeCheckUrl(raw) {
+  try {
+    const u = new URL(String(raw || ''))
+    return (u.protocol === 'http:' || u.protocol === 'https:') ? u.href : ''
+  } catch {
+    return ''
+  }
+}
+
+async function probeOne(url) {
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), LINK_HEALTH_TIMEOUT)
+  const started = Date.now()
+  let status = null
+  let error = null
+  let timedOut = false
+
+  try {
+    const response = await fetch(url, {
+      method: 'GET',
+      credentials: 'omit',
+      referrerPolicy: 'no-referrer',
+      redirect: 'follow',
+      cache: 'no-store',
+      signal: controller.signal
+    })
+    status = response.status
+    // 只读状态码，立刻丢弃正文，避免白下载整页
+    if (response.body) {
+      try { await response.body.cancel() } catch (e) {}
+    }
+  } catch (e) {
+    if (e && e.name === 'AbortError') timedOut = true
+    else error = (e && e.message) ? e.message : String(e)
+  } finally {
+    clearTimeout(timer)
+  }
+
+  const verdict = BMExt.classifyLinkResult({
+    status,
+    error,
+    timedOut,
+    durationMs: Date.now() - started
+  })
+
+  return { url, state: verdict.state, status, reason: verdict.reason }
+}
+
+async function checkLinks(rawUrls) {
+  const urls = Array.from(new Set((rawUrls || []).map(normalizeCheckUrl).filter(Boolean)))
+    .slice(0, LINK_HEALTH_MAX_URLS)
+
+  const results = []
+  let cursor = 0
+  const run = async () => {
+    while (cursor < urls.length) {
+      const current = urls[cursor++]
+      results.push(await probeOne(current))
+    }
+  }
+
+  const width = Math.min(LINK_HEALTH_CONCURRENCY, urls.length)
+  await Promise.all(Array.from({ length: width }, run))
+  return results
+}
+
 chrome.runtime.onInstalled.addListener(() => {
   chrome.contextMenus.create({
     id: 'save-bookmark',
@@ -368,6 +439,13 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.type === 'data-changed') {
     prefetchBookmarkData();
     sendResponse({ success: true });
+    return true;
+  }
+
+  if (request.type === 'link-health-check') {
+    checkLinks(request.urls)
+      .then(results => sendResponse({ results }))
+      .catch(error => sendResponse({ results: [], error: String(error) }));
     return true;
   }
 });
