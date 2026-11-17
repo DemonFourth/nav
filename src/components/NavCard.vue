@@ -153,11 +153,13 @@ const isDescTruncated = ref(false)
 
 // 死链检测状态（结果由浏览器扩展写入 localStorage，这里只读缓存）
 const { stateOf, reasonOf, checkedAtOf } = useLinkHealth()
+const linkState = computed(() => stateOf(props.bookmark.url))
 const reasonText = computed(() => reasonOf(props.bookmark.url) || '')
-const linkMeta = computed(() => linkStateMeta(stateOf(props.bookmark.url)))
+const linkMeta = computed(() => linkStateMeta(linkState.value))
 
+// 状态正常时绿点自解释，不额外弹 tooltip；异常状态才并入卡片 tooltip 说明原因
 const shouldShowTitle = computed(
-  () => isTitleTruncated.value || isDescTruncated.value || !!linkMeta.value.label
+  () => isTitleTruncated.value || isDescTruncated.value || (!!linkState.value && linkState.value !== 'ok')
 )
 
 function checkTruncation() {

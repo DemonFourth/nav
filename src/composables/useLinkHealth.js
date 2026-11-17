@@ -14,8 +14,9 @@ const STORAGE_KEY = 'linkHealthCache'
 const ENABLED_KEY = 'linkHealthEnabled'
 const REPLY_TIMEOUT = 10 * 1000
 const COOLDOWN_MS = 5 * 60 * 1000
-const EXT_POLL_TIMES = 15
-const EXT_POLL_INTERVAL = 100
+// content script 默认在 document_idle 注入，慢网络下可能晚于首屏，轮询给足 10 秒
+const EXT_POLL_TIMES = 40
+const EXT_POLL_INTERVAL = 250
 
 const cache = reactive(loadCache())
 const hasExtension = ref(false)
@@ -66,6 +67,11 @@ function canonicalKey(raw) {
   } catch {
     return raw
   }
+}
+
+// 缓存键统一用去空白的原始 URL，与 selectUrlsToCheck 写入的口径一致
+function cacheKey(raw) {
+  return String(raw || '').trim()
 }
 
 function detectExtension() {
@@ -181,19 +187,19 @@ export function useLinkHealth() {
       }
     },
     stateOf(url) {
-      const entry = cache[url]
+      const entry = cache[cacheKey(url)]
       return entry ? entry.state : ''
     },
     reasonOf(url) {
-      const entry = cache[url]
+      const entry = cache[cacheKey(url)]
       return entry && entry.reason ? entry.reason : ''
     },
     checkedAtOf(url) {
-      const entry = cache[url]
+      const entry = cache[cacheKey(url)]
       return entry && entry.at ? entry.at : 0
     },
     isFresh(url) {
-      return isEntryFresh(cache[url])
+      return isEntryFresh(cache[cacheKey(url)])
     },
     checkBookmarks
   }
