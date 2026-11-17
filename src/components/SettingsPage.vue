@@ -165,7 +165,7 @@ const props = defineProps({
   },
   displayMode: {
     type: String,
-    default: 'default'
+    default: 'nav-item'
   },
   iconSources: {
     type: Array,

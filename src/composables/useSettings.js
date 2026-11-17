@@ -19,7 +19,7 @@ const navWallpaper = ref(localStorage.getItem('navWallpaper') ?? '')
 const navWallpaperHistory = ref(JSON.parse(localStorage.getItem('navWallpaperHistory') || '[]'))
 const wallpaperApiHistory = ref(JSON.parse(localStorage.getItem('wallpaperApiHistory') || '[]'))
 const avatarUrl = ref(localStorage.getItem('avatarUrl') || '')
-const displayMode = ref(localStorage.getItem('displayMode') || 'default')
+const displayMode = ref(localStorage.getItem('displayMode') || 'nav-item')
 
 // 图标源配置
 const defaultIconSources = [

@@ -474,11 +474,18 @@ const clearSearchFromSummary = () => {
   navSearchRef.value?.clearSearch()
 }
 
+// 切换菜单后列表整体更换，必须回到顶部；否则浏览器会沿用上一个菜单的滚动位置
+// 用 instant 覆盖全局 html { scroll-behavior: smooth }，避免旧列表在滚动动画期间仍然可见
+const resetScrollToTop = () => {
+  window.scrollTo({ top: 0, behavior: 'instant' })
+}
+
 const handleSelectMenu = (menu) => {
   clearSearchResults()
   activeMenu.value = menu
   activeSubMenu.value = null
   animationKey.value++
+  resetScrollToTop()
 }
 
 const handleSelectSubMenu = (menu, sub) => {
@@ -486,6 +493,7 @@ const handleSelectSubMenu = (menu, sub) => {
   activeMenu.value = menu
   activeSubMenu.value = sub
   animationKey.value++
+  resetScrollToTop()
 }
 
 const handleSearchResults = (results, query = '') => {

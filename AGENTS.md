@@ -259,7 +259,8 @@ nav 模式下新增、编辑、删除书签复用**同一条 toast 就地更新*
 
 ```javascript
 // useSettings.js
-const displayMode = ref(localStorage.getItem('displayMode') || 'default')
+// 未设置过（新访客 / 清除 localStorage）时默认进入导航站风格
+const displayMode = ref(localStorage.getItem('displayMode') || 'nav-item')
 
 const toggleDisplayMode = () => {
   displayMode.value = displayMode.value === 'default' ? 'nav-item' : 'default'
@@ -316,6 +317,8 @@ const toggleDisplayMode = () => {
 
 - `loadSettingsFromDB()` **不会**从 D1 加载 displayMode，避免登录后覆盖本地偏好
 - 风格设置为纯本地行为，不会同步到其他设备
+- 未设置过 displayMode 的访客默认进入导航站风格（`'nav-item'`），已设置过的设备保持原选择
+- 导航站模式下切换顶部菜单/子菜单会立即回到页面顶部，不沿用上一个菜单的滚动位置
 - 导航站风格下右侧按钮区独立于80%菜单区域，始终可见
 - 导航站模式支持完整的登录/登出功能和设置页面访问
 
