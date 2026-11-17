@@ -16,6 +16,7 @@
     "test:links": "node --test tests/link-health.test.js",
     "test:cache": "node --test tests/cache-meta.test.js",
     "test:counts": "node --test tests/category-counts.test.js",
+    "test:move": "node --test tests/category-move.test.js",
     "db:create": "wrangler d1 create bookmark-db",
     "db:init:local": "wrangler d1 execute bookmark-db --local --file=schema.sql",
     "db:init:remote": "wrangler d1 execute bookmark-db --remote --file=schema.sql",
