@@ -141,10 +141,22 @@ src/
 
 ## 测试
 
-当前项目**没有配置测试文件**。添加测试时：
-- 使用 Vitest（与 Vite 兼容）
-- 放置在源文件旁：`*.spec.js` 或 `*.test.js`
-- 运行单个测试：`npx vitest run src/components/SomeComponent.spec.js`
+纯逻辑测试用 Node 内置 test runner（`node --test`），不需要额外依赖：
+
+```bash
+npm run test:counts   # 分类计数（含后代）
+npm run test:move     # 层级/自身/后代/深度
+npm run test:parents  # 父级选择列表（新建 / 移动两种模式）
+npm run test:tags     # 标签浏览
+npm run test:links    # 死链检测
+npm run test:cache    # 缓存元数据
+npm run test:ext      # 浏览器扩展共享逻辑 + URL 变体
+npm run test:meta     # 网页元数据抓取
+```
+
+- 测试文件放在 `tests/*.test.js`，直接 import `src/utils/*` 的纯函数
+- 组件交互（拖拽、弹窗）没有自动化测试，仍靠浏览器手动验证
+- 若将来引入组件测试，再考虑 Vitest
 
 ## 常用模式
 
@@ -198,6 +210,8 @@ if (result.success) {
 ```
 
 这样用户感知到的响应是：弹窗秒关，数据最终一致性由后台 fetch 保证。
+
+分类侧同样处理：`updateCategory`（改名/描述/移动）与 `reorderItems`（书签/菜单排序）在写成功后 `fetchData({ forceRefresh: true, silent: true })` 不 await；`addCategory` / `deleteCategory` 仍等待刷新（创建要拿到新 id、删除要等列表收敛）。
 
 #### 已知风险
 
@@ -539,9 +553,9 @@ nav 模式下支持在**同一父级内**拖拽菜单项调整顺序，覆盖根
 |------|------|
 | hover 菜单项 | 左侧出现抓手（`v-tooltip` 提示「按住并拖动，调整同级顺序」，悬停 500ms 显示），热区 10px，绝对定位在行内留白中 |
 | 拖拽开始 | 被拖整项：主色 14% 浅底 + 主色文字 + 1px 虚线描边 + 85% 不透明度；抓手保持高亮；tooltip 主动收起 |
-| 同级落点 | 目标项 2px 描边 + 4px 插入条；根级显示「插入左侧/右侧」，下拉层显示「插入上方/下方」胶囊 |
-| 跨父级落点 | 目标项红色虚线描边，不显示插入条与胶囊；视口底部提示「只能在同一层级内排序 · 跨层级请到 设置 → 菜单 修改父分类」 |
-| 无效松手 | 不写入，warning toast「只能在同一层级内排序」 |
+| 同级落点 | 整行 2px 主色描边（`outline-inset`）+ 内侧 4px 主色条（`inset box-shadow`），行内居中出现「插入上方 / 插入下方」胶囊 |
+| 跨父级落点 | 整行 1.5px 红色虚线描边，不显示插入条与胶囊 |
+| 无效松手 | 不写库；浮条提示「「X」只能在同一层级内排序」+「移动到其他分类…」+ 关闭，8 秒自动消失（导航栏与设置页同款，无 warning toast） |
 | 有效松手 | 乐观更新组内 `position`（1..n）→ `reorderItems` → 失败回滚 + toast |
 | 拖拽期间 | 冻结下拉展开/收起与隐藏定时器（根 200ms / 移动端 2000ms、嵌套浮层 100ms），避免拖到一半浮层被销毁 |
 
@@ -1096,7 +1110,7 @@ if (!confirmed) return
 | 弹窗用途 | 使用组件 | 示例 |
 |----------|---------|------|
 | 纯文字确认（删除/放弃等） | `ConfirmDialog` | 确认删除书签、确认放弃更改 |
-| 带表单/列表内容的弹窗 | `BaseDialog` | 新增分类、确认保存更改列表 |
+| 带表单/列表内容的弹窗 | `BaseDialog` | 新增分类、移动到其他分类、标签重命名 |
 
 ## AI 功能
 

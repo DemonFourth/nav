@@ -14,7 +14,7 @@ export async function onRequestPut(context) {
     ).bind(id).first();
     
     if (!existing) {
-      return new Response(JSON.stringify({ error: 'Category not found' }), {
+      return new Response(JSON.stringify({ error: '分类不存在' }), {
         status: 404,
         headers: { 'Content-Type': 'application/json' }
       });
@@ -26,7 +26,7 @@ export async function onRequestPut(context) {
     const parentProvided = Object.prototype.hasOwnProperty.call(body, 'parent_id');
     if (parentProvided) {
       if (parent_id === id) {
-        return new Response(JSON.stringify({ error: 'Category cannot be its own parent' }), {
+        return new Response(JSON.stringify({ error: '不能把分类设为自己的父级' }), {
           status: 400,
           headers: { 'Content-Type': 'application/json' }
         });
@@ -41,7 +41,7 @@ export async function onRequestPut(context) {
         ).bind(parent_id).first();
         
         if (!parent) {
-          return new Response(JSON.stringify({ error: 'Parent category not found' }), {
+          return new Response(JSON.stringify({ error: '父分类不存在' }), {
             status: 404,
             headers: { 'Content-Type': 'application/json' }
           });
@@ -51,7 +51,7 @@ export async function onRequestPut(context) {
         let currentParentId = parent.parent_id;
         while (currentParentId !== null && currentParentId !== undefined) {
           if (currentParentId === id) {
-            return new Response(JSON.stringify({ error: 'Cannot set descendant as parent' }), {
+            return new Response(JSON.stringify({ error: '不能把分类移动到自己的子分类下' }), {
               status: 400,
               headers: { 'Content-Type': 'application/json' }
             });
@@ -66,7 +66,7 @@ export async function onRequestPut(context) {
         newDepth = parent.depth + 1;
         
         if (newDepth > 5) {
-          return new Response(JSON.stringify({ error: 'Maximum nesting depth (5) exceeded' }), {
+          return new Response(JSON.stringify({ error: '分类层级已达上限（5 层）' }), {
             status: 400,
             headers: { 'Content-Type': 'application/json' }
           });
@@ -117,15 +117,34 @@ export async function onRequestPut(context) {
       });
     }
     
-    await env.DB.prepare(
-      'UPDATE categories SET name = ?, parent_id = ?, depth = ?, position = ?, is_private = ?, description = ? WHERE id = ?'
-    ).bind(name, newParentId || null, newDepth, newPosition, newIsPrivate, newDescription, id).run();
-    
-    // 如果 depth 发生变化，需要递归更新所有子分类的 depth
-    if (newDepth !== existing.depth) {
-      const depthDiff = newDepth - existing.depth;
-      await updateDescendantsDepth(env.DB, id, depthDiff);
+    // 先算清所有后代的新 depth，有任何一级超过 5 层就整单拒绝，不写半截数据
+    const depthDiff = newDepth - existing.depth;
+    const descendants = depthDiff !== 0 ? await collectDescendants(env.DB, id) : [];
+
+    for (const child of descendants) {
+      if (child.depth + depthDiff > 5) {
+        return new Response(JSON.stringify({ error: '分类层级已达上限（5 层）' }), {
+          status: 400,
+          headers: { 'Content-Type': 'application/json' }
+        });
+      }
     }
+
+    // D1 batch 事务性执行：主行与所有后代的 depth 要么全改，要么全不改
+    const statements = [
+      env.DB.prepare(
+        'UPDATE categories SET name = ?, parent_id = ?, depth = ?, position = ?, is_private = ?, description = ? WHERE id = ?'
+      ).bind(name, newParentId || null, newDepth, newPosition, newIsPrivate, newDescription, id)
+    ];
+
+    for (const child of descendants) {
+      statements.push(
+        env.DB.prepare('UPDATE categories SET depth = ? WHERE id = ?')
+          .bind(child.depth + depthDiff, child.id)
+      );
+    }
+
+    await env.DB.batch(statements);
     
     return new Response(JSON.stringify({ success: true }), {
       status: 200,
@@ -143,37 +162,31 @@ export async function onRequestPut(context) {
       });
     }
     
-    return new Response(JSON.stringify({ error: 'Failed to update category' }), {
+    return new Response(JSON.stringify({ error: '更新分类失败' }), {
       status: 500,
       headers: { 'Content-Type': 'application/json' }
     });
   }
 }
 
-// 递归更新所有子分类的 depth
-async function updateDescendantsDepth(db, parentId, depthDiff) {
-  // 获取所有直接子分类
-  const children = await db.prepare(
-    'SELECT id, depth FROM categories WHERE parent_id = ?'
-  ).bind(parentId).all();
-  
-  // 递归更新每个子分类及其子分类
-  for (const child of children.results) {
-    const newChildDepth = child.depth + depthDiff;
-    
-    // 检查深度限制
-    if (newChildDepth > 5) {
-      throw new Error(`Moving category would exceed maximum depth for child category ${child.id}`);
+// 收集某个分类的所有后代（广度优先），只读 id / depth
+async function collectDescendants(db, rootId) {
+  const descendants = [];
+  const queue = [rootId];
+
+  while (queue.length > 0) {
+    const currentId = queue.shift();
+    const children = await db.prepare(
+      'SELECT id, depth FROM categories WHERE parent_id = ?'
+    ).bind(currentId).all();
+
+    for (const child of children.results) {
+      descendants.push(child);
+      queue.push(child.id);
     }
-    
-    // 更新当前子分类的 depth
-    await db.prepare(
-      'UPDATE categories SET depth = ? WHERE id = ?'
-    ).bind(newChildDepth, child.id).run();
-    
-    // 递归更新其子分类
-    await updateDescendantsDepth(db, child.id, depthDiff);
   }
+
+  return descendants;
 }
 
 // DELETE category (with cascade option for bookmarks)

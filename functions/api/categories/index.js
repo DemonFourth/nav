@@ -63,7 +63,7 @@ export async function onRequestPost(context) {
       ).bind(parent_id).first();
       
       if (!parent) {
-        return new Response(JSON.stringify({ error: 'Parent category not found' }), {
+        return new Response(JSON.stringify({ error: '父分类不存在' }), {
           status: 404,
           headers: { 'Content-Type': 'application/json' }
         });
@@ -73,7 +73,7 @@ export async function onRequestPost(context) {
       
       // 限制嵌套深度
       if (depth > 5) {
-        return new Response(JSON.stringify({ error: 'Maximum nesting depth (5) exceeded' }), {
+        return new Response(JSON.stringify({ error: '分类层级已达上限（5 层）' }), {
           status: 400,
           headers: { 'Content-Type': 'application/json' }
         });
@@ -131,7 +131,7 @@ export async function onRequestPost(context) {
       });
     }
     
-    return new Response(JSON.stringify({ error: 'Failed to create category' }), {
+    return new Response(JSON.stringify({ error: '创建分类失败' }), {
       status: 500,
       headers: { 'Content-Type': 'application/json' }
     });

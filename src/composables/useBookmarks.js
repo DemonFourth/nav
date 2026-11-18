@@ -454,7 +454,8 @@ export function useBookmarks() {
 
       const result = await response.json()
       if (result.success) {
-        await fetchData({ forceRefresh: true })
+        // 写成功后后台静默同步，不阻塞弹窗关闭 / toast
+        fetchData({ forceRefresh: true, silent: true }).catch(() => {})
         return { success: true }
       }
       return { success: false, error: result.error || '更新失败' }
@@ -508,7 +509,8 @@ export function useBookmarks() {
       const result = await response.json()
       if (result.success) {
         persistCache()
-        await fetchData({ forceRefresh: true })
+        // 排序同样后台同步，避免拖拽松手后 await 整个列表刷新
+        fetchData({ forceRefresh: true, silent: true }).catch(() => {})
         return { success: true }
       }
       return { success: false, error: '排序失败' }
