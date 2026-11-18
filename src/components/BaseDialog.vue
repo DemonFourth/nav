@@ -11,7 +11,7 @@
               </svg>
             </button>
           </div>
-          <div class="dialog-body"><slot /></div>
+          <div class="dialog-body" :class="{ 'is-fill': bodyFill }"><slot /></div>
           <div v-if="$slots.footer" class="dialog-footer"><slot name="footer" /></div>
         </div>
       </div>
@@ -31,7 +31,10 @@ import { computed, onBeforeUnmount, watch } from 'vue'
 const props = defineProps({
   show: Boolean,
   title: String,
-  maxWidth: { type: String, default: '440px' }
+  maxWidth: { type: String, default: '440px' },
+  // 让 body 成为纵向 flex 容器：内容里的「可伸缩区块」吃掉剩余高度，
+  // 弹窗被 80vh 夹住时由该区块自己缩短，避免 body 滚动把内容底部裁掉
+  bodyFill: { type: Boolean, default: false }
 })
 
 const emit = defineEmits(['close'])
@@ -125,6 +128,19 @@ onBeforeUnmount(() => {
   overflow-y: auto;
   overscroll-behavior: contain;
   flex: 1;
+}
+/* bodyFill：body 变成纵向 flex 容器，插槽里加了 .is-grow 的区块吃剩余高度。
+   否则「弹窗定高 + 内部列表定高」会叠出两层滚动，矮窗口下把列表底部裁掉。
+   容器仍保留 overflow-y: auto 作为兜底：子项缩到 min-height 以下时改为整体滚动。
+   只给 .is-grow 设 flex，避免和子组件自己的 flex 规则抢特异性。 */
+.dialog-body.is-fill {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+.dialog-body.is-fill > .is-grow {
+  flex: 1 1 auto;
+  min-height: 0;
 }
 .dialog-footer {
   display: flex;

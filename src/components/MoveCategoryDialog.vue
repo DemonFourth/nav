@@ -1,5 +1,5 @@
 <template>
-  <BaseDialog :show="show" :title="dialogTitle" max-width="480px" @close="emit('close')">
+  <BaseDialog :show="show" :title="dialogTitle" max-width="480px" body-fill @close="emit('close')">
     <div class="move-dialog">
       <CategoryParentPicker
         v-model="selectedParentId"
@@ -9,6 +9,7 @@
         search-placeholder="搜索目标分类…"
         note="换父级后分类会追加到目标分类末尾，可在列表中拖拽微调顺序。"
         max-height="320px"
+        fill
       />
     </div>
 
@@ -99,6 +100,9 @@ watch(() => props.show, (visible) => {
 .move-dialog {
   display: flex;
   flex-direction: column;
+  /* 吃掉 .dialog-body.is-fill 的剩余高度，把高度继续传给父分类列表 */
+  flex: 1 1 auto;
+  min-height: 0;
 }
 
 .move-footer {

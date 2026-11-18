@@ -1,5 +1,5 @@
 <template>
-  <div class="parent-picker">
+  <div class="parent-picker" :class="{ 'is-fill': fill }">
     <div class="picker-search">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
         <circle cx="11" cy="11" r="7" />
@@ -102,6 +102,12 @@ const props = defineProps({
   maxHeight: {
     type: String,
     default: '260px'
+  },
+  // 由外层 flex 容器决定高度：列表吃剩余空间，maxHeight 退化成「上限」。
+  // 需要父级链上都有一个纵向 flex 容器（见 BaseDialog 的 bodyFill）。
+  fill: {
+    type: Boolean,
+    default: false
   }
 })
 
@@ -149,10 +155,24 @@ onMounted(async () => {
   overflow: hidden;
 }
 
+/* fill 模式：高度交给外层 flex 容器，列表弹性伸缩（maxHeight 成为上限）。
+   搜索框与提示不允许被压缩，矮窗口下只有列表变短。 */
+.parent-picker.is-fill {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.parent-picker.is-fill .picker-list {
+  flex: 1 1 auto;
+  /* 保底约 2 行，再挤压时改由外层 .dialog-body 滚动，不至于点不到 */
+  min-height: 96px;
+}
+
 .picker-search {
   position: relative;
   display: flex;
   align-items: center;
+  flex: 0 0 auto;
   padding: 8px;
   border-bottom: 1px solid var(--card-border);
 }
@@ -271,6 +291,7 @@ onMounted(async () => {
 }
 
 .picker-note {
+  flex: 0 0 auto;
   margin: 0;
   padding: 8px 10px;
   border-top: 1px solid var(--card-border);

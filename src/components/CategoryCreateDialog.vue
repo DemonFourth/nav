@@ -1,5 +1,5 @@
 <template>
-  <BaseDialog :show="show" title="新增分类" max-width="440px" @close="handleClose">
+  <BaseDialog :show="show" title="新增分类" max-width="440px" body-fill @close="handleClose">
     <div class="form-group-menu">
       <label>分类名称</label>
       <input
@@ -12,7 +12,7 @@
       />
     </div>
 
-    <div class="form-group-menu">
+    <div class="form-group-menu is-grow">
       <label>父分类</label>
       <CategoryParentPicker
         v-model="parentId"
@@ -20,6 +20,7 @@
         root-label="作为根分类"
         note="分类会排在所选父分类的末尾；同一父分类下不能重名。"
         max-height="240px"
+        fill
       />
     </div>
 
@@ -90,6 +91,19 @@ watch(() => props.show, (visible) => {
 
 .form-group-menu:last-child {
   margin-bottom: 0;
+}
+
+/* 父分类组吃掉弹窗剩余高度：窗口矮时由列表自己缩短，
+   而不是让 .dialog-body 滚动把列表底部和提示裁掉 */
+.form-group-menu.is-grow {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.form-group-menu.is-grow > label {
+  flex: 0 0 auto;
 }
 
 .form-group-menu label {

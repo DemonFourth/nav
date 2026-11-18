@@ -1101,6 +1101,7 @@ if (!confirmed) return
 | `show` | boolean | `false` | 弹窗可见性 |
 | `title` | string | — | 弹窗标题 |
 | `maxWidth` | string | `'440px'` | 面板最大宽度 |
+| `bodyFill` | boolean | `false` | body 变为纵向 flex 容器，插槽内 `.is-grow` 区块吃剩余高度（见下） |
 
 - **Slots**：default（body 内容区）、`footer`（底部按钮区）
 - **CSS**：非 scoped，集中管理；依赖 `var(--nav-glass)`、`var(--nav-bg)`、`var(--nav-border)` 等主题变量
@@ -1111,6 +1112,27 @@ if (!confirmed) return
 |----------|---------|------|
 | 纯文字确认（删除/放弃等） | `ConfirmDialog` | 确认删除书签、确认放弃更改 |
 | 带表单/列表内容的弹窗 | `BaseDialog` | 新增分类、移动到其他分类、标签重命名 |
+
+### bodyFill：长列表弹窗别叠两层滚动
+
+`.dialog-menu` 有 `max-height: 80vh`，`.dialog-body` 是 `overflow-y: auto`。如果 body 里再放一个**固定 `max-height` 的可滚动列表**，矮窗口下就会变成「body 滚动 + 列表滚动」两层滚动：列表底部连同下面的说明文字被 body 裁掉，滚轮在列表上滚的又是内层，看起来就是「列表显示不全」。
+
+正确做法是让列表自己缩短，而不是让 body 滚动：
+
+```vue
+<BaseDialog body-fill ...>
+  <div class="form-group-menu is-grow">   <!-- flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column -->
+    <label>父分类</label>
+    <CategoryParentPicker fill max-height="240px" />
+  </div>
+</BaseDialog>
+```
+
+- `.dialog-body.is-fill { display:flex; flex-direction:column; min-height:0 }`，子项默认 `flex: 0 0 auto`，只有显式加 `.is-grow` 的区块参与拉伸。
+- 高度链上**每一层**都要 `display:flex` + `flex: 1 1 auto` + `min-height: 0`（`CategoryParentPicker` 的 `fill`、`MoveCategoryDialog` 的 `.move-dialog` 都是为此）。
+- `max-height` 参数退化为**上限**：宽屏下与原来一致；矮窗口下降为剩余空间，列表内部滚动。
+- 列表保底 `min-height: 96px`，触底后由 `.dialog-body` 的 `overflow-y: auto` 兜底整体滚动，不会出现点不到的空白。
+- 注意 `.picker-search` / `.picker-note` 必须 `flex: 0 0 auto`，否则会被压成 0 高。
 
 ## AI 功能
 
