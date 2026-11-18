@@ -5,6 +5,7 @@ import {
   parseClickState,
   recordClick,
   getClickSummary,
+  getClickTotals,
   pruneClickStats,
   serializeClickState,
   toDateKey,
@@ -112,4 +113,37 @@ test('serializeClickState 可被 parse 回来', () => {
   const now = day(2026, 11, 18)
   const state = recordClick(createClickState({ deviceId: 'd', now }), 7, now)
   assert.deepEqual(parseClickState(serializeClickState(state), { now }), state)
+})
+
+test('getClickTotals 汇总三口径并按总次数排序', () => {
+  const now = day(2026, 11, 18)
+  const state = {
+    v: 1,
+    deviceId: 'd',
+    stats: {
+      1: { c: 12, d: { '2026-11-18': 1, '2026-11-17': 2 }, t: day(2026, 11, 18) },
+      2: { c: 5, d: { '2026-11-18': 3 }, t: day(2026, 11, 18) },
+      3: { c: 0, d: {}, t: 0 }
+    }
+  }
+  const totals = getClickTotals(state, now)
+  assert.equal(totals.total, 17)
+  assert.equal(totals.today, 4)
+  assert.equal(totals.week, 6) // 11-17 与 11-18 同属本周（周一 11-16）
+  assert.equal(totals.tracked, 2) // 0 次条目不参与
+  assert.deepEqual(totals.top.map(x => x.id), [1, 2])
+  assert.equal(totals.top[0].total, 12)
+})
+
+test('getClickTotals 支持空状态与 top 截断', () => {
+  assert.deepEqual(getClickTotals(null, day(2026, 11, 18)), { today: 0, week: 0, total: 0, tracked: 0, top: [] })
+  const now = day(2026, 11, 18)
+  const state = {
+    v: 1,
+    deviceId: 'd',
+    stats: Object.fromEntries(
+      [1, 2, 3, 4].map(i => [i, { c: i, d: { '2026-11-18': i }, t: day(2026, 11, 18) }])
+    )
+  }
+  assert.equal(getClickTotals(state, now, { top: 2 }).top.length, 2)
 })

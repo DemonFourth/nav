@@ -174,6 +174,38 @@ export function getClickSummary(entry, now = Date.now()) {
 }
 
 /**
+ * 全库汇总（本机）：今日 / 本周 / 总点击，以及最常用的前几名。
+ * 只统计有点击记录的条目，删除的书签若残留条目也会计入（调用方按书签集过滤）。
+ * @param {object} state
+ * @param {number} [now]
+ * @param {{ top?: number }} [options]
+ * @returns {{ today: number, week: number, total: number, tracked: number, top: Array<{ id: number, today: number, week: number, total: number, lastAt: number }> }}
+ */
+export function getClickTotals(state, now = Date.now(), { top = 5 } = {}) {
+  const stats = state && state.stats && typeof state.stats === 'object' ? state.stats : {}
+  const items = []
+  let today = 0
+  let week = 0
+  let total = 0
+  for (const [key, entry] of Object.entries(stats)) {
+    const summary = getClickSummary(entry, now)
+    if (summary.total <= 0) continue
+    today += summary.today
+    week += summary.week
+    total += summary.total
+    items.push({ id: Number(key), ...summary })
+  }
+  items.sort((a, b) => b.total - a.total || b.lastAt - a.lastAt)
+  return {
+    today,
+    week,
+    total,
+    tracked: items.length,
+    top: items.slice(0, Math.max(0, top))
+  }
+}
+
+/**
  * 裁掉过期日桶，并按最后打开时间淘汰超出上限的条目；累计值不裁剪。
  * @param {object} state
  * @param {{ now?: number, maxEntries?: number }} [options]

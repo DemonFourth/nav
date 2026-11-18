@@ -1,6 +1,7 @@
 import { computed, reactive, ref } from 'vue'
 import {
   getClickSummary,
+  getClickTotals,
   parseClickState,
   recordClick as applyClick,
   serializeClickState,
@@ -76,6 +77,7 @@ export function useClickStats() {
   return {
     recordClick,
     summaryOf,
+    totals: computed(() => getClickTotals(state, now.value)),
     deviceId: computed(() => state.deviceId),
     state
   }

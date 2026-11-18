@@ -15,7 +15,12 @@
                 />
                 <div v-else class="letter-icon-sm">{{ internalBookmark?.name?.charAt(0) || '?' }}</div>
               </div>
-              <h3>{{ isEdit ? '编辑书签' : '新增书签' }}</h3>
+              <div class="dialog-header-text">
+                <h3>{{ isEdit ? '编辑书签' : '新增书签' }}</h3>
+                <span v-if="isEdit && usageSummary.total > 0" class="dialog-usage">
+                  今日 {{ usageSummary.today }} · 本周 {{ usageSummary.week }} · 共 {{ usageSummary.total }} 次
+                </span>
+              </div>
             </div>
             <button class="dialog-close-btn" @click="handleClose">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -253,6 +258,7 @@ import { ref, reactive, computed, nextTick, watch, onMounted, onUnmounted } from
 import { useAI } from '@/composables/useAI'
 import { useToast } from '@/composables/useToast'
 import { getIconUrl, handleIconError, refreshBookmarkIcon } from '@/composables/useIcon'
+import { useClickStats } from '@/composables/useClickStats'
 import { fetchPageMetadata } from '@/utils/pageMetadata'
 
 const props = defineProps({
@@ -265,8 +271,13 @@ const emit = defineEmits(['close', 'save', 'delete'])
 
 const { aiEnabled, checkAIAvailability, generateDescription, suggestCategory } = useAI()
 const { success: toastSuccess, error: toastError, info: toastInfo } = useToast()
+const { summaryOf } = useClickStats()
 
 const internalBookmark = ref(null)
+// 这条书签在本机的打开次数（今日 · 本周 · 共）
+const usageSummary = computed(() =>
+  internalBookmark.value ? summaryOf(internalBookmark.value.id) : { today: 0, week: 0, total: 0 }
+)
 const form = reactive({
   name: '',
   url: '',
@@ -905,6 +916,20 @@ defineExpose({ open })
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.dialog-header-text {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.dialog-usage {
+  font-size: 0.7rem;
+  color: var(--nav-text-secondary);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
 }
 
 .dialog-close-btn {

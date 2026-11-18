@@ -868,6 +868,47 @@
                 </div>
               </div>
 
+              <!-- 使用情况：来自本机点击统计，与上面的「新增」口径无关 -->
+              <p class="trend-subhead">
+                使用情况
+                <span class="trend-subhead-note">本机统计 · 不跨设备</span>
+              </p>
+              <div class="trend-stats-row trend-stats-row-usage">
+                <div class="trend-stat-block">
+                  <span class="trend-stat-value">{{ clickTotals.today }}</span>
+                  <span class="trend-stat-label">今日点击</span>
+                </div>
+                <div class="trend-stat-block">
+                  <span class="trend-stat-value">{{ clickTotals.week }}</span>
+                  <span class="trend-stat-label">本周点击</span>
+                </div>
+                <div class="trend-stat-block">
+                  <span class="trend-stat-value accent">{{ clickTotals.total }}</span>
+                  <span class="trend-stat-label">总点击</span>
+                </div>
+                <div class="trend-stat-block">
+                  <span class="trend-stat-value">{{ clickTotals.tracked }}</span>
+                  <span class="trend-stat-label">用过的书签</span>
+                </div>
+              </div>
+
+              <div v-if="topClickedBookmarks.length" class="trend-usage-row">
+                <span class="trend-usage-label">最常用</span>
+                <button
+                  v-for="item in topClickedBookmarks"
+                  :key="item.id"
+                  class="trend-usage-chip"
+                  v-tooltip="item.bookmark.name"
+                  @click="openBookmarkEdit(item.bookmark)"
+                >
+                  <span class="trend-usage-name">{{ item.bookmark.name }}</span>
+                  <span class="trend-usage-count">{{ item.total }}</span>
+                </button>
+              </div>
+              <div v-else class="trend-usage-row is-empty">
+                <span class="trend-usage-note">还没有点击记录：打开任意书签卡片后开始累计</span>
+              </div>
+
               <!-- SVG Chart -->
               <div class="trend-chart-wrap" ref="trendChartWrapRef">
                 <svg v-if="chartBars.length > 0" :viewBox="`0 0 ${chartSvgWidth} 220`" class="trend-chart-svg" :style="chartSvgWidth > 700 ? { width: chartSvgWidth + 'px' } : { width: '100%' }" preserveAspectRatio="xMinYMin meet">
@@ -1288,7 +1329,7 @@ const {
 const { categories, bookmarks, fetchData, deleteBookmark, batchOperation, addBookmark, updateBookmark, allTags } = useBookmarks()
 
 // 本机点击统计（localStorage）
-const { summaryOf } = useClickStats()
+const { summaryOf, totals: clickTotals } = useClickStats()
 
 const categoryFlatList = computed(() => buildCategoryTree(categories.value).flatList)
 
@@ -1647,6 +1688,15 @@ const usageText = (bookmarkId) => {
   if (!s.total) return '未打开'
   return `今日 ${s.today} · 本周 ${s.week} · 共 ${s.total}`
 }
+
+// 趋势页「最常用」：把统计里的 id 映射回书签，已删除的条目自然被过滤掉
+const topClickedBookmarks = computed(() => {
+  const map = new Map(bookmarks.value.map(b => [Number(b.id), b]))
+  return clickTotals.value.top
+    .map(item => ({ ...item, bookmark: map.get(item.id) }))
+    .filter(item => item.bookmark)
+    .slice(0, 3)
+})
 
 const groupedBookmarks = computed(() => {
   const groups = {}
@@ -4368,6 +4418,70 @@ textarea.setting-input {
   font-size: 0.75rem;
   color: var(--text-secondary);
   margin-top: 2px;
+}
+.trend-subhead {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin: 0 0 10px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+.trend-subhead-note {
+  font-size: 0.7rem;
+  font-weight: 400;
+  color: var(--text-tertiary);
+}
+.trend-stats-row-usage {
+  margin-bottom: 12px;
+}
+.trend-usage-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 22px;
+}
+.trend-usage-row.is-empty .trend-usage-note {
+  margin-bottom: 0;
+}
+.trend-usage-label {
+  font-size: 0.75rem;
+  color: var(--text-tertiary);
+}
+.trend-usage-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 240px;
+  padding: 4px 10px;
+  border-radius: 9999px;
+  border: 1px solid var(--border);
+  background: var(--card-bg);
+  color: var(--text);
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition: border-color 0.2s ease, color 0.2s ease;
+}
+.trend-usage-chip:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.trend-usage-name {
+  max-width: 170px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.trend-usage-count {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  color: var(--accent);
+}
+.trend-usage-note {
+  font-size: 0.7rem;
+  color: var(--text-tertiary);
 }
 .trend-chart-wrap {
   background: var(--card-bg);
