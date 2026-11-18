@@ -152,6 +152,7 @@ npm run test:links    # 死链检测
 npm run test:cache    # 缓存元数据
 npm run test:ext      # 浏览器扩展共享逻辑 + URL 变体
 npm run test:meta     # 网页元数据抓取
+npm run test:clicks   # 书签点击统计（分桶/汇总/走势/清空）
 ```
 
 - 测试文件放在 `tests/*.test.js`，直接 import `src/utils/*` 的纯函数
