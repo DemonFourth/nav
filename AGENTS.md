@@ -975,29 +975,56 @@ const selectedBookmarks = ref(new Set()) // 批量选中
 - 如需重新实现自动折叠，建议使用 `IntersectionObserver` 监听每组末尾的 sentinel 元素
 - 折叠状态不保存到 localStorage（临时浏览偏好）
 
-### 菜单 Tab — 分类管理
+### 菜单 Tab — 分类管理（宽屏两列 + 单编辑会话 + 显式保存）
 
-菜单 Tab 由 `src/components/settings/MenuSettings.vue` + 递归行组件 `MenuCategoryRow.vue` 实现，交互与导航栏菜单同源：
+菜单 Tab 由 `src/components/settings/MenuSettings.vue` + 递归行 `MenuCategoryRow.vue` + 右栏 `MenuDetailPanel.vue` 实现，交互与导航栏菜单同源：
+
+| 视口 | 布局 | 编辑入口 |
+|------|------|----------|
+| > 1100px | 两列：`grid: minmax(0,1fr) 340px`，左树 + 右详情 | **只有右栏表单**（双击行 / `⋯` 重命名 = 聚焦右栏字段） |
+| ≤ 1100px | 单列（`.menu-detail` 不渲染） | 行内编辑（Enter 保存、Esc 取消、blur 保存） |
+
+**单编辑会话（核心约束）**
+
+- 同一时刻只有一个草稿：`draft = { id, name, description, savedName, savedDescription }`，`dirty` 由草稿与基线比较得出。
+- 一次保存 = **1 次** `PUT /api/categories/:id`，body 同时带 `name` + `description`（后端单条 UPDATE）。
+- 同一分类里名称和描述一起改 → 一次请求原子提交；**不同分类不能同时改**：dirty 时点另一行 / 另一行的「重命名」，弹三选一 `取消 / 放弃更改 / 保存并切换`。
+- 关闭设置弹窗（× / 遮罩）时 dirty → 三选一 `取消 / 放弃更改 / 保存并关闭`；保存失败**不关闭**、草稿保留。
+- 处置串行（`resolving` 门闩），连点两行不会弹两个确认框。
+
+**失败闭环（不允许静默失败）**
+
+| 场景 | 反馈 |
+|------|------|
+| 名称为空 | 字段下红字 + toast + 聚焦名称框，不写库 |
+| 409 重名 / 服务端错误 | 红色 toast 显示服务端文案，草稿保留、按钮恢复 |
+| 网络 / 401 | 回滚乐观更新 + 红色 toast；401 走登录框或「登录已过期」 |
+| 选中分类被外部删除 | 自动选中第一条根分类 + `warning` toast「未保存的修改已丢弃」 |
+| 自己删除当前分类 | 不重复提示（`expectedRemoval` 标记），清空会话 |
+
+**其余**
 
 | 功能 | 实现 |
 |------|------|
 | 创建分类 | `useBookmarks.addCategory`，弹窗复用 `CategoryCreateDialog`（根级 / 行内「新建子分类」） |
-| 重命名 / 描述 | 行内编辑：Enter 保存、Esc 取消、blur 保存；空值或未变化不提交 |
 | 删除分类 | `useBookmarks.deleteCategory`，三选一（取消 / 查看并迁移书签 / 连同书签一起删除） |
 | 同级拖拽排序 | 复用 `useMenuReorder`（与导航栏同一状态机），乐观更新 + `reorderItems('categories')` + 失败回滚 |
 | 跨层级移动 | 拖拽落到不同父级只提示不写库；底部浮条「移动到其他分类…」打开共享 `MoveCategoryDialog` |
 
-- **即时保存**：菜单 Tab 不再有 pending bar / 放弃 / 查看详情 / 确认保存。
-- **计数口径**：书籍数走 `src/utils/categoryCounts.js`（含所有后代），与导航栏徽标一致；子分类数单独显示为 `N子`。
+- **dirty 提示**：选中行显示小圆点，右栏底部显示「未保存」；搜索过滤不影响选中。
+- **计数口径**：书签数走 `src/utils/categoryCounts.js`（含所有后代），与导航栏徽标一致；子分类数单独显示为 `N子`。
 - **同级拖拽约束**：仅登录可用，搜索态禁用；跨父级松手不写库，浮条 8 秒自动消失。
-- `categoryFlatList` 由 `NavSettingsModal` 内 `buildCategoryTree(categories.value).flatList` 派生，供书签 Tab 的分类下拉使用。
+- **高度**：`.settings-content.content-flush` 已 `overflow:hidden`，两栏内部各自滚动，禁止再套固定高面板（旧版两层滚动就是这么来的）。
+- `categoryFlatList` 由 `MenuSettings` 内 `buildCategoryTree(categories.value).flatList` 派生，供书签 Tab 的分类下拉使用。
 
 ### 相关文件
 
 | 文件 | 作用 |
 |------|------|
-| `src/components/settings/MenuSettings.vue` | 菜单 Tab：工具栏、搜索、树渲染、即时保存、拖拽、浮条 |
-| `src/components/settings/MenuCategoryRow.vue` | 递归行：行内编辑、`⋯` 操作菜单、拖拽落点样式、键盘操作 |
+| `src/components/settings/MenuSettings.vue` | 菜单 Tab：两列外壳、选中/草稿/保存、dirty 处置、搜索、拖拽、浮条 |
+| `src/components/settings/MenuDetailPanel.vue` | 右栏详情：名称/描述草稿、父级 + 移动到…、位置、计数、新建子分类/删除、固定保存条 |
+| `src/components/settings/MenuCategoryRow.vue` | 递归行：选中态、dirty 圆点、行内编辑、`⋯` 操作菜单、拖拽落点样式、键盘操作 |
+| `docs/plans/2026-11-18-menu-tab-two-column.md` | 本次两列改造的计划与失败闭环清单 |
 | `src/components/MoveCategoryDialog.vue` | 共享「移动到…」弹窗（`CategoryParentPicker` + 自身/后代/深度禁用 + 当前位置标记） |
 | `src/components/CategoryParentPicker.vue` | 共享父分类列表：搜索、缩进、根选项置顶、禁用原因、当前位置 |
 | `src/utils/categoryParents.js` | 纯函数：`buildParentOptions`（新建 / 移动两种模式） |

@@ -7,16 +7,19 @@
           'is-expanded': isExpanded,
           'has-desc': !!node.description,
           'is-editing-name': isEditingName,
-          'is-editing-desc': isEditingDesc
+          'is-editing-desc': isEditingDesc,
+          'is-selected': isSelected
         },
         dragClasses
       ]"
       :style="{ '--depth': depth }"
       role="treeitem"
       :aria-expanded="hasChildren ? String(isExpanded) : undefined"
+      :aria-selected="isSelected ? 'true' : 'false'"
       tabindex="0"
       :data-category-id="node.id"
       @click="handleRowClick"
+      @focus="handleRowFocus"
       @dblclick.stop="handleRowDblClick"
       @keydown.enter.space="handleRowKeydown"
       @dragover="handleDragOver"
@@ -86,6 +89,12 @@
         <span v-else-if="node.description" class="row-desc">{{ node.description }}</span>
       </div>
 
+      <span
+        v-if="isDirty"
+        class="row-dirty"
+        title="有未保存的修改"
+        aria-label="有未保存的修改"
+      ></span>
       <span class="row-count" :title="`${counts[node.id] ?? 0} 个书签（含子分类）`">{{ counts[node.id] ?? 0 }}</span>
       <span v-if="hasChildren" class="row-subcount">{{ totalChildren }}子</span>
       <button
@@ -123,7 +132,11 @@
         :reorderable="reorderable"
         :highlight="highlight"
         :open-menu-id="openMenuId"
+        :selected="selected"
+        :dirty-id="dirtyId"
+        :edit-mode="editMode"
         @toggle="$emit('toggle', $event)"
+        @select="$emit('select', $event)"
         @start-edit="$emit('start-edit', $event)"
         @save-edit="$emit('save-edit', $event)"
         @cancel-edit="$emit('cancel-edit')"
@@ -194,15 +207,29 @@ const props = defineProps({
   openMenuId: {
     type: [Number, String],
     default: null
+  },
+  selected: {
+    type: [Number, String],
+    default: null
+  },
+  dirtyId: {
+    type: [Number, String],
+    default: null
+  },
+  editMode: {
+    type: String,
+    default: 'inline'
   }
 })
 
-const emit = defineEmits(['toggle', 'start-edit', 'save-edit', 'cancel-edit', 'action', 'menu-toggle'])
+const emit = defineEmits(['toggle', 'select', 'start-edit', 'save-edit', 'cancel-edit', 'action', 'menu-toggle'])
 
 const hasChildren = computed(() => (props.node.children?.length || 0) > 0)
 const totalChildren = computed(() => props.node.totalChildren ?? (props.node.children?.length || 0))
 const isExpanded = computed(() => props.expandedIds.includes(props.node.id))
 const canDrag = computed(() => props.reorderable && !!props.reorder)
+const isSelected = computed(() => props.selected != null && props.selected === props.node.id)
+const isDirty = computed(() => props.dirtyId != null && props.dirtyId === props.node.id)
 
 const nameParts = computed(() => {
   const name = props.node.name || ''
@@ -285,12 +312,21 @@ const commit = (field) => {
 const handleRowClick = (event) => {
   if (props.reorder?.wasJustDragging?.()) return
   if (event.target.closest('button, input, .row-menu')) return
+  emit('select', props.node.id)
   if (!hasChildren.value) return
   emit('toggle', props.node.id)
 }
 
+const handleRowFocus = () => {
+  emit('select', props.node.id)
+}
+
 const handleRowDblClick = (event) => {
   if (event.target.closest('input, textarea, button, .row-desc-editor')) return
+  if (props.editMode === 'panel') {
+    emit('action', { action: 'focus-name', node: props.node })
+    return
+  }
   startEdit('name')
 }
 
@@ -333,6 +369,14 @@ const closeMenu = () => {
 const menuAction = (action) => {
   const node = props.node
   closeMenu()
+  if (props.editMode === 'panel' && action === 'rename') {
+    emit('action', { action: 'focus-name', node })
+    return
+  }
+  if (props.editMode === 'panel' && action === 'description') {
+    emit('action', { action: 'focus-description', node })
+    return
+  }
   emit('action', { action, node })
 }
 
@@ -426,6 +470,21 @@ const handleDragEnd = () => {
 
 .menu-row:focus-visible {
   box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--nav-primary) 60%, transparent);
+}
+
+/* 选中项：右栏详情绑定它 */
+.menu-row.is-selected {
+  background: var(--nav-active-bg, color-mix(in srgb, var(--nav-primary) 12%, transparent));
+  color: var(--nav-text, var(--text));
+}
+
+.menu-row.is-selected .row-name {
+  color: var(--nav-primary);
+  font-weight: 600;
+}
+
+.menu-row.is-selected .row-grip {
+  opacity: 0.85;
 }
 
 .menu-row.has-desc {
@@ -571,6 +630,15 @@ const handleDragEnd = () => {
   font-size: 0.625rem;
   color: var(--text-tertiary);
   font-variant-numeric: tabular-nums;
+}
+
+.row-dirty {
+  flex: 0 0 6px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--nav-primary);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--nav-primary) 16%, transparent);
 }
 
 .row-count {

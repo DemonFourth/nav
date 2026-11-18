@@ -594,7 +594,7 @@
 
             <!-- Menu -->
             <div v-show="activeTab === 'menu'" class="tab-panel menu-tab">
-              <MenuSettings @migrate-bookmarks="handleMigrateCategoryBookmarks" />
+              <MenuSettings ref="menuSettingsRef" @migrate-bookmarks="handleMigrateCategoryBookmarks" />
             </div>
 
             <!-- Bookmark Tab -->
@@ -1290,6 +1290,7 @@ const linkHealthFilters = [
 ]
 
 const activeTab = ref('appearance')
+const menuSettingsRef = ref(null)
 const sidebarCollapsed = ref(localStorage.getItem('navSettingsSidebarCollapsed') === 'true')
 watch(sidebarCollapsed, (val) => localStorage.setItem('navSettingsSidebarCollapsed', val))
 
@@ -2080,7 +2081,13 @@ const handleSaveBookmark = async (bookmark, formData) => {
   }
 }
 
-const handleClose = () => {
+const handleClose = async () => {
+  /* 菜单 Tab 有未保存的分类修改时，先让用户处置，避免静默丢失。
+     注意：菜单 Tab 用 v-show 保活，切到别的 Tab 后草稿仍在，所以这里不判断 activeTab。 */
+  if (menuSettingsRef.value?.hasUnsaved?.()) {
+    const canLeave = await menuSettingsRef.value.confirmLeave()
+    if (!canLeave) return
+  }
   emit('close')
 }
 
