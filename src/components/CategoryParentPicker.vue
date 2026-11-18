@@ -121,7 +121,7 @@ const select = (id) => {
   emit('update:modelValue', id)
 }
 
-// 打开弹窗时把当前选中的父级滚进可视区（分类多、预填的是深层级时尤其重要）
+// 打开弹窗时把当前选中的父级滚到列表中部（分类多、预填的是深层级时尤其重要）
 const listEl = ref(null)
 
 const scrollSelectedIntoView = () => {
@@ -129,7 +129,8 @@ const scrollSelectedIntoView = () => {
   const selected = list?.querySelector('.picker-option.is-selected')
   if (!list || !selected) return
   // 用 scrollIntoView 而非手算 rect：弹窗入场有 scale 过渡，getBoundingClientRect 会失真
-  selected.scrollIntoView({ block: 'nearest' })
+  // block: 'center' 让选中项上下都留出上下文；靠近首尾时浏览器自动夹到边界
+  selected.scrollIntoView({ block: 'center' })
 }
 
 onMounted(async () => {
@@ -186,6 +187,7 @@ onMounted(async () => {
 
 .picker-list {
   overflow-y: auto;
+  overscroll-behavior: contain;
   padding: 4px;
   display: flex;
   flex-direction: column;

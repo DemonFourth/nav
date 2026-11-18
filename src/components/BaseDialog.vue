@@ -19,8 +19,14 @@
   </Teleport>
 </template>
 
+<script>
+// 模块级：多个 BaseDialog 同时打开时共享同一把 body 滚动锁
+let bodyLockCount = 0
+let savedBodyOverflow = ''
+</script>
+
 <script setup>
-import { computed } from 'vue'
+import { computed, onBeforeUnmount, watch } from 'vue'
 
 const props = defineProps({
   show: Boolean,
@@ -33,6 +39,32 @@ const emit = defineEmits(['close'])
 const menuStyle = computed(() => ({
   maxWidth: props.maxWidth
 }))
+
+/* 打开时锁住页面滚动，避免滚轮/触摸在弹窗边缘透传到背后页面 */
+const lockBodyScroll = () => {
+  if (bodyLockCount === 0) {
+    savedBodyOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+  }
+  bodyLockCount += 1
+}
+
+const unlockBodyScroll = () => {
+  if (bodyLockCount === 0) return
+  bodyLockCount -= 1
+  if (bodyLockCount === 0) {
+    document.body.style.overflow = savedBodyOverflow
+  }
+}
+
+watch(() => props.show, (visible) => {
+  if (visible) lockBodyScroll()
+  else unlockBodyScroll()
+}, { immediate: true })
+
+onBeforeUnmount(() => {
+  if (props.show) unlockBodyScroll()
+})
 </script>
 
 <style>
@@ -91,6 +123,7 @@ const menuStyle = computed(() => ({
 .dialog-body {
   padding: 1.25rem;
   overflow-y: auto;
+  overscroll-behavior: contain;
   flex: 1;
 }
 .dialog-footer {

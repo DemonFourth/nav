@@ -1090,6 +1090,7 @@ if (!confirmed) return
 
 - **Slots**：default（body 内容区）、`footer`（底部按钮区）
 - **CSS**：非 scoped，集中管理；依赖 `var(--nav-glass)`、`var(--nav-bg)`、`var(--nav-border)` 等主题变量
+- **滚动锁**：打开时把 `body.style.overflow` 设为 `hidden`（模块级计数，多个弹窗嵌套时最后一个关闭才恢复），`.dialog-body` 与列表另加 `overscroll-behavior: contain`，避免滚轮/触摸透传到背后页面
 - **不要**用于纯文字确认弹窗（用 `ConfirmDialog`）
 
 | 弹窗用途 | 使用组件 | 示例 |
