@@ -869,6 +869,58 @@ NavItemView watch(currentBookmarks) → useLinkHealth.checkBookmarks
 | `src/components/NavSettingsModal.vue` | 统计行、状态筛选、重新检测、未装扩展提示、总开关（外观面板） |
 | `tests/extension-shared.test.js` / `tests/link-health.test.js` | `npm run test:ext` / `npm run test:links` |
 
+## 书签点击统计（本地）
+
+nav 模式记录每个书签从卡片被打开的**今日 / 本周 / 全部**次数，用来识别长期没用的收藏。**v1 只写本机 localStorage：不上传 D1、不发请求、不改表结构。**
+
+### 记账口径
+
+- 只有**卡片点击跳转**计数：`NavCard.handleCardClick`、`BookmarkCard.handleClick` 的非编辑分支。
+- 详情弹窗的打开按钮、右键菜单、直接输入网址都不计。
+- 登录与未登录都记录；数字是「这台浏览器打开过多少次」，不跨设备、不跨浏览器。
+- 访客的点击只写进访客自己的浏览器，不会进入维护者的数据。
+
+### 存储
+
+`localStorage['bookmarkClickStats']`：
+
+```js
+{
+  v: 1,
+  deviceId: 'd_xxx',                 // 首次生成后稳定
+  stats: { '1164': { c: 48, d: { '2026-11-18': 3 }, t: 1763456000000 } }
+}
+// c = 全部累计（不裁剪）  d = 最近 35 天按天桶  t = 最后打开毫秒
+```
+
+- 今日 = 今天的桶；本周 = 本自然周（周一 00:00 起、本地时区）；全部 = `c`。
+- 写入时裁掉 35 天前的桶；条目上限 2000，按 `t` 最旧淘汰。
+- `deviceId` 与统计放在**同一个 key**，清掉统计即视为新设备。它是给以后上传预留的：上传按 `(device_id, bookmark_id)` 存绝对值、服务端取 `MAX`，重试/乱序回包不会重复计数。
+
+### 展示
+
+- 卡片 tooltip：有记录时显示「使用：打开 N 次 · 今天 N 次」（悬停 500ms）。
+- 设置 → 书签：每行「今日 X · 本周 Y · 共 Z」，没有记录显示「未打开」；工具栏可按**打开次数 / 最近打开**排序，可勾**从未打开**。
+- 排序与筛选只作用在分类分组**内部**，保留吸顶 header、增量渲染、搜索与分类筛选。
+- `≤900px` 隐藏行内统计，避免挤压书签名称。
+
+### 注意
+
+- localStorage 写失败（隐私模式 / 配额满）只 `console.warn`，**绝不能影响打开网页**。
+- 页面持续打开时每 60 秒刷新一次「今天」口径，跨午夜自动归零。
+- 多 tab 通过 `storage` 事件同步；同一刻点击可能丢 1 次（读改写竞争）。
+- 清除站点数据会丢失未上传的统计（上传是第二阶段）。
+
+### 相关文件
+
+| 文件 | 作用 |
+|------|------|
+| `src/utils/clickStats.js` | 纯函数：日期键、自然周、记账、口径汇总、裁剪、容错解析 |
+| `src/composables/useClickStats.js` | 模块级响应式状态、持久化、`storage` 跨 tab 同步、60 秒跨天刷新 |
+| `src/components/NavCard.vue` / `BookmarkCard.vue` | 点击计数 + 卡片 tooltip |
+| `src/components/NavSettingsModal.vue` | 书签行统计、打开次数/最近打开排序、从未打开筛选 |
+| `tests/click-stats.test.js` | `npm run test:clicks` |
+
 ## 故障排查：白屏问题
 
 Nav 模式（`displayMode === 'nav-item'`）白屏通常由以下原因导致：
