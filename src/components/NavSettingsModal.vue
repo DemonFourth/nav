@@ -604,10 +604,25 @@
                   <h2 class="bookmark-title">书签管理</h2>
                   <span class="bookmark-count">共 {{ bookmarks.length }} 个书签</span>
                 </div>
-                <button class="btn-primary-sm" @click="openBookmarkAdd">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M12 5v14M5 12h14"/></svg>
-                  新增
-                </button>
+                <div class="bookmark-header-right">
+                  <select
+                    v-model="bookmarkSort"
+                    class="bookmark-sort-select"
+                    aria-label="书签排序"
+                  >
+                    <option value="default">默认排序</option>
+                    <option value="clicks">打开次数</option>
+                    <option value="recent">最近打开</option>
+                  </select>
+                  <label class="bookmark-unused-toggle">
+                    <input type="checkbox" v-model="bookmarkUnusedOnly" />
+                    从未打开
+                  </label>
+                  <button class="btn-primary-sm" @click="openBookmarkAdd">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M12 5v14M5 12h14"/></svg>
+                    新增
+                  </button>
+                </div>
               </div>
               <div v-if="hasExtension" class="link-health-bar">
                 <span class="link-health-stat">
@@ -704,19 +719,6 @@
                     </div>
                   </div>
                 </div>
-                <select
-                  v-model="bookmarkSort"
-                  class="bookmark-sort-select"
-                  aria-label="书签排序"
-                >
-                  <option value="default">默认排序</option>
-                  <option value="clicks">打开次数</option>
-                  <option value="recent">最近打开</option>
-                </select>
-                <label class="bookmark-unused-toggle">
-                  <input type="checkbox" v-model="bookmarkUnusedOnly" />
-                  从未打开
-                </label>
               </div>
               <div class="bookmark-list" ref="bookmarkListRef">
                 <template v-for="row in renderedBookmarkRows" :key="row.key">
@@ -750,12 +752,14 @@
                     </div>
                     <div class="bookmark-info">
                       <div class="bookmark-name">{{ row.bm.name }}</div>
-                      <div class="bookmark-url">{{ row.bm.url }}</div>
+                      <div class="bookmark-meta-line">
+                        <span class="bookmark-url">{{ row.bm.url }}</span>
+                        <span class="bookmark-usage" :class="{ 'is-empty': !summaryOf(row.bm.id).total }">
+                          {{ usageText(row.bm.id) }}
+                        </span>
+                      </div>
                     </div>
                     <div class="bookmark-category-path">{{ getCategoryPathForBookmark(row.bm.category_id) }}</div>
-                    <div class="bookmark-usage" :class="{ 'is-empty': !summaryOf(row.bm.id).total }">
-                      {{ usageText(row.bm.id) }}
-                    </div>
                     <div class="bookmark-actions">
                       <button class="bookmark-action-btn" @click="openBookmarkEdit(row.bm)">编辑</button>
                       <button class="bookmark-action-btn bookmark-action-delete" @click="deleteBookmarkItem(row.bm)">删除</button>
@@ -4132,6 +4136,16 @@ textarea.setting-input {
   flex: 1;
   min-width: 0;
 }
+.bookmark-meta-line {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  min-width: 0;
+}
+.bookmark-meta-line .bookmark-url {
+  flex: 0 1 auto;
+  min-width: 0;
+}
 .bookmark-name {
   font-size: 0.8125rem;
   font-weight: 500;
@@ -4164,6 +4178,12 @@ textarea.setting-input {
 }
 .bookmark-usage.is-empty {
   color: var(--text-tertiary);
+}
+.bookmark-header-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
 }
 .bookmark-sort-select {
   height: 32px;
