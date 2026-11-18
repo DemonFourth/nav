@@ -704,6 +704,19 @@
                     </div>
                   </div>
                 </div>
+                <select
+                  v-model="bookmarkSort"
+                  class="bookmark-sort-select"
+                  aria-label="书签排序"
+                >
+                  <option value="default">默认排序</option>
+                  <option value="clicks">打开次数</option>
+                  <option value="recent">最近打开</option>
+                </select>
+                <label class="bookmark-unused-toggle">
+                  <input type="checkbox" v-model="bookmarkUnusedOnly" />
+                  从未打开
+                </label>
               </div>
               <div class="bookmark-list" ref="bookmarkListRef">
                 <template v-for="row in renderedBookmarkRows" :key="row.key">
@@ -740,6 +753,9 @@
                       <div class="bookmark-url">{{ row.bm.url }}</div>
                     </div>
                     <div class="bookmark-category-path">{{ getCategoryPathForBookmark(row.bm.category_id) }}</div>
+                    <div class="bookmark-usage" :class="{ 'is-empty': !summaryOf(row.bm.id).total }">
+                      {{ usageText(row.bm.id) }}
+                    </div>
                     <div class="bookmark-actions">
                       <button class="bookmark-action-btn" @click="openBookmarkEdit(row.bm)">编辑</button>
                       <button class="bookmark-action-btn bookmark-action-delete" @click="deleteBookmarkItem(row.bm)">删除</button>
@@ -1217,6 +1233,7 @@ import { useSearchEngines } from '@/composables/useSearchEngines'
 import { useToast } from '@/composables/useToast'
 import { useAuthGuard } from '@/composables/useAuthGuard'
 import { useLinkHealth } from '@/composables/useLinkHealth'
+import { useClickStats } from '@/composables/useClickStats'
 import { formatCheckedAt } from '@/utils/linkHealth'
 import { buildCategoryTree, getCategoryPath } from '@/utils/categoryTree'
 import { searchBookmarks, SEARCH_FIELD_OPTIONS } from '@/utils/search'
@@ -1265,6 +1282,9 @@ const {
 
 // Category editor (uses useBookmarks internally)
 const { categories, bookmarks, fetchData, deleteBookmark, batchOperation, addBookmark, updateBookmark, allTags } = useBookmarks()
+
+// 本机点击统计（localStorage）
+const { summaryOf } = useClickStats()
 
 const categoryFlatList = computed(() => buildCategoryTree(categories.value).flatList)
 
@@ -1361,6 +1381,8 @@ const runDiagnose = async () => {
 // Bookmark tab state
 const bookmarkSearch = ref('')
 const bookmarkCategoryFilter = ref(null)
+const bookmarkSort = ref('default')
+const bookmarkUnusedOnly = ref(false)
 const selectedBookmarks = ref(new Set())
 const bookmarkSearchField = ref('all')
 const bookmarkSearchFieldOpen = ref(false)
@@ -1616,9 +1638,17 @@ const recheckVisible = async () => {
   else toastError('当前筛选结果里没有需要检测的链接')
 }
 
+const usageText = (bookmarkId) => {
+  const s = summaryOf(bookmarkId)
+  if (!s.total) return '未打开'
+  return `今日 ${s.today} · 本周 ${s.week} · 共 ${s.total}`
+}
+
 const groupedBookmarks = computed(() => {
   const groups = {}
+  const onlyUnused = bookmarkUnusedOnly.value
   linkHealthFilteredBookmarks.value.forEach(bm => {
+    if (onlyUnused && summaryOf(bm.id).total > 0) return
     const catId = bm.category_id || '__none__'
     if (!groups[catId]) {
       groups[catId] = { categoryId: bm.category_id, bookmarks: [] }
@@ -1631,6 +1661,20 @@ const groupedBookmarks = computed(() => {
     const idxB = categoryFlatList.value.findIndex(c => c.id === b.categoryId)
     return (idxA === -1 ? 999 : idxA) - (idxB === -1 ? 999 : idxB)
   })
+  // 排序只作用于分类组内部，保留分类吸顶 header 与分组结构
+  if (bookmarkSort.value !== 'default') {
+    for (const group of sorted) {
+      group.bookmarks.sort((a, b) => {
+        const sa = summaryOf(a.id)
+        const sb = summaryOf(b.id)
+        if (bookmarkSort.value === 'clicks') {
+          if (sb.total !== sa.total) return sb.total - sa.total
+          return String(a.name || '').localeCompare(String(b.name || ''), 'zh-Hans-CN')
+        }
+        return (sb.lastAt || 0) - (sa.lastAt || 0)
+      })
+    }
+  }
   return sorted
 })
 
@@ -3820,6 +3864,7 @@ textarea.setting-input {
   .nav-tab-btn::before { display: none; }
   .settings-content { padding: 20px; }
       .settings-grid { grid-template-columns: 1fr; }
+  .bookmark-usage { display: none; }
 }
 
 /* ===== Bookmark Tab ===== */
@@ -4102,6 +4147,39 @@ textarea.setting-input {
   max-width: 120px;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+.bookmark-usage {
+  font-size: 0.7rem;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.bookmark-usage.is-empty {
+  color: var(--text-tertiary);
+}
+.bookmark-sort-select {
+  height: 32px;
+  padding: 0 8px;
+  border: 1px solid var(--card-border);
+  border-radius: 8px;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  font-size: 0.75rem;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.bookmark-unused-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.bookmark-unused-toggle input {
+  accent-color: var(--accent);
 }
 .bookmark-actions {
   display: flex;
