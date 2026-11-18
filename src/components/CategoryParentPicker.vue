@@ -14,7 +14,7 @@
       />
     </div>
 
-    <div class="picker-list" role="listbox" :aria-label="listLabel" :style="{ maxHeight }">
+    <div class="picker-list" ref="listEl" role="listbox" :aria-label="listLabel" :style="{ maxHeight }">
       <button
         type="button"
         class="picker-option is-root"
@@ -56,7 +56,7 @@
 </template>
 
 <script setup>
-import { computed, ref } from 'vue'
+import { computed, nextTick, onMounted, ref } from 'vue'
 
 const props = defineProps({
   modelValue: {
@@ -120,6 +120,22 @@ const select = (id) => {
   if (id === null && props.rootDisabled) return
   emit('update:modelValue', id)
 }
+
+// 打开弹窗时把当前选中的父级滚进可视区（分类多、预填的是深层级时尤其重要）
+const listEl = ref(null)
+
+const scrollSelectedIntoView = () => {
+  const list = listEl.value
+  const selected = list?.querySelector('.picker-option.is-selected')
+  if (!list || !selected) return
+  // 用 scrollIntoView 而非手算 rect：弹窗入场有 scale 过渡，getBoundingClientRect 会失真
+  selected.scrollIntoView({ block: 'nearest' })
+}
+
+onMounted(async () => {
+  await nextTick()
+  scrollSelectedIntoView()
+})
 </script>
 
 <style scoped>

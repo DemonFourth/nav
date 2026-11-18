@@ -1007,6 +1007,7 @@ const selectedBookmarks = ref(new Set()) // 批量选中
 - 搜索按完整路径匹配（`displayName`），**根选项不参与过滤**，始终置顶。
 - 选项缩进 `10 + (depth + 1) * 14px`；右侧优先显示禁用原因，其次「当前位置」胶囊。
 - 两个弹窗只负责各自外壳：新建有名称输入与提交按钮，移动有「当前：路径」脚注与移动按钮。
+- **`categories` 必须传完整分类对象**（含 `name` / `parent_id` / `depth` / `position`），`buildParentOptions` 会重新建树；只传 `{ id, displayName }` 会在列表里渲染出一片空白行（导航栏 `categoryOptions` 曾如此）。
 
 `CategoryCreateDialog` 原有的下拉触发器与 `.select-dropdown-fixed`（`z-index: 100001`）已随重构删除。
 

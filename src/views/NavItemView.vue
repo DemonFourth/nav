@@ -230,11 +230,8 @@ const dragReorderActive = ref(false)
 
 const categoryOptions = computed(() => {
   if (!categories.value.length) return []
-  const { flatList } = buildCategoryTree(categories.value)
-  return flatList.map(cat => ({
-    id: cat.id,
-    displayName: cat.displayName
-  }))
+  // 保留 name / parent_id / depth / position：新增分类弹窗的父级列表需要用它们建树
+  return buildCategoryTree(categories.value).flatList
 })
 
 const backgroundStyle = computed(() => {
