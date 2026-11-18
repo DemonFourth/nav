@@ -934,8 +934,9 @@ nav 模式记录每个书签从卡片被打开的**今日 / 本周 / 全部**次
 | `src/utils/clickStats.js` | 纯函数：日期键、自然周、记账、口径汇总、裁剪、容错解析 |
 | `src/composables/useClickStats.js` | 模块级响应式状态、持久化、`storage` 跨 tab 同步、60 秒跨天刷新 |
 | `src/components/NavCard.vue` / `BookmarkCard.vue` | 点击计数 + 卡片 tooltip |
-| `src/components/NavSettingsModal.vue` | 书签行统计、打开次数/最近打开排序、从未打开筛选 |
+| `src/components/NavSettingsModal.vue` | 书签行统计、打开次数/最近打开排序、从未打开筛选；「点击」tab（汇总 / 全量列表 / 90 天走势 / 清空） |
 | `tests/click-stats.test.js` | `npm run test:clicks` |
+| `docs/plans/2026-11-18-click-stats-design.md` | 设计稿与最终实现的差异记录 |
 
 ## 故障排查：白屏问题
 
