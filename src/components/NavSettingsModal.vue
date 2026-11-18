@@ -1000,11 +1000,19 @@
 
               <div class="click-section">
                 <div class="click-section-head">
-                  <h3>最常用</h3>
-                  <span>按总次数排序</span>
+                  <h3>已记录的书签</h3>
+                  <span>{{ clickListRows.length }} 个</span>
+                  <div class="click-list-controls">
+                    <input v-model="clickListQuery" type="text" class="click-search" placeholder="搜索书签…" />
+                    <select v-model="clickListSort" class="click-sort" aria-label="排序方式">
+                      <option value="total">总次数</option>
+                      <option value="recent">最近打开</option>
+                      <option value="today">今日次数</option>
+                    </select>
+                  </div>
                 </div>
-                <div v-if="topClickedBookmarks.length" class="click-list">
-                  <div v-for="(item, i) in topClickedBookmarks" :key="item.id" class="click-item">
+                <div v-if="clickListRows.length" class="click-list">
+                  <div v-for="(item, i) in renderedClickRows" :key="item.id" class="click-item">
                     <div
                       class="click-row"
                       :class="{ expanded: expandedClickId === item.id }"
@@ -1014,7 +1022,7 @@
                       @keydown.enter.prevent="toggleClickTrend(item.id)"
                       @keydown.space.prevent="toggleClickTrend(item.id)"
                     >
-                      <span class="click-rank">{{ i + 1 }}</span>
+                      <span v-if="clickListSort === 'total'" class="click-rank">{{ i + 1 }}</span>
                       <span class="click-row-icon">
                         <LazyIcon v-if="item.bookmark.url && getIconUrl(item.bookmark)" :size="20">
                           <img :src="getIconUrl(item.bookmark)" alt="" @error="handleIconError(item.bookmark)" />
@@ -1022,11 +1030,16 @@
                         <span v-else class="click-letter">{{ item.bookmark.name.charAt(0) }}</span>
                       </span>
                       <span class="click-row-name">{{ item.bookmark.name }}</span>
-                      <span class="click-row-path">{{ getCategoryPathForBookmark(item.bookmark.category_id) }}</span>
-                      <span class="click-row-count">{{ item.total }}</span>
-                      <button class="click-row-edit" v-tooltip="'编辑书签'" @click.stop="openBookmarkEdit(item.bookmark)">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" width="14" height="14">
-                          <path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/>
+                      <span class="click-row-stats">
+                        <span :class="{ zero: !item.today }">今 {{ item.today }}</span>
+                        <span :class="{ zero: !item.week }">周 {{ item.week }}</span>
+                        <span class="click-row-total">共 {{ item.total }}</span>
+                      </span>
+                      <span class="click-row-last">{{ formatLastOpened(item.lastAt) }}</span>
+                      <button class="click-row-open" v-tooltip="'打开书签'" @click.stop="openClickBookmark(item.bookmark)">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="14" height="14">
+                          <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+                          <polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/>
                         </svg>
                       </button>
                       <span class="click-row-chevron" :class="{ open: expandedClickId === item.id }">
@@ -1065,35 +1078,11 @@
                       </div>
                     </div>
                   </div>
+                  <div v-if="hasMoreClickRows" ref="clickSentinelRef" class="bookmark-load-more"></div>
                 </div>
-                <p v-else class="click-empty">还没有点击记录：在主页打开任意书签卡片后开始累计。</p>
-              </div>
-
-              <div class="click-section">
-                <div class="click-section-head">
-                  <h3>最近打开</h3>
-                  <span>最近 5 次</span>
-                </div>
-                <div v-if="recentClickedBookmarks.length" class="click-list">
-                  <button
-                    v-for="item in recentClickedBookmarks"
-                    :key="item.id"
-                    class="click-row"
-                    v-tooltip="item.bookmark.name"
-                    @click="openBookmarkEdit(item.bookmark)"
-                  >
-                    <span class="click-row-icon">
-                      <LazyIcon v-if="item.bookmark.url && getIconUrl(item.bookmark)" :size="20">
-                        <img :src="getIconUrl(item.bookmark)" alt="" @error="handleIconError(item.bookmark)" />
-                      </LazyIcon>
-                      <span v-else class="click-letter">{{ item.bookmark.name.charAt(0) }}</span>
-                    </span>
-                    <span class="click-row-name">{{ item.bookmark.name }}</span>
-                    <span class="click-row-path">{{ formatLastOpened(item.lastAt) }}</span>
-                    <span class="click-row-count">{{ item.total }}</span>
-                  </button>
-                </div>
-                <p v-else class="click-empty">还没有打开记录。</p>
+                <p v-else class="click-empty">
+                  {{ clickListQuery ? '没有匹配的书签' : '还没有点击记录：在主页打开任意书签卡片后开始累计。' }}
+                </p>
               </div>
 
               <div class="click-section click-section-danger">
@@ -1804,8 +1793,31 @@ const mapClickItems = (items) => {
   return items.map(item => ({ ...item, bookmark: map.get(item.id) })).filter(item => item.bookmark)
 }
 
-const topClickedBookmarks = computed(() => mapClickItems(clickTotals.value.top))
-const recentClickedBookmarks = computed(() => mapClickItems(clickTotals.value.recent))
+const clickListSort = ref('total')
+const clickListQuery = ref('')
+
+// 所有有记录的书签（不再只给前 10），支持排序与搜索
+const clickListRows = computed(() => {
+  const q = clickListQuery.value.trim().toLowerCase()
+  let items = mapClickItems(clickTotals.value.items)
+  if (q) {
+    items = items.filter(item => `${item.bookmark.name} ${item.bookmark.url}`.toLowerCase().includes(q))
+  }
+  const sorted = items.slice()
+  const sort = clickListSort.value
+  if (sort === 'recent') {
+    sorted.sort((a, b) => b.lastAt - a.lastAt)
+  } else if (sort === 'today') {
+    sorted.sort((a, b) => b.today - a.today || b.total - a.total)
+  } else {
+    sorted.sort((a, b) => b.total - a.total || b.lastAt - a.lastAt)
+  }
+  return sorted
+})
+
+const openClickBookmark = (bookmark) => {
+  if (bookmark && bookmark.url) window.open(bookmark.url, '_blank', 'noopener')
+}
 
 // 行内展开的按天走势（最近 90 天）
 const expandedClickId = ref(null)
@@ -2137,6 +2149,16 @@ const {
 } = useIncrementalRender(trendRows, {
   scrollRootRef: settingsContentRef,
   activateWhen: () => activeTab.value === 'trend'
+})
+
+// 点击 tab 的「已记录的书签」：分批渲染，避免几百行一次挂满图标
+const {
+  sentinelRef: clickSentinelRef,
+  rendered: renderedClickRows,
+  hasMore: hasMoreClickRows
+} = useIncrementalRender(clickListRows, {
+  scrollRootRef: settingsContentRef,
+  activateWhen: () => activeTab.value === 'clicks'
 })
 
 const handleBarClick = (key) => {
@@ -4579,7 +4601,8 @@ textarea.setting-input {
 }
 .click-section-head {
   display: flex;
-  align-items: baseline;
+  align-items: center;
+  flex-wrap: wrap;
   gap: 8px;
   margin-bottom: 10px;
 }
@@ -4592,6 +4615,34 @@ textarea.setting-input {
 .click-section-head span {
   font-size: 0.7rem;
   color: var(--text-tertiary);
+}
+.click-list-controls {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.click-search {
+  width: 160px;
+  padding: 5px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--card-bg);
+  color: var(--text);
+  font-size: 0.75rem;
+  outline: none;
+}
+.click-search:focus {
+  border-color: var(--accent);
+}
+.click-sort {
+  padding: 5px 8px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--card-bg);
+  color: var(--text);
+  font-size: 0.75rem;
+  cursor: pointer;
 }
 .click-list {
   display: flex;
@@ -4623,7 +4674,7 @@ textarea.setting-input {
 .click-row.expanded {
   background: color-mix(in srgb, var(--accent) 6%, transparent);
 }
-.click-row-edit,
+.click-row-open,
 .click-row-chevron {
   flex-shrink: 0;
   width: 22px;
@@ -4637,10 +4688,10 @@ textarea.setting-input {
   background: transparent;
   color: var(--text-tertiary);
 }
-.click-row-edit {
+.click-row-open {
   cursor: pointer;
 }
-.click-row-edit:hover {
+.click-row-open:hover {
   background: color-mix(in srgb, var(--accent) 12%, transparent);
   color: var(--accent);
 }
@@ -4735,20 +4786,27 @@ textarea.setting-input {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.click-row-path {
+.click-row-stats {
   flex-shrink: 0;
-  max-width: 180px;
-  font-size: 0.7rem;
-  color: var(--text-tertiary);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  display: inline-flex;
+  gap: 10px;
+  font-size: 0.72rem;
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
 }
-.click-row-count {
-  flex-shrink: 0;
-  font-size: 0.78rem;
+.click-row-stats .zero {
+  color: var(--text-tertiary);
+}
+.click-row-total {
   font-weight: 600;
   color: var(--accent);
+}
+.click-row-last {
+  flex-shrink: 0;
+  width: 74px;
+  text-align: right;
+  font-size: 0.7rem;
+  color: var(--text-tertiary);
   font-variant-numeric: tabular-nums;
 }
 .click-empty {

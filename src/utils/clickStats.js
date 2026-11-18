@@ -248,7 +248,7 @@ export function formatLastOpenedAt(ms, now = Date.now()) {
  * @param {object} state
  * @param {number} [now]
  * @param {{ top?: number, recent?: number }} [options]
- * @returns {{ today: number, week: number, total: number, tracked: number, top: Array<object>, recent: Array<object> }}
+ * @returns {{ today: number, week: number, total: number, tracked: number, items: Array<object>, top: Array<object>, recent: Array<object> }}
  */
 export function getClickTotals(state, now = Date.now(), { top = 10, recent = 5 } = {}) {
   const stats = state && state.stats && typeof state.stats === 'object' ? state.stats : {}
@@ -271,6 +271,8 @@ export function getClickTotals(state, now = Date.now(), { top = 10, recent = 5 }
     week,
     total,
     tracked: items.length,
+    // 全量（按总次数排序）：设置页要列出"所有有记录的书签"，不能只给前 N 个
+    items: byTotal,
     top: byTotal.slice(0, Math.max(0, top)),
     recent: byRecent.slice(0, Math.max(0, recent))
   }

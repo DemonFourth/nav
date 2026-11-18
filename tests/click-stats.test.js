@@ -192,7 +192,7 @@ test('getDailySeries 无记录时也能画出空窗口', () => {
 })
 
 test('getClickTotals 支持空状态与 top 截断', () => {
-  assert.deepEqual(getClickTotals(null, day(2026, 11, 18)), { today: 0, week: 0, total: 0, tracked: 0, top: [], recent: [] })
+  assert.deepEqual(getClickTotals(null, day(2026, 11, 18)), { today: 0, week: 0, total: 0, tracked: 0, items: [], top: [], recent: [] })
   const now = day(2026, 11, 18)
   const state = {
     v: 1,
