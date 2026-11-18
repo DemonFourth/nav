@@ -484,7 +484,9 @@ onBeforeUnmount(() => clearTimeout(moveHintTimer))
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 12px 14px;
+  /* 右侧预留设置弹窗右上角关闭按钮（16px 边距 + 30px 按钮 + 10px 间隙），
+     避免「＋ 新分类」被 × 覆盖 */
+  padding: 12px 56px 12px 14px;
   border-bottom: 1px solid var(--nav-border, var(--border));
   background: var(--nav-glass, var(--bg));
   backdrop-filter: blur(20px) saturate(1.4);

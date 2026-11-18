@@ -100,6 +100,38 @@ const menuStyle = computed(() => ({
   padding: 1rem 1.25rem;
   border-top: 1px solid var(--card-border);
 }
+/* 共享小号按钮：BaseDialog 内的 footer 插槽内容来自各弹窗组件，
+   scoped 样式无法跨组件生效，因此在弹窗骨架里统一提供一份兜底定义 */
+.btn-secondary-sm,
+.btn-primary-sm {
+  padding: 7px 14px;
+  border-radius: 8px;
+  font-size: 0.8125rem;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+.btn-secondary-sm {
+  border: 1px solid var(--nav-border);
+  background: transparent;
+  color: var(--nav-text);
+}
+.btn-secondary-sm:hover {
+  background: var(--nav-card-bg);
+}
+.btn-primary-sm {
+  border: none;
+  background: var(--nav-primary);
+  color: #fff;
+  font-weight: 600;
+}
+.btn-primary-sm:hover {
+  background: color-mix(in srgb, var(--nav-primary) 85%, #0b2545);
+}
+.btn-primary-sm:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
 .modal-enter-active,
 .modal-leave-active {
   transition: all 0.25s ease;

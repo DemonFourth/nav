@@ -17,8 +17,8 @@
       tabindex="0"
       :data-category-id="node.id"
       @click="handleRowClick"
-      @dblclick.stop="startEdit('name')"
-      @keydown.enter.space.prevent="handleRowKeydown"
+      @dblclick.stop="handleRowDblClick"
+      @keydown.enter.space="handleRowKeydown"
       @dragover="handleDragOver"
       @dragleave="handleDragLeave"
       @drop="handleDrop"
@@ -282,8 +282,14 @@ const handleRowClick = (event) => {
   emit('toggle', props.node.id)
 }
 
+const handleRowDblClick = (event) => {
+  if (event.target.closest('input, textarea, button, .row-desc-editor')) return
+  startEdit('name')
+}
+
 const handleRowKeydown = (event) => {
   if (event.target !== event.currentTarget) return
+  event.preventDefault()
   if (!hasChildren.value) return
   emit('toggle', props.node.id)
 }
