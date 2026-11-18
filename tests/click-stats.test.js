@@ -8,6 +8,7 @@ import {
   getClickTotals,
   clearClickStats,
   formatLastOpenedAt,
+  getDailySeries,
   pruneClickStats,
   serializeClickState,
   toDateKey,
@@ -157,6 +158,37 @@ test('getClickTotals 汇总三口径并按总次数排序', () => {
   assert.equal(totals.tracked, 2) // 0 次条目不参与
   assert.deepEqual(totals.top.map(x => x.id), [1, 2])
   assert.equal(totals.top[0].total, 12)
+})
+
+test('getDailySeries 补齐窗口并找出峰值', () => {
+  const now = day(2026, 11, 18, 12)
+  const entry = { c: 9, d: { '2026-11-01': 7, '2026-11-18': 2 }, t: 0 }
+  const series = getDailySeries(entry, { days: 90, now })
+  assert.equal(series.points.length, 90)
+  assert.equal(series.points[89].key, '2026-11-18')
+  assert.equal(series.points[89].count, 2)
+  assert.equal(series.activeDays, 2)
+  assert.equal(series.total, 9)
+  assert.equal(series.maxCount, 7)
+  assert.deepEqual(series.peak, { key: '2026-11-01', count: 7 })
+  assert.equal(series.since, '2026-11-01')
+})
+
+test('getDailySeries 忽略窗口外与 0 值，since 取最早桶', () => {
+  const now = day(2026, 11, 18, 12)
+  const series = getDailySeries({ d: { '2025-01-01': 5, '2026-11-18': 0 } }, { days: 7, now })
+  assert.equal(series.points.length, 7)
+  assert.equal(series.activeDays, 0)
+  assert.equal(series.total, 0)
+  assert.equal(series.peak.count, 0)
+  assert.equal(series.since, '2025-01-01')
+})
+
+test('getDailySeries 无记录时也能画出空窗口', () => {
+  const series = getDailySeries(null, { days: 3, now: day(2026, 11, 18) })
+  assert.equal(series.points.length, 3)
+  assert.deepEqual(series.points.map(p => p.key), ['2026-11-16', '2026-11-17', '2026-11-18'])
+  assert.equal(series.since, '2026-11-16')
 })
 
 test('getClickTotals 支持空状态与 top 截断', () => {

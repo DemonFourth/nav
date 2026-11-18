@@ -1004,24 +1004,67 @@
                   <span>按总次数排序</span>
                 </div>
                 <div v-if="topClickedBookmarks.length" class="click-list">
-                  <button
-                    v-for="(item, i) in topClickedBookmarks"
-                    :key="item.id"
-                    class="click-row"
-                    v-tooltip="item.bookmark.name"
-                    @click="openBookmarkEdit(item.bookmark)"
-                  >
-                    <span class="click-rank">{{ i + 1 }}</span>
-                    <span class="click-row-icon">
-                      <LazyIcon v-if="item.bookmark.url && getIconUrl(item.bookmark)" :size="20">
-                        <img :src="getIconUrl(item.bookmark)" alt="" @error="handleIconError(item.bookmark)" />
-                      </LazyIcon>
-                      <span v-else class="click-letter">{{ item.bookmark.name.charAt(0) }}</span>
-                    </span>
-                    <span class="click-row-name">{{ item.bookmark.name }}</span>
-                    <span class="click-row-path">{{ getCategoryPathForBookmark(item.bookmark.category_id) }}</span>
-                    <span class="click-row-count">{{ item.total }}</span>
-                  </button>
+                  <div v-for="(item, i) in topClickedBookmarks" :key="item.id" class="click-item">
+                    <div
+                      class="click-row"
+                      :class="{ expanded: expandedClickId === item.id }"
+                      role="button"
+                      tabindex="0"
+                      @click="toggleClickTrend(item.id)"
+                      @keydown.enter.prevent="toggleClickTrend(item.id)"
+                      @keydown.space.prevent="toggleClickTrend(item.id)"
+                    >
+                      <span class="click-rank">{{ i + 1 }}</span>
+                      <span class="click-row-icon">
+                        <LazyIcon v-if="item.bookmark.url && getIconUrl(item.bookmark)" :size="20">
+                          <img :src="getIconUrl(item.bookmark)" alt="" @error="handleIconError(item.bookmark)" />
+                        </LazyIcon>
+                        <span v-else class="click-letter">{{ item.bookmark.name.charAt(0) }}</span>
+                      </span>
+                      <span class="click-row-name">{{ item.bookmark.name }}</span>
+                      <span class="click-row-path">{{ getCategoryPathForBookmark(item.bookmark.category_id) }}</span>
+                      <span class="click-row-count">{{ item.total }}</span>
+                      <button class="click-row-edit" v-tooltip="'编辑书签'" @click.stop="openBookmarkEdit(item.bookmark)">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" width="14" height="14">
+                          <path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/>
+                        </svg>
+                      </button>
+                      <span class="click-row-chevron" :class="{ open: expandedClickId === item.id }">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12">
+                          <polyline points="9 6 15 12 9 18"/>
+                        </svg>
+                      </span>
+                    </div>
+
+                    <div v-if="expandedClickId === item.id && expandedClickTrend" class="click-trend">
+                      <div class="click-trend-summary">
+                        <span v-if="expandedClickTrend.peak.count" class="click-trend-peak">
+                          峰值 {{ expandedClickTrend.peak.key }} · {{ expandedClickTrend.peak.count }} 次
+                        </span>
+                        <span v-else class="click-trend-peak">最近 90 天没有点击</span>
+                        <span>有记录 {{ expandedClickTrend.activeDays }} 天</span>
+                        <span>最近 90 天共 {{ expandedClickTrend.total }} 次</span>
+                        <span>自 {{ expandedClickTrend.since }} 起记录</span>
+                      </div>
+                      <svg class="click-trend-svg" :viewBox="`0 0 ${expandedClickTrend.points.length} 40`" preserveAspectRatio="none" role="img" :aria-label="`最近 90 天每天打开次数，峰值 ${expandedClickTrend.peak.count} 次`">
+                        <rect
+                          v-for="bar in trendBars"
+                          :key="bar.key"
+                          :x="bar.i"
+                          :y="40 - bar.h"
+                          :width="0.68"
+                          :height="bar.h"
+                          :class="{ peak: bar.peak, empty: bar.count === 0 }"
+                        >
+                          <title>{{ bar.key }} · {{ bar.count }} 次</title>
+                        </rect>
+                      </svg>
+                      <div class="click-trend-axis">
+                        <span>{{ expandedClickTrend.points[0].key }}</span>
+                        <span>{{ expandedClickTrend.points[expandedClickTrend.points.length - 1].key }}</span>
+                      </div>
+                    </div>
+                  </div>
                 </div>
                 <p v-else class="click-empty">还没有点击记录：在主页打开任意书签卡片后开始累计。</p>
               </div>
@@ -1334,7 +1377,7 @@ import { useAuthGuard } from '@/composables/useAuthGuard'
 import { useLinkHealth } from '@/composables/useLinkHealth'
 import { useClickStats } from '@/composables/useClickStats'
 import { formatCheckedAt } from '@/utils/linkHealth'
-import { formatLastOpenedAt } from '@/utils/clickStats'
+import { formatLastOpenedAt, getDailySeries } from '@/utils/clickStats'
 import { buildCategoryTree, getCategoryPath } from '@/utils/categoryTree'
 import { searchBookmarks, SEARCH_FIELD_OPTIONS } from '@/utils/search'
 import { findPublicBookmarksInPrivateCategories } from '@/utils/privacyCheck'
@@ -1388,7 +1431,8 @@ const {
   summaryOf,
   totals: clickTotals,
   statsBytes: clickStatsBytes,
-  clearStats: clearClickStats
+  clearStats: clearClickStats,
+  state: clickStatsState
 } = useClickStats()
 const formatLastOpened = (ms) => formatLastOpenedAt(ms, Date.now())
 
@@ -1762,6 +1806,31 @@ const mapClickItems = (items) => {
 
 const topClickedBookmarks = computed(() => mapClickItems(clickTotals.value.top))
 const recentClickedBookmarks = computed(() => mapClickItems(clickTotals.value.recent))
+
+// 行内展开的按天走势（最近 90 天）
+const expandedClickId = ref(null)
+const expandedClickTrend = computed(() => {
+  const id = expandedClickId.value
+  if (id == null) return null
+  const entry = clickStatsState.stats ? clickStatsState.stats[String(id)] : null
+  return getDailySeries(entry, { days: 90, now: Date.now() })
+})
+const trendBars = computed(() => {
+  const trend = expandedClickTrend.value
+  if (!trend) return []
+  const max = Math.max(1, trend.maxCount)
+  return trend.points.map((point, i) => ({
+    i,
+    key: point.key,
+    count: point.count,
+    // 0 次不画柱子，避免出现一排 1px 的“噪音基线”
+    h: point.count > 0 ? Math.max(2, Math.round((point.count / max) * 36)) : 0,
+    peak: point.count > 0 && point.key === trend.peak.key
+  }))
+})
+const toggleClickTrend = (id) => {
+  expandedClickId.value = expandedClickId.value === id ? null : id
+}
 
 const clickStatsSizeText = computed(() => {
   const bytes = clickStatsBytes.value
@@ -4532,22 +4601,95 @@ textarea.setting-input {
   background: var(--card-bg);
   overflow: hidden;
 }
+.click-item {
+  display: flex;
+  flex-direction: column;
+}
 .click-row {
   display: flex;
   align-items: center;
   gap: 10px;
   width: 100%;
   padding: 8px 12px;
-  background: transparent;
-  border: none;
   border-bottom: 1px solid var(--border);
   color: var(--text);
   font-size: 0.8rem;
-  text-align: left;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+.click-item:last-child .click-row {
+  border-bottom: none;
+}
+.click-row.expanded {
+  background: color-mix(in srgb, var(--accent) 6%, transparent);
+}
+.click-row-edit,
+.click-row-chevron {
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-tertiary);
+}
+.click-row-edit {
   cursor: pointer;
 }
-.click-row:last-child {
+.click-row-edit:hover {
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  color: var(--accent);
+}
+.click-row-chevron {
+  font-size: 0;
+  transition: transform 0.2s ease, color 0.2s ease;
+}
+.click-row-chevron.open {
+  transform: rotate(90deg);
+  color: var(--accent);
+}
+.click-trend {
+  padding: 10px 12px 12px 40px;
+  border-bottom: 1px solid var(--border);
+  background: color-mix(in srgb, var(--accent) 4%, transparent);
+}
+.click-item:last-child .click-trend {
   border-bottom: none;
+}
+.click-trend-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  margin-bottom: 8px;
+  font-size: 0.72rem;
+  color: var(--text-secondary);
+}
+.click-trend-peak {
+  color: var(--accent);
+  font-weight: 600;
+}
+.click-trend-svg {
+  display: block;
+  width: 100%;
+  height: 56px;
+}
+.click-trend-svg rect {
+  fill: color-mix(in srgb, var(--accent) 55%, transparent);
+}
+.click-trend-svg rect.peak {
+  fill: var(--accent);
+}
+.click-trend-axis {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 4px;
+  font-size: 0.68rem;
+  color: var(--text-tertiary);
+  font-variant-numeric: tabular-nums;
 }
 .click-row:hover {
   background: color-mix(in srgb, var(--accent) 8%, transparent);

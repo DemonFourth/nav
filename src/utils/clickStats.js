@@ -176,6 +176,54 @@ export function getClickSummary(entry, now = Date.now()) {
 }
 
 /**
+ * 某个书签的按天走势（用于「点击」tab 的行内展开）。
+ * 生成最近 N 天的连续序列，缺数据的天补 0，保证柱子等间距。
+ * @param {{ d?: Record<string, number> }|null|undefined} entry
+ * @param {{ days?: number, now?: number }} [options]
+ * @returns {{ points: Array<{ key: string, weekday: number, count: number }>, maxCount: number, activeDays: number, total: number, peak: { key: string, count: number }, since: string }}
+ */
+export function getDailySeries(entry, { days = 90, now = Date.now() } = {}) {
+  const buckets = entry && entry.d && typeof entry.d === 'object' ? entry.d : {}
+  const span = Math.max(1, Math.floor(days))
+  const points = []
+  for (let i = span - 1; i >= 0; i -= 1) {
+    // 取当天正午，避开夏令时切换导致的 23/25 小时
+    const d = new Date(now)
+    d.setDate(d.getDate() - i)
+    d.setHours(12, 0, 0, 0)
+    const key = toDateKey(d.getTime())
+    const raw = buckets[key]
+    const count = typeof raw === 'number' && Number.isFinite(raw) && raw > 0 ? raw : 0
+    points.push({ key, weekday: d.getDay(), count })
+  }
+
+  let maxCount = 0
+  let activeDays = 0
+  let total = 0
+  let peak = { key: '', count: 0 }
+  for (const point of points) {
+    if (point.count > 0) {
+      activeDays += 1
+      total += point.count
+      if (point.count > maxCount) {
+        maxCount = point.count
+        peak = { key: point.key, count: point.count }
+      }
+    }
+  }
+
+  const keys = Object.keys(buckets).sort()
+  return {
+    points,
+    maxCount,
+    activeDays,
+    total,
+    peak,
+    since: keys.length ? keys[0] : points[0].key
+  }
+}
+
+/**
  * 最近打开时间的短文案：刚刚 / N 分钟前 / N 小时前 / N 天前 / YYYY-MM-DD。
  * @param {number} ms
  * @param {number} [now]
