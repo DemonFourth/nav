@@ -868,47 +868,6 @@
                 </div>
               </div>
 
-              <!-- 使用情况：来自本机点击统计，与上面的「新增」口径无关 -->
-              <p class="trend-subhead">
-                使用情况
-                <span class="trend-subhead-note">本机统计 · 不跨设备</span>
-              </p>
-              <div class="trend-stats-row trend-stats-row-usage">
-                <div class="trend-stat-block">
-                  <span class="trend-stat-value">{{ clickTotals.today }}</span>
-                  <span class="trend-stat-label">今日点击</span>
-                </div>
-                <div class="trend-stat-block">
-                  <span class="trend-stat-value">{{ clickTotals.week }}</span>
-                  <span class="trend-stat-label">本周点击</span>
-                </div>
-                <div class="trend-stat-block">
-                  <span class="trend-stat-value accent">{{ clickTotals.total }}</span>
-                  <span class="trend-stat-label">总点击</span>
-                </div>
-                <div class="trend-stat-block">
-                  <span class="trend-stat-value">{{ clickTotals.tracked }}</span>
-                  <span class="trend-stat-label">用过的书签</span>
-                </div>
-              </div>
-
-              <div v-if="topClickedBookmarks.length" class="trend-usage-row">
-                <span class="trend-usage-label">最常用</span>
-                <button
-                  v-for="item in topClickedBookmarks"
-                  :key="item.id"
-                  class="trend-usage-chip"
-                  v-tooltip="item.bookmark.name"
-                  @click="openBookmarkEdit(item.bookmark)"
-                >
-                  <span class="trend-usage-name">{{ item.bookmark.name }}</span>
-                  <span class="trend-usage-count">{{ item.total }}</span>
-                </button>
-              </div>
-              <div v-else class="trend-usage-row is-empty">
-                <span class="trend-usage-note">还没有点击记录：打开任意书签卡片后开始累计</span>
-              </div>
-
               <!-- SVG Chart -->
               <div class="trend-chart-wrap" ref="trendChartWrapRef">
                 <svg v-if="chartBars.length > 0" :viewBox="`0 0 ${chartSvgWidth} 220`" class="trend-chart-svg" :style="chartSvgWidth > 700 ? { width: chartSvgWidth + 'px' } : { width: '100%' }" preserveAspectRatio="xMinYMin meet">
@@ -1010,6 +969,101 @@
                 </svg>
               </button>
             </Transition>
+
+            <!-- Clicks (本机使用统计) -->
+            <div v-show="activeTab === 'clicks'" class="tab-panel">
+              <div class="panel-header">
+                <h2 class="panel-title">点击统计</h2>
+                <p class="panel-desc">本机记录，不上传云端；换设备或清除站点数据会丢失</p>
+              </div>
+
+              <div class="trend-stats-row">
+                <div class="trend-stat-block">
+                  <span class="trend-stat-value">{{ clickTotals.today }}</span>
+                  <span class="trend-stat-label">今日点击</span>
+                </div>
+                <div class="trend-stat-block">
+                  <span class="trend-stat-value">{{ clickTotals.week }}</span>
+                  <span class="trend-stat-label">本周点击</span>
+                </div>
+                <div class="trend-stat-block">
+                  <span class="trend-stat-value accent">{{ clickTotals.total }}</span>
+                  <span class="trend-stat-label">总点击</span>
+                </div>
+                <div class="trend-stat-block">
+                  <span class="trend-stat-value">
+                    {{ clickTotals.tracked }}<span class="click-stat-sub">/{{ bookmarks.length }}</span>
+                  </span>
+                  <span class="trend-stat-label">用过的书签</span>
+                </div>
+              </div>
+
+              <div class="click-section">
+                <div class="click-section-head">
+                  <h3>最常用</h3>
+                  <span>按总次数排序</span>
+                </div>
+                <div v-if="topClickedBookmarks.length" class="click-list">
+                  <button
+                    v-for="(item, i) in topClickedBookmarks"
+                    :key="item.id"
+                    class="click-row"
+                    v-tooltip="item.bookmark.name"
+                    @click="openBookmarkEdit(item.bookmark)"
+                  >
+                    <span class="click-rank">{{ i + 1 }}</span>
+                    <span class="click-row-icon">
+                      <LazyIcon v-if="item.bookmark.url && getIconUrl(item.bookmark)" :size="20">
+                        <img :src="getIconUrl(item.bookmark)" alt="" @error="handleIconError(item.bookmark)" />
+                      </LazyIcon>
+                      <span v-else class="click-letter">{{ item.bookmark.name.charAt(0) }}</span>
+                    </span>
+                    <span class="click-row-name">{{ item.bookmark.name }}</span>
+                    <span class="click-row-path">{{ getCategoryPathForBookmark(item.bookmark.category_id) }}</span>
+                    <span class="click-row-count">{{ item.total }}</span>
+                  </button>
+                </div>
+                <p v-else class="click-empty">还没有点击记录：在主页打开任意书签卡片后开始累计。</p>
+              </div>
+
+              <div class="click-section">
+                <div class="click-section-head">
+                  <h3>最近打开</h3>
+                  <span>最近 5 次</span>
+                </div>
+                <div v-if="recentClickedBookmarks.length" class="click-list">
+                  <button
+                    v-for="item in recentClickedBookmarks"
+                    :key="item.id"
+                    class="click-row"
+                    v-tooltip="item.bookmark.name"
+                    @click="openBookmarkEdit(item.bookmark)"
+                  >
+                    <span class="click-row-icon">
+                      <LazyIcon v-if="item.bookmark.url && getIconUrl(item.bookmark)" :size="20">
+                        <img :src="getIconUrl(item.bookmark)" alt="" @error="handleIconError(item.bookmark)" />
+                      </LazyIcon>
+                      <span v-else class="click-letter">{{ item.bookmark.name.charAt(0) }}</span>
+                    </span>
+                    <span class="click-row-name">{{ item.bookmark.name }}</span>
+                    <span class="click-row-path">{{ formatLastOpened(item.lastAt) }}</span>
+                    <span class="click-row-count">{{ item.total }}</span>
+                  </button>
+                </div>
+                <p v-else class="click-empty">还没有打开记录。</p>
+              </div>
+
+              <div class="click-section click-section-danger">
+                <div class="click-section-head">
+                  <h3>清空</h3>
+                  <span>当前占用 {{ clickStatsSizeText }}</span>
+                </div>
+                <p class="click-danger-note">
+                  清空后所有书签的今日 / 本周 / 总计全部归零，无法恢复；书签本身不受影响。
+                </p>
+                <button class="click-danger-btn" @click="clearClickStatsNow">清空点击记录</button>
+              </div>
+            </div>
 
             <!-- AI -->
             <div v-show="activeTab === 'ai'" class="tab-panel">
@@ -1280,6 +1334,7 @@ import { useAuthGuard } from '@/composables/useAuthGuard'
 import { useLinkHealth } from '@/composables/useLinkHealth'
 import { useClickStats } from '@/composables/useClickStats'
 import { formatCheckedAt } from '@/utils/linkHealth'
+import { formatLastOpenedAt } from '@/utils/clickStats'
 import { buildCategoryTree, getCategoryPath } from '@/utils/categoryTree'
 import { searchBookmarks, SEARCH_FIELD_OPTIONS } from '@/utils/search'
 import { findPublicBookmarksInPrivateCategories } from '@/utils/privacyCheck'
@@ -1329,7 +1384,13 @@ const {
 const { categories, bookmarks, fetchData, deleteBookmark, batchOperation, addBookmark, updateBookmark, allTags } = useBookmarks()
 
 // 本机点击统计（localStorage）
-const { summaryOf, totals: clickTotals } = useClickStats()
+const {
+  summaryOf,
+  totals: clickTotals,
+  statsBytes: clickStatsBytes,
+  clearStats: clearClickStats
+} = useClickStats()
+const formatLastOpened = (ms) => formatLastOpenedAt(ms, Date.now())
 
 const categoryFlatList = computed(() => buildCategoryTree(categories.value).flatList)
 
@@ -1529,6 +1590,10 @@ const tabs = [
     icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>'
   },
   {
+    id: 'clicks', name: '点击',
+    icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 3l7 17 2.4-6.6L20 11 4 3z"/></svg>'
+  },
+  {
     id: 'ai', name: 'AI',
     icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 2a4 4 0 0 1 4 4c0 2-2 3-2 5h-4c0-2-2-3-2-5a4 4 0 0 1 4-4z"/><path d="M9 17h6v2a3 3 0 0 1-6 0v-2z"/><path d="M12 22v-3"/></svg>'
   },
@@ -1689,14 +1754,30 @@ const usageText = (bookmarkId) => {
   return `今日 ${s.today} · 本周 ${s.week} · 共 ${s.total}`
 }
 
-// 趋势页「最常用」：把统计里的 id 映射回书签，已删除的条目自然被过滤掉
-const topClickedBookmarks = computed(() => {
+// 点击页「最常用 / 最近打开」：把统计里的 id 映射回书签，已删除的条目自然被过滤掉
+const mapClickItems = (items) => {
   const map = new Map(bookmarks.value.map(b => [Number(b.id), b]))
-  return clickTotals.value.top
-    .map(item => ({ ...item, bookmark: map.get(item.id) }))
-    .filter(item => item.bookmark)
-    .slice(0, 3)
+  return items.map(item => ({ ...item, bookmark: map.get(item.id) })).filter(item => item.bookmark)
+}
+
+const topClickedBookmarks = computed(() => mapClickItems(clickTotals.value.top))
+const recentClickedBookmarks = computed(() => mapClickItems(clickTotals.value.recent))
+
+const clickStatsSizeText = computed(() => {
+  const bytes = clickStatsBytes.value
+  if (bytes < 1024) return `${bytes} B`
+  return `${(bytes / 1024).toFixed(1)} KB`
 })
+
+const clearClickStatsNow = async () => {
+  const confirmed = await confirmDialog.value.open(
+    '确定清空所有点击记录吗？\n今日 / 本周 / 总计会全部归零，且无法恢复。书签本身不受影响。',
+    '清空点击记录'
+  )
+  if (!confirmed) return
+  clearClickStats()
+  toastSuccess('点击记录已清空')
+}
 
 const groupedBookmarks = computed(() => {
   const groups = {}
@@ -4419,69 +4500,144 @@ textarea.setting-input {
   color: var(--text-secondary);
   margin-top: 2px;
 }
-.trend-subhead {
+.click-stat-sub {
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--text-tertiary);
+}
+.click-section {
+  margin-bottom: 22px;
+}
+.click-section-head {
   display: flex;
   align-items: baseline;
   gap: 8px;
-  margin: 0 0 10px;
-  font-size: 0.8rem;
+  margin-bottom: 10px;
+}
+.click-section-head h3 {
+  margin: 0;
+  font-size: 0.85rem;
   font-weight: 600;
-  color: var(--text-secondary);
-}
-.trend-subhead-note {
-  font-size: 0.7rem;
-  font-weight: 400;
-  color: var(--text-tertiary);
-}
-.trend-stats-row-usage {
-  margin-bottom: 12px;
-}
-.trend-usage-row {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 22px;
-}
-.trend-usage-row.is-empty .trend-usage-note {
-  margin-bottom: 0;
-}
-.trend-usage-label {
-  font-size: 0.75rem;
-  color: var(--text-tertiary);
-}
-.trend-usage-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  max-width: 240px;
-  padding: 4px 10px;
-  border-radius: 9999px;
-  border: 1px solid var(--border);
-  background: var(--card-bg);
   color: var(--text);
-  font-size: 0.75rem;
+}
+.click-section-head span {
+  font-size: 0.7rem;
+  color: var(--text-tertiary);
+}
+.click-list {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--card-bg);
+  overflow: hidden;
+}
+.click-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 12px;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--border);
+  color: var(--text);
+  font-size: 0.8rem;
+  text-align: left;
   cursor: pointer;
-  transition: border-color 0.2s ease, color 0.2s ease;
 }
-.trend-usage-chip:hover {
-  border-color: var(--accent);
-  color: var(--accent);
+.click-row:last-child {
+  border-bottom: none;
 }
-.trend-usage-name {
-  max-width: 170px;
+.click-row:hover {
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+}
+.click-rank {
+  width: 16px;
+  flex-shrink: 0;
+  font-size: 0.7rem;
+  color: var(--text-tertiary);
+  font-variant-numeric: tabular-nums;
+}
+.click-row-icon {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 5px;
+  overflow: hidden;
+  background: var(--bg-secondary);
+}
+.click-row-icon img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+.click-letter {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--accent);
+  color: #fff;
+  font-size: 0.65rem;
+  font-weight: 700;
+}
+.click-row-name {
+  flex: 1;
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.trend-usage-count {
-  font-variant-numeric: tabular-nums;
-  font-weight: 600;
-  color: var(--accent);
-}
-.trend-usage-note {
+.click-row-path {
+  flex-shrink: 0;
+  max-width: 180px;
   font-size: 0.7rem;
   color: var(--text-tertiary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.click-row-count {
+  flex-shrink: 0;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+}
+.click-empty {
+  margin: 0;
+  padding: 14px 12px;
+  border: 1px dashed var(--border);
+  border-radius: 10px;
+  font-size: 0.75rem;
+  color: var(--text-tertiary);
+  text-align: center;
+}
+.click-section-danger .click-section-head h3 {
+  color: var(--error, #dc2626);
+}
+.click-danger-note {
+  margin: 0 0 10px;
+  font-size: 0.72rem;
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+.click-danger-btn {
+  padding: 7px 14px;
+  border-radius: 8px;
+  border: 1px solid color-mix(in srgb, var(--error, #dc2626) 45%, transparent);
+  background: color-mix(in srgb, var(--error, #dc2626) 8%, transparent);
+  color: var(--error, #dc2626);
+  font-size: 0.78rem;
+  cursor: pointer;
+}
+.click-danger-btn:hover {
+  background: color-mix(in srgb, var(--error, #dc2626) 16%, transparent);
 }
 .trend-chart-wrap {
   background: var(--card-bg);

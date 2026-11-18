@@ -7,9 +7,11 @@
 //   deviceId: 'd_xxx',
 //   stats: { [bookmarkId]: { c: 全部累计, d: { 'YYYY-MM-DD': 当日次数 }, t: 最后打开毫秒 } }
 // }
+//
+// 保留策略：日桶**永久保留**，不按时间裁剪；只有条目数超过 CLICK_STATS_MAX_ENTRIES
+// 时按最后打开时间淘汰最旧的条目。想要归零只能走用户手动「清空」。
 
 export const CLICK_STATS_VERSION = 1
-export const CLICK_BUCKET_RETENTION_DAYS = 35
 export const CLICK_STATS_MAX_ENTRIES = 2000
 
 /**
@@ -174,14 +176,33 @@ export function getClickSummary(entry, now = Date.now()) {
 }
 
 /**
- * 全库汇总（本机）：今日 / 本周 / 总点击，以及最常用的前几名。
+ * 最近打开时间的短文案：刚刚 / N 分钟前 / N 小时前 / N 天前 / YYYY-MM-DD。
+ * @param {number} ms
+ * @param {number} [now]
+ * @returns {string}
+ */
+export function formatLastOpenedAt(ms, now = Date.now()) {
+  if (!ms || !Number.isFinite(ms) || ms <= 0) return '—'
+  const diff = Math.max(0, now - ms)
+  const minute = 60 * 1000
+  const hour = 60 * minute
+  const day = 24 * hour
+  if (diff < minute) return '刚刚'
+  if (diff < hour) return `${Math.floor(diff / minute)} 分钟前`
+  if (diff < day) return `${Math.floor(diff / hour)} 小时前`
+  if (diff < 30 * day) return `${Math.floor(diff / day)} 天前`
+  return toDateKey(ms)
+}
+
+/**
+ * 全库汇总（本机）：今日 / 本周 / 总点击，以及最常用与最近打开的书签。
  * 只统计有点击记录的条目，删除的书签若残留条目也会计入（调用方按书签集过滤）。
  * @param {object} state
  * @param {number} [now]
- * @param {{ top?: number }} [options]
- * @returns {{ today: number, week: number, total: number, tracked: number, top: Array<{ id: number, today: number, week: number, total: number, lastAt: number }> }}
+ * @param {{ top?: number, recent?: number }} [options]
+ * @returns {{ today: number, week: number, total: number, tracked: number, top: Array<object>, recent: Array<object> }}
  */
-export function getClickTotals(state, now = Date.now(), { top = 5 } = {}) {
+export function getClickTotals(state, now = Date.now(), { top = 10, recent = 5 } = {}) {
   const stats = state && state.stats && typeof state.stats === 'object' ? state.stats : {}
   const items = []
   let today = 0
@@ -195,36 +216,43 @@ export function getClickTotals(state, now = Date.now(), { top = 5 } = {}) {
     total += summary.total
     items.push({ id: Number(key), ...summary })
   }
-  items.sort((a, b) => b.total - a.total || b.lastAt - a.lastAt)
+  const byTotal = items.slice().sort((a, b) => b.total - a.total || b.lastAt - a.lastAt)
+  const byRecent = items.slice().sort((a, b) => b.lastAt - a.lastAt)
   return {
     today,
     week,
     total,
     tracked: items.length,
-    top: items.slice(0, Math.max(0, top))
+    top: byTotal.slice(0, Math.max(0, top)),
+    recent: byRecent.slice(0, Math.max(0, recent))
   }
 }
 
 /**
- * 裁掉过期日桶，并按最后打开时间淘汰超出上限的条目；累计值不裁剪。
+ * 清空所有点击记录，保留 deviceId（设备身份不变，只是数据归零）。
  * @param {object} state
- * @param {{ now?: number, maxEntries?: number }} [options]
  */
-export function pruneClickStats(state, { now = Date.now(), maxEntries = CLICK_STATS_MAX_ENTRIES } = {}) {
-  const cutoffDate = new Date(now)
-  cutoffDate.setDate(cutoffDate.getDate() - CLICK_BUCKET_RETENTION_DAYS)
-  const cutoffKey = toDateKey(cutoffDate.getTime())
+export function clearClickStats(state) {
+  return {
+    v: state && typeof state.v === 'number' ? state.v : CLICK_STATS_VERSION,
+    deviceId: state && state.deviceId ? state.deviceId : defaultMakeDeviceId(),
+    stats: {}
+  }
+}
 
+/**
+ * 裁剪条目：**不按时间删除**（日桶永久保留），只在条目数超过上限时
+ * 按「最后打开时间」淘汰最旧的，避免 localStorage 无界增长。
+ * @param {object} state
+ * @param {{ maxEntries?: number, now?: number }} [options]
+ */
+export function pruneClickStats(state, { maxEntries = CLICK_STATS_MAX_ENTRIES } = {}) {
   const stats = {}
   const source = state && state.stats && typeof state.stats === 'object' ? state.stats : {}
   for (const [key, entry] of Object.entries(source)) {
     const clean = sanitizeEntry(entry)
     if (!clean) continue
-    const buckets = {}
-    for (const [bucketKey, value] of Object.entries(clean.d)) {
-      if (bucketKey >= cutoffKey) buckets[bucketKey] = value
-    }
-    stats[key] = { c: clean.c, d: buckets, t: clean.t }
+    stats[key] = clean
   }
 
   const keys = Object.keys(stats)

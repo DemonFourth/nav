@@ -6,6 +6,8 @@ import {
   recordClick,
   getClickSummary,
   getClickTotals,
+  clearClickStats,
+  formatLastOpenedAt,
   pruneClickStats,
   serializeClickState,
   toDateKey,
@@ -76,16 +78,38 @@ test('getClickSummary 口径：今日 / 本周 / 全部', () => {
   })
 })
 
-test('pruneClickStats 裁掉 35 天前的桶但保留累计', () => {
+test('pruneClickStats 不再按时间删除日桶（永久保留）', () => {
   const now = day(2026, 11, 18)
   const state = {
     v: 1,
     deviceId: 'd',
-    stats: { 1: { c: 9, d: { '2026-10-01': 4, '2026-10-15': 5 }, t: 1 } }
+    stats: { 1: { c: 9, d: { '2024-01-05': 4, '2026-10-15': 5 }, t: 1 } }
   }
   const pruned = pruneClickStats(state, { now })
-  assert.deepEqual(pruned.stats['1'].d, { '2026-10-15': 5 })
+  assert.deepEqual(pruned.stats['1'].d, { '2024-01-05': 4, '2026-10-15': 5 })
   assert.equal(pruned.stats['1'].c, 9)
+})
+
+test('clearClickStats 清空记录但保留 deviceId', () => {
+  const state = {
+    v: 1,
+    deviceId: 'd_keep',
+    stats: { 1: { c: 3, d: { '2026-11-18': 3 }, t: 1 } }
+  }
+  const cleared = clearClickStats(state)
+  assert.deepEqual(cleared.stats, {})
+  assert.equal(cleared.deviceId, 'd_keep')
+  assert.equal(cleared.v, 1)
+})
+
+test('formatLastOpenedAt 按时间跨度切换文案', () => {
+  const now = day(2026, 11, 18, 12)
+  assert.equal(formatLastOpenedAt(0, now), '—')
+  assert.equal(formatLastOpenedAt(now - 5000, now), '刚刚')
+  assert.equal(formatLastOpenedAt(now - 3 * 60 * 1000, now), '3 分钟前')
+  assert.equal(formatLastOpenedAt(now - 5 * 60 * 60 * 1000, now), '5 小时前')
+  assert.equal(formatLastOpenedAt(now - 3 * 24 * 60 * 60 * 1000, now), '3 天前')
+  assert.equal(formatLastOpenedAt(day(2025, 1, 2), now), '2025-01-02')
 })
 
 test('pruneClickStats 超出上限淘汰最旧', () => {
@@ -136,7 +160,7 @@ test('getClickTotals 汇总三口径并按总次数排序', () => {
 })
 
 test('getClickTotals 支持空状态与 top 截断', () => {
-  assert.deepEqual(getClickTotals(null, day(2026, 11, 18)), { today: 0, week: 0, total: 0, tracked: 0, top: [] })
+  assert.deepEqual(getClickTotals(null, day(2026, 11, 18)), { today: 0, week: 0, total: 0, tracked: 0, top: [], recent: [] })
   const now = day(2026, 11, 18)
   const state = {
     v: 1,

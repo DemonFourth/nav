@@ -1,5 +1,6 @@
 import { computed, reactive, ref } from 'vue'
 import {
+  clearClickStats,
   getClickSummary,
   getClickTotals,
   parseClickState,
@@ -73,11 +74,22 @@ function summaryOf(bookmarkId) {
   return getClickSummary(state.stats[String(id)], now.value)
 }
 
+/**
+ * 清空所有点击记录（保留 deviceId），由用户在设置里手动触发。
+ */
+function clearStats() {
+  Object.assign(state, clearClickStats(state))
+  persist()
+}
+
 export function useClickStats() {
   return {
     recordClick,
     summaryOf,
+    clearStats,
     totals: computed(() => getClickTotals(state, now.value)),
+    // 当前占用的字节数，用于在设置里如实展示存储成本
+    statsBytes: computed(() => serializeClickState(state).length),
     deviceId: computed(() => state.deviceId),
     state
   }
