@@ -65,6 +65,13 @@
         ></span>
         <span v-else class="link-health-dot link-health-dot-empty" aria-hidden="true"></span>
         <span ref="urlRef" class="nav-card-url-text">{{ bookmark.url }}</span>
+        <!-- 本机使用次数：今天·总计，未打开过则不占位 -->
+        <span
+          v-if="clickSummary.total > 0"
+          class="nav-card-click-count"
+          role="img"
+          :aria-label="`使用：今天 ${clickSummary.today} 次，共 ${clickSummary.total} 次`"
+        ><span class="cnt-today">{{ clickSummary.today }}</span><span class="cnt-sep">·</span><span class="cnt-total">{{ clickSummary.total }}</span></span>
       </div>
       <div v-if="bookmark.notes && bookmark.notes.trim()" ref="notesRef" class="nav-card-notes">
         {{ bookmark.notes }}
@@ -365,7 +372,6 @@ const handleDrop = (e) => {
   display: flex;
   align-items: flex-start;
   gap: 12px;
-  padding-right: 28px;
 }
 
 .nav-card-info {
@@ -475,6 +481,8 @@ const handleDrop = (e) => {
   overflow: hidden;
   text-overflow: ellipsis;
   transition: color 0.3s ease;
+  /* 只在标题上让位给右上角按钮，描述可以用满整宽 */
+  padding-right: 28px;
 }
 
 .nav-card-description {
@@ -536,6 +544,32 @@ const handleDrop = (e) => {
   white-space: nowrap;
 }
 
+/* 本机使用次数：今天·总计，胶囊样式，贴 URL 行右端 */
+.nav-card-click-count {
+  flex-shrink: 0;
+  margin-left: auto;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 2px;
+  padding: 2px 7px;
+  border-radius: 8px;
+  font-size: 11px;
+  line-height: 1.5;
+  font-variant-numeric: tabular-nums;
+  color: var(--nav-text-secondary);
+  background: color-mix(in srgb, var(--nav-primary) 9%, transparent);
+  border: 1px solid color-mix(in srgb, var(--nav-primary) 16%, transparent);
+}
+
+.nav-card-click-count .cnt-today {
+  color: var(--nav-primary);
+  font-weight: 600;
+}
+
+.nav-card-click-count .cnt-sep {
+  opacity: 0.4;
+}
+
 /* 死链检测圆点：位置固定，未检测时用同尺寸透明占位保证 URL 不抖动 */
 .link-health-dot {
   flex-shrink: 0;
@@ -593,7 +627,7 @@ const handleDrop = (e) => {
 }
 
 /* 排序拖拽把手 */
-.reorderable .nav-card-top {
+.reorderable .nav-card-title {
   padding-right: 68px;
 }
 
