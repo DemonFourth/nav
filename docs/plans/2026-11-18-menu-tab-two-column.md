@@ -1,6 +1,6 @@
 # 设置 · 菜单 Tab 改回两列（左树 + 右详情 · 单编辑会话 + 显式保存）
 
-> 状态：已批准（2026-11-18），按此实施
+> 状态：已实施并验证（2026-11-18，commit `807e05c`）
 > 相关文件：`src/components/settings/MenuSettings.vue`、`src/components/settings/MenuCategoryRow.vue`、`src/components/settings/MenuDetailPanel.vue`（新建）、`src/components/NavSettingsModal.vue`
 
 ## 1. 背景
@@ -98,3 +98,13 @@ editSession = { id, name, description, savedName, savedDescription }
 
 - 多标签页同时改同一分类：后保存者覆盖（PUT 全量字段），与现状一致，不加乐观锁。
 - 保存后的后台 `fetchData` 是静默的（`useBookmarks` 既有约定）；若它失败，写操作本身已成功，列表靠下次刷新收敛。
+
+## 10. 实施记录
+
+- `npm run build` 通过；`npm run test:counts` 5/5 通过。
+- 1280×609 实测：`.menu-body` 1001px = 列表 661 + 右栏 340；列表内部滚动（2002/492），外层 `.settings-content` 为 `overflow:hidden`，无嵌套滚动。
+- 交互实测：dirty 切行三选一（取消原位不动 / 放弃更改 0 次 PUT 切换 / 保存并切换 1 次 PUT）；关闭弹窗（含切到别的 Tab 后关闭）同样拦截；名称置空有红字 + toast 且不发请求。
+- 断网保存：乐观更新回滚 + toast，草稿保留、按钮恢复；用拦截的假成功响应验证「已保存 → 后台刷新回真实值」。
+- ≤1100px：右栏不渲染，双击回到行内改名；控制台无新增错误。
+- 保存成功路径未对真实 D1 执行（避免影响线上数据），以假响应验证。
+
