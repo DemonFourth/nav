@@ -9,6 +9,7 @@ import {
   serializeClickState,
   toDateKey,
   startOfWeekKey,
+  shouldAdvanceDay,
   CLICK_STATS_MAX_ENTRIES
 } from '../src/utils/clickStats.js'
 
@@ -100,6 +101,11 @@ test('pruneClickStats 超出上限淘汰最旧', () => {
   const pruned = pruneClickStats(state, { now, maxEntries: 2 })
   assert.deepEqual(Object.keys(pruned.stats).sort(), ['2', '3'])
   assert.equal(CLICK_STATS_MAX_ENTRIES, 2000)
+})
+
+test('shouldAdvanceDay 只在本地日期变化时为真', () => {
+  assert.equal(shouldAdvanceDay(day(2026, 11, 18, 0, 1), day(2026, 11, 18, 23, 59)), false)
+  assert.equal(shouldAdvanceDay(day(2026, 11, 18, 23, 59), day(2026, 11, 19, 0, 1)), true)
 })
 
 test('serializeClickState 可被 parse 回来', () => {

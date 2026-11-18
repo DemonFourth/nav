@@ -1678,6 +1678,9 @@ const groupedBookmarks = computed(() => {
   return sorted
 })
 
+// 当前列表实际渲染的书签（搜索 + 分类 + 死链 + 从未打开筛选之后）
+const visibleBookmarks = computed(() => groupedBookmarks.value.flatMap(group => group.bookmarks))
+
 /* ===== Bookmark list incremental rendering ===== */
 const bookmarkListRef = ref(null)
 
@@ -2021,12 +2024,17 @@ const toggleBookmarkSelection = (id) => {
   selectedBookmarks.value = new Set(selectedBookmarks.value)
 }
 const toggleSelectAll = () => {
-  if (selectedBookmarks.value.size === filteredBookmarks.value.length) {
-    selectedBookmarks.value.clear()
-  } else {
-    filteredBookmarks.value.forEach(bm => selectedBookmarks.value.add(bm.id))
-  }
-  selectedBookmarks.value = new Set(selectedBookmarks.value)
+  // 只对当前可见行生效：搜索/分类/死链/从未打开筛选后的集合，
+  // 避免「全选」把被筛选隐藏的书签也选中、随后被批量删除
+  const visible = visibleBookmarks.value
+  if (!visible.length) return
+  const allSelected = visible.every(bm => selectedBookmarks.value.has(bm.id))
+  const next = new Set(selectedBookmarks.value)
+  visible.forEach(bm => {
+    if (allSelected) next.delete(bm.id)
+    else next.add(bm.id)
+  })
+  selectedBookmarks.value = next
 }
 const deleteBookmarkItem = async (bookmark) => {
   if (!requireAuth()) return

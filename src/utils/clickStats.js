@@ -37,6 +37,17 @@ export function startOfWeekKey(ms) {
   return toDateKey(d.getTime())
 }
 
+/**
+ * 本地日期是否跨天（分钟级 tick 只在跨天时刷新「今日 / 本周」，
+ * 避免每分钟把列表数据换成新数组、打断增量渲染与滚动位置）。
+ * @param {number} prevMs
+ * @param {number} nextMs
+ * @returns {boolean}
+ */
+export function shouldAdvanceDay(prevMs, nextMs) {
+  return toDateKey(prevMs) !== toDateKey(nextMs)
+}
+
 function defaultMakeDeviceId() {
   try {
     if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {

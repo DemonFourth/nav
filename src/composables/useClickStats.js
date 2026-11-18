@@ -3,7 +3,8 @@ import {
   getClickSummary,
   parseClickState,
   recordClick as applyClick,
-  serializeClickState
+  serializeClickState,
+  shouldAdvanceDay
 } from '../utils/clickStats'
 
 // 书签点击统计（本地版）。
@@ -37,7 +38,10 @@ function persist() {
 
 if (typeof window !== 'undefined') {
   window.setInterval(() => {
-    now.value = Date.now()
+    const t = Date.now()
+    // 只有本地日期变化时才刷新：每分钟都换 now 会把列表派生数据换成新数组，
+    // 触发 useIncrementalRender 重置、丢掉滚动位置（「今日」只按天变化）
+    if (shouldAdvanceDay(now.value, t)) now.value = t
   }, TICK_MS)
 
   window.addEventListener('storage', (event) => {
