@@ -905,7 +905,7 @@
                       v-if="bar.showLabel"
                       :x="bar.labelX" :y="chartBottom + 18"
                       text-anchor="end" fill="var(--text-tertiary)" font-size="9"
-                      transform="rotate(-35, bar.labelX, chartBottom + 18)"
+                      :transform="`rotate(-35, ${bar.labelX}, ${chartBottom + 18})`"
                     >{{ bar.label }}</text>
                     <text
                       :x="bar.x + bar.width / 2" :y="bar.y - 8"
