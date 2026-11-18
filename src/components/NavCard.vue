@@ -115,6 +115,7 @@
 import { ref, computed, onMounted, onUpdated, onUnmounted, nextTick } from 'vue'
 import { getIconUrl, handleIconError } from '../composables/useIcon'
 import { useLinkHealth } from '../composables/useLinkHealth'
+import { useClickStats } from '../composables/useClickStats'
 import { linkStateMeta, formatCheckedAt } from '../utils/linkHealth'
 import LazyIcon from './LazyIcon.vue'
 
@@ -161,6 +162,9 @@ let resizeObserver = null
 
 // 死链检测状态（结果由浏览器扩展写入 localStorage，这里只读缓存）
 const { hasExtension, checksEnabled, stateOf, reasonOf, checkedAtOf } = useLinkHealth()
+// 本机点击统计（localStorage，不经过后端）
+const { recordClick, summaryOf } = useClickStats()
+const clickSummary = computed(() => summaryOf(props.bookmark.id))
 // 关掉检测或没装扩展时，残留缓存也不再显示圆点
 const linkState = computed(() => {
   if (!checksEnabled.value || !hasExtension.value) return ''
@@ -171,13 +175,15 @@ const linkMeta = computed(() => linkStateMeta(linkState.value))
 
 // 状态正常时绿点自解释，不额外弹 tooltip；异常状态才并入卡片 tooltip 说明原因
 // 任一文本被截断（标题/描述/URL/备注）或状态异常时显示，保证用户能看到被省略的完整内容
+// 有本机使用记录时也显示，让「打开次数」有个入口（悬停 500ms 才出现）
 const shouldShowTitle = computed(
   () =>
     isTitleTruncated.value ||
     isDescTruncated.value ||
     isUrlTruncated.value ||
     isNotesTruncated.value ||
-    (!!linkState.value && linkState.value !== 'ok')
+    (!!linkState.value && linkState.value !== 'ok') ||
+    clickSummary.value.total > 0
 )
 
 function checkTruncation() {
@@ -244,11 +250,16 @@ const hoverTitle = computed(() => {
       `状态：${linkMeta.value.label}${reasonText.value ? ' · ' + reasonText.value : ''}${when ? ' · 检测于 ' + when : ''}`
     )
   }
+  if (clickSummary.value.total > 0) {
+    const s = clickSummary.value
+    parts.push(`使用：打开 ${s.total} 次${s.today ? ` · 今天 ${s.today} 次` : ''}`)
+  }
   return parts.join('\n')
 })
 
 // 事件处理
 const handleCardClick = () => {
+  recordClick(props.bookmark.id)
   window.open(props.bookmark.url, '_blank')
 }
 

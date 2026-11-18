@@ -110,11 +110,13 @@
 import { computed, ref } from 'vue'
 import { useBookmarks } from '../composables/useBookmarks'
 import { useSettings } from '../composables/useSettings'
+import { useClickStats } from '../composables/useClickStats'
 import HighlightText from './HighlightText.vue'
 import LetterIcon from './LetterIcon.vue'
 
 const { searchQuery } = useBookmarks()
 const { iconSources, proxyUrl, parseIconSourceUrl } = useSettings()
+const { recordClick } = useClickStats()
 
 const props = defineProps({
   bookmark: {
@@ -209,6 +211,7 @@ const handleIconError = () => {
 
 const handleClick = () => {
   if (!props.isEditMode) {
+    recordClick(props.bookmark.id)
     window.open(props.bookmark.url, '_blank')
     return
   }
