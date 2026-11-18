@@ -62,33 +62,6 @@ export function canMoveToParent(categories, movingId, targetParentId) {
 }
 
 /**
- * 生成「移动到…」弹窗的目标列表
- * 包含除自身外的全部分类（自身也保留但置灰，方便用户看到自己在哪里）
- *
- * @param {Array} categories - 扁平分类数组
- * @param {Number} movingId - 要移动的分类 id
- * @returns {Array<{ id, name, displayName, depth, disabled, reason, isCurrentParent }>}
- */
-export function buildMoveTargets(categories, movingId) {
-  const { map, flatList } = buildCategoryTree(categories || [])
-  const moving = map[movingId]
-  const currentParentId = moving ? moving.parent_id ?? null : undefined
-
-  return flatList.map((item) => {
-    const { ok, reason } = canMoveToParent(categories, movingId, item.id)
-    return {
-      id: item.id,
-      name: item.name,
-      displayName: item.displayName,
-      depth: item.depth ?? 0,
-      disabled: !ok,
-      reason,
-      isCurrentParent: currentParentId !== undefined && item.id === currentParentId
-    }
-  })
-}
-
-/**
  * 由树推导每个分类的层级，根分类为 0
  * @param {Array} tree
  * @returns {Object} - id → depth

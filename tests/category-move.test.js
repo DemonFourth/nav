@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { buildMoveTargets, canMoveToParent, getSubtreeHeight } from '../src/utils/categoryMove.js'
+import { canMoveToParent, getSubtreeHeight } from '../src/utils/categoryMove.js'
 
 const deep = [
   { id: 1, parent_id: null, position: 1, name: 'L1', depth: 0 },
@@ -34,15 +34,4 @@ test('子树过高时拒绝，刚好不超过时允许', () => {
   assert.equal(canMoveToParent(deep, 2, 7).ok, true)
   // 移动到根目录总是允许
   assert.equal(canMoveToParent(deep, 6, null).ok, true)
-})
-
-test('buildMoveTargets 标出自身/后代/当前父级', () => {
-  const targets = buildMoveTargets(deep, 2)
-  const byId = Object.fromEntries(targets.map(t => [t.id, t]))
-  assert.equal(byId[2].disabled, true)
-  assert.equal(byId[2].reason, '不能移动到自身')
-  assert.equal(byId[3].disabled, true)
-  assert.equal(byId[1].isCurrentParent, true)
-  assert.equal(byId[7].disabled, false)
-  assert.equal(byId[3].displayName, 'L1 / L2 / L3')
 })

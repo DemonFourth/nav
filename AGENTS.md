@@ -600,11 +600,12 @@ nav 模式下可在菜单栏直接新建分类，覆盖根分类与各层级子�
 
 ### 弹窗（CategoryCreateDialog）
 
-`src/components/CategoryCreateDialog.vue`：分类名称 + 父分类选择。
+`src/components/CategoryCreateDialog.vue`：分类名称 + 内置的父分类列表（`CategoryParentPicker`，与「移动到…」共用）。
 
 - 打开时按点击位置预填父分类：根级＋为「作为根分类」，子级/叶子＋为该项完整路径。
-- 父分类可搜索、可修改，最终以选择结果为准（不强制锁定点击位置）。
-- 名称为空或提交中时「创建」禁用；失败（重名 409 / 父级不存在 / 超过 5 层）保留弹窗与已填内容并 toast；成功后关闭并刷新。
+- 父分类列表可搜索、可修改，最终以选择结果为准（不强制锁定点击位置）；搜索时「作为根分类」始终置顶。
+- 深度已满（`depth >= 5`）的父级**置灰并标注原因**，不再等后端返回错误。
+- 名称为空或提交中时「创建」禁用；失败（重名 409 / 父级不存在）保留弹窗与已填内容并 toast；成功后关闭并刷新。
 - 创建后保持当前浏览分类不变。
 
 ### 数据流
@@ -636,8 +637,8 @@ NavBar / NavMenuItem（emit create-category(parentId)）
 ### 已知限制
 
 - 父分类允许修改（产品选择），不是严格绑定入口位置。
-- 第 5 层分类仍会出现在父级下拉，选中后服务端拒绝并 toast；如需可改为过滤/置灰。
-- 设置页“新增分类”仍使用设置面板自带弹窗（局部主题变量耦合），导航栏使用 `CategoryCreateDialog`；如要统一为共享组件，需要把强调色/表单样式参数化。
+- 第 5 层分类在列表中置灰（`buildParentOptions` 判定 `depth >= 5`），原因写在右侧，客户端即拦下。
+- 导航栏与设置页新增分类**共用** `CategoryCreateDialog`，不再有两套父级下拉。
 
 ## 统一书签搜索（src/utils/search.js）
 
@@ -983,10 +984,31 @@ const selectedBookmarks = ref(new Set()) // 批量选中
 |------|------|
 | `src/components/settings/MenuSettings.vue` | 菜单 Tab：工具栏、搜索、树渲染、即时保存、拖拽、浮条 |
 | `src/components/settings/MenuCategoryRow.vue` | 递归行：行内编辑、`⋯` 操作菜单、拖拽落点样式、键盘操作 |
-| `src/components/MoveCategoryDialog.vue` | 共享「移动到…」弹窗（搜索、自身/后代/深度禁用、当前位置标记） |
-| `src/utils/categoryMove.js` | 纯函数：`getSubtreeHeight` / `canMoveToParent` / `buildMoveTargets` |
+| `src/components/MoveCategoryDialog.vue` | 共享「移动到…」弹窗（`CategoryParentPicker` + 自身/后代/深度禁用 + 当前位置标记） |
+| `src/components/CategoryParentPicker.vue` | 共享父分类列表：搜索、缩进、根选项置顶、禁用原因、当前位置 |
+| `src/utils/categoryParents.js` | 纯函数：`buildParentOptions`（新建 / 移动两种模式） |
+| `src/utils/categoryMove.js` | 纯函数：`getSubtreeHeight` / `canMoveToParent` |
 | `src/utils/categoryCounts.js` | 纯函数：`buildCategoryBookmarkCounts`（含后代汇总） |
 | `src/composables/useMenuReorder.js` | 同级拖拽状态机（导航栏与设置菜单共用） |
+
+### 父分类选择（CategoryParentPicker）
+
+「新增分类」与「移动到…」共用同一套父级列表，不再各写一份：
+
+| 文件 | 作用 |
+|------|------|
+| `src/components/CategoryParentPicker.vue` | 搜索框 + `role="listbox"` 列表 + 根选项 + 缩进 + 禁用原因 + 当前位置；`v-model` 只承载父级 id（`null` = 根） |
+| `src/utils/categoryParents.js` | `buildParentOptions(categories, { excludeId, currentParentId })` 生成 options |
+
+规则：
+
+- `excludeId` 为空（新建）：只拦深度，`depth >= 5` 置灰并写「已达最大层级（5 层）」。
+- `excludeId` 有值（移动）：复用 `canMoveToParent`，拦自身 / 自己的子分类 / 子树过高。
+- 搜索按完整路径匹配（`displayName`），**根选项不参与过滤**，始终置顶。
+- 选项缩进 `10 + (depth + 1) * 14px`；右侧优先显示禁用原因，其次「当前位置」胶囊。
+- 两个弹窗只负责各自外壳：新建有名称输入与提交按钮，移动有「当前：路径」脚注与移动按钮。
+
+`CategoryCreateDialog` 原有的下拉触发器与 `.select-dropdown-fixed`（`z-index: 100001`）已随重构删除。
 
 ## Token 过期预检机制
 
