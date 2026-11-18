@@ -57,11 +57,13 @@
           :reorder="reorder"
           :reorderable="canReorder"
           :highlight="searchQuery"
+          :open-menu-id="openRowMenuId"
           @toggle="toggleExpand"
           @start-edit="handleStartEdit"
           @save-edit="handleSaveEdit"
           @cancel-edit="handleCancelEdit"
           @action="handleAction"
+          @menu-toggle="handleRowMenuToggle"
         />
       </template>
     </div>
@@ -186,6 +188,46 @@ const applySearch = debounce((value) => {
 }, 150)
 
 watch(searchInput, (value) => applySearch(value.trim()))
+
+/* ===== 行内操作菜单（单例） ===== */
+const openRowMenuId = ref(null)
+
+const handleRowMenuToggle = (id) => {
+  openRowMenuId.value = id
+}
+
+const closeRowMenu = () => {
+  openRowMenuId.value = null
+}
+
+const handleMenuOutsidePointerDown = (event) => {
+  if (event.target?.closest?.('.row-menu, .row-more')) return
+  closeRowMenu()
+}
+
+const handleMenuKeydown = (event) => {
+  if (event.key !== 'Escape' || openRowMenuId.value == null) return
+  event.preventDefault()
+  closeRowMenu()
+}
+
+const removeRowMenuListeners = () => {
+  window.removeEventListener('pointerdown', handleMenuOutsidePointerDown, true)
+  window.removeEventListener('scroll', closeRowMenu, true)
+  window.removeEventListener('resize', closeRowMenu)
+  window.removeEventListener('keydown', handleMenuKeydown, true)
+}
+
+watch(openRowMenuId, (id, prev) => {
+  if (id != null && prev == null) {
+    window.addEventListener('pointerdown', handleMenuOutsidePointerDown, true)
+    window.addEventListener('scroll', closeRowMenu, true)
+    window.addEventListener('resize', closeRowMenu)
+    window.addEventListener('keydown', handleMenuKeydown, true)
+  } else if (id == null && prev != null) {
+    removeRowMenuListeners()
+  }
+})
 
 const clearSearch = () => {
   searchInput.value = ''
@@ -468,7 +510,10 @@ const reorder = useMenuReorder({
   onInvalidDrop: showMoveHint
 })
 
-onBeforeUnmount(() => clearTimeout(moveHintTimer))
+onBeforeUnmount(() => {
+  clearTimeout(moveHintTimer)
+  removeRowMenuListeners()
+})
 </script>
 
 <style scoped>

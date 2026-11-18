@@ -122,17 +122,20 @@
         :reorder="reorder"
         :reorderable="reorderable"
         :highlight="highlight"
+        :open-menu-id="openMenuId"
         @toggle="$emit('toggle', $event)"
         @start-edit="$emit('start-edit', $event)"
         @save-edit="$emit('save-edit', $event)"
         @cancel-edit="$emit('cancel-edit')"
         @action="$emit('action', $event)"
+        @menu-toggle="$emit('menu-toggle', $event)"
       />
     </div>
 
     <Teleport to="body">
       <div
         v-if="menuOpen"
+        ref="menuEl"
         class="row-menu"
         :style="menuStyle"
         @click.stop
@@ -148,7 +151,7 @@
 </template>
 
 <script setup>
-import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
+import { computed, nextTick, ref, watch } from 'vue'
 import { resolveDropPosition } from '@/composables/useMenuReorder'
 
 defineOptions({
@@ -187,10 +190,14 @@ const props = defineProps({
   highlight: {
     type: String,
     default: ''
+  },
+  openMenuId: {
+    type: [Number, String],
+    default: null
   }
 })
 
-const emit = defineEmits(['toggle', 'start-edit', 'save-edit', 'cancel-edit', 'action'])
+const emit = defineEmits(['toggle', 'start-edit', 'save-edit', 'cancel-edit', 'action', 'menu-toggle'])
 
 const hasChildren = computed(() => (props.node.children?.length || 0) > 0)
 const totalChildren = computed(() => props.node.totalChildren ?? (props.node.children?.length || 0))
@@ -294,9 +301,11 @@ const handleRowKeydown = (event) => {
   emit('toggle', props.node.id)
 }
 
-/* ===== 行内操作菜单 ===== */
-const menuOpen = ref(false)
+/* ===== 行内操作菜单（单例：由 MenuSettings 持有 openMenuId） ===== */
 const menuStyle = ref({})
+const menuEl = ref(null)
+
+const menuOpen = computed(() => props.openMenuId != null && props.openMenuId === props.node.id)
 
 const toggleMenu = () => {
   if (menuOpen.value) {
@@ -313,23 +322,12 @@ const toggleMenu = () => {
     top = Math.max(8, rect.top - height - 4)
   }
   menuStyle.value = { top: `${top}px`, left: `${left}px`, width: `${width}px` }
-  menuOpen.value = true
-  window.addEventListener('pointerdown', handleOutsidePointerDown, true)
-  window.addEventListener('scroll', closeMenu, true)
-  window.addEventListener('resize', closeMenu)
+  emit('menu-toggle', props.node.id)
 }
 
 const closeMenu = () => {
   if (!menuOpen.value) return
-  menuOpen.value = false
-  window.removeEventListener('pointerdown', handleOutsidePointerDown, true)
-  window.removeEventListener('scroll', closeMenu, true)
-  window.removeEventListener('resize', closeMenu)
-}
-
-const handleOutsidePointerDown = (event) => {
-  if (event.target?.closest?.('.row-menu, .row-more')) return
-  closeMenu()
+  emit('menu-toggle', null)
 }
 
 const menuAction = (action) => {
@@ -338,7 +336,15 @@ const menuAction = (action) => {
   emit('action', { action, node })
 }
 
-onBeforeUnmount(closeMenu)
+// 打开后把焦点移进菜单；关闭后若焦点已落回 body（Esc / 菜单项被移除），还回 ⋯ 按钮
+watch(menuOpen, async (open) => {
+  await nextTick()
+  if (open) {
+    menuEl.value?.querySelector('button')?.focus()
+  } else if (document.activeElement === document.body) {
+    moreBtnRef.value?.focus()
+  }
+})
 
 /* ===== 拖拽（与导航栏同一套语义：仅同级排序） ===== */
 const isDragActive = () => props.reorder?.isActive?.value === true
