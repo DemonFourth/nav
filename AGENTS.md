@@ -779,6 +779,7 @@ token TTL 必须与 `functions/_middleware.js` 的 `validateToken` 保持一致�
 ### URL 查重（内联提示）
 
 - 触发：打开弹窗自动填 URL 后立即查、URL 输入停顿 600ms、`blur`、保存返回 409
+- 命中重复后保存按钮**锁定为「已保存过」并禁用**（`title` 说明原因），不再让用户点一个注定失败的按钮；表单仍可被回车提交，`saveBookmark` 入口兜底 toast「该网址已收藏过（分类）」。修改 URL 会先解除锁定再重新查重。服务端 409（旧后端漏判 / 竞态）同样锁按钮并弹提示
 - 后端 `GET /api/bookmarks?url=` 正常返回 `{ data, exactUrl: true }`；**旧后端忽略 `url` 参数返回全量列表（无 `exactUrl`）时，改为本地逐条归一化比对**，不能直接判定重复
 - **等价规则（前后端必须一致）**：`functions/api/bookmarks/_shared.js` 的 `getUrlComparisonVariants` 生成变体集合，忽略三类差异 —— `http`/`https`、`www.`/非 `www.`、**任意路径**的尾部斜杠。变体对输入是对称的，所以只需用输入的变体去 `b.url IN (...)` 精确匹配即可（保留 `url` 索引）。客户端 `normalizeUrlForCompare` 用同一套规则（去掉协议与 `www`、去掉尾部斜杠）生成比对键
 - **URL 必须以 `tab.url` 为准**：`getTabInfo()` 里只有在用户真正 `keydown`/`paste` 过 URL 字段（`urlEditedByUser`）时才保留输入值；**不要用 `formDirty` 或「字段已有值」判断**。浏览器自动填充/表单恢复也会写入并触发 `input`，但它不产生 `keydown`/`paste`——一旦用「已改过」来判断，旧 URL 会顶掉 `tab.url`，查重就会去查一个用户根本没在看的地址（曾出现：面板显示「未找到匹配」，实际查的是自动填充留下的 `...?from=old`；表单改成先渲染后这个竞态才暴露）。输入框与 `<form>` 也加了 `autocomplete="off"` 从源头减少自动填充

@@ -35,6 +35,9 @@ let lastPingFailAt = 0;    // 最近一次测速失败的时间（用于补充"�
 let backendFallback = false;
 // 最近一次查重的结果，供详情面板展示（便于区分"没保存过"和"查重失败"）
 let duplicateCheckInfo = null;
+// 查重命中的已有书签：用它把保存按钮锁成「已保存过」，避免点了没反应
+let duplicateBookmark = null;
+let savingInProgress = false;
 
 function storageGet(area, keys) {
   return new Promise(resolve => chrome.storage[area].get(keys, resolve));
@@ -689,8 +692,21 @@ function schedulePingIfIdle() {
 
 let duplicateCheckSeq = 0;
 
+function updateSaveButtonState() {
+  const saveBtn = document.getElementById('save-btn');
+  const saveText = document.getElementById('save-text');
+  if (!saveBtn || !saveText || savingInProgress) return;
+
+  const blocked = !!duplicateBookmark;
+  saveBtn.disabled = blocked;
+  saveBtn.title = blocked ? '该网址已收藏过，无法重复保存' : '';
+  saveText.textContent = blocked ? '已保存过' : '保存书签';
+}
+
 function setDuplicateHint(bookmark) {
   const hint = document.getElementById('duplicate-hint');
+  duplicateBookmark = bookmark || null;
+  updateSaveButtonState();
   if (!hint) return;
 
   if (!bookmark) {
@@ -1451,8 +1467,16 @@ async function saveBookmark(event) {
     return;
   }
 
+  // 按钮已锁，但表单仍可被回车提交，这里兜底给出反馈
+  if (duplicateBookmark) {
+    showToast(`该网址已收藏过（${duplicateBookmark.category_name || '未分类'}），无法重复保存`, 'error');
+    updateSaveButtonState();
+    return;
+  }
+
   const saveBtn = document.getElementById('save-btn');
   const saveText = document.getElementById('save-text');
+  savingInProgress = true;
   saveBtn.disabled = true;
   saveText.textContent = '保存中...';
 
@@ -1488,22 +1512,22 @@ async function saveBookmark(event) {
         window.close();
       }, 1000);
     } else if (response.status === 409 && result.duplicate) {
-      // 处理重复 URL 的情况：内联提示 + 恢复按钮，不关窗
+      // 查重漏判（旧后端 / 竞态）时由服务端兜底：给出提示并锁住按钮
+      savingInProgress = false;
       setDuplicateHint(result.existingBookmark || { url });
-      saveBtn.disabled = false;
-      saveText.textContent = '保存书签';
+      showToast('该网址已收藏过，未重复保存', 'error');
     } else {
+      savingInProgress = false;
       showToast(result.error || '保存失败', 'error');
-      saveBtn.disabled = false;
-      saveText.textContent = '保存书签';
+      updateSaveButtonState();
     }
   } catch (error) {
+    savingInProgress = false;
     if (error.kind !== 'unauthorized') {
       console.error('Save error:', error);
       showToast(error.kind === 'timeout' ? '连接超时，请重试' : '网络错误，请检查服务器地址', 'error');
     }
-    saveBtn.disabled = false;
-    saveText.textContent = '保存书签';
+    updateSaveButtonState();
   }
 }
 

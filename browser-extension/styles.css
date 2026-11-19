@@ -584,6 +584,20 @@ body.dark .private-toggle:has(input:checked) {
   transform: translateY(-1px);
 }
 
+.button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.button:disabled:hover {
+  transform: none;
+}
+
+.button-primary:disabled:hover {
+  background: var(--primary);
+}
+
 .button-secondary {
   background: rgba(226, 232, 240, 0.8);
   color: var(--text);
