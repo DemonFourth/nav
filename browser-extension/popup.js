@@ -753,15 +753,42 @@ function isSameSaveUrl(a, b) {
   return normalizeUrlForCompare(a) === normalizeUrlForCompare(b);
 }
 
-// 上一次超时的保存，URL 相同且还在窗口期内才认，避免把别处创建的同名书签当成自己存的
+// 上一次超时的保存，URL 相同且还在窗口期内才认，避免把别处创建的同一 URL 当成自己存的
 function isRecentTimedOutSave(url) {
   return !!pendingSave &&
     Date.now() - pendingSave.at < TIMEOUT_RECONCILE_WINDOW &&
     isSameSaveUrl(pendingSave.url, url);
 }
 
+function normalizeStoredField(value) {
+  return value === null || value === undefined ? '' : String(value);
+}
+
+// 409 只能证明「这个 URL 在库里」，还要确认库里的内容就是这次提交的内容，
+// 否则用户超时后改过的字段会被静默丢弃
+function matchesSubmittedSave(stored, submitted) {
+  if (!stored) return false;
+  return normalizeStoredField(stored.name) === submitted.name &&
+    normalizeStoredField(stored.description) === submitted.description &&
+    String(stored.category_id) === String(submitted.categoryId) &&
+    normalizeStoredField(stored.tags) === submitted.tags &&
+    normalizeStoredField(stored.notes) === submitted.notes;
+}
+
+async function verifyTimedOutSaveContent(url, submitted) {
+  try {
+    const stored = await fetchExistingBookmark(url, { full: true });
+    return matchesSubmittedSave(stored, submitted);
+  } catch (error) {
+    if (error.kind === 'unauthorized') throw error;
+    return false;
+  }
+}
+
 // 查询某个 URL 是否已存在；兼容忽略 url 参数的旧后端（本地逐条比对）
-async function fetchExistingBookmark(targetUrl) {
+// full=true 时要求完整字段（description/tags/notes），用于 409 后比对内容
+async function fetchExistingBookmark(targetUrl, options = {}) {
+  const { full = false } = options;
   const response = await apiFetch(
     `/api/bookmarks?url=${encodeURIComponent(targetUrl)}`,
     { label: '确认保存', timeout: 6000 }
@@ -770,8 +797,20 @@ async function fetchExistingBookmark(targetUrl) {
 
   const result = await response.json();
   const list = Array.isArray(result.data) ? result.data : [];
-  if (result.exactUrl === true) return list[0] || null;
-  return list.find(item => isSameSaveUrl(item.url, targetUrl)) || null;
+  const found = result.exactUrl === true
+    ? list[0] || null
+    : list.find(item => isSameSaveUrl(item.url, targetUrl)) || null;
+
+  if (!full || !found) return found;
+  // 后端 url 查重只返回 id/name/category 等精简字段，没有可比对的内容字段
+  if ('description' in found && 'tags' in found && 'notes' in found) return found;
+
+  const fullResponse = await apiFetch('/api/bookmarks', { label: '确认保存', timeout: 8000 });
+  if (!fullResponse.ok) return found;
+
+  const fullResult = await fullResponse.json();
+  const all = Array.isArray(fullResult.data) ? fullResult.data : [];
+  return all.find(item => isSameSaveUrl(item.url, targetUrl)) || found;
 }
 
 async function reconcileTimedOutSave(targetUrl) {
@@ -1575,8 +1614,28 @@ async function saveBookmark(event) {
       setDuplicateHint(existing);
       setDuplicateCheckInfo(`查重：已存在（${existing.category_name || '未分类'}）`);
       if (isRecentTimedOutSave(url)) {
-        // 上一次请求只是响应超时，实际已写入：按成功处理，不再让用户困惑
-        finishSaveSuccess('✅ 已保存（上次请求只是响应超时）');
+        // 上一次请求只是响应超时：拉完整记录比对，确认写进去的就是当前表单的内容
+        let verified = false;
+        try {
+          verified = await verifyTimedOutSaveContent(url, {
+            name: title,
+            description: description || '',
+            categoryId,
+            tags: tagItems.join(','),
+            notes
+          });
+        } catch (confirmError) {
+          if (confirmError.kind === 'unauthorized') return;
+        }
+
+        if (verified) {
+          finishSaveSuccess('✅ 已保存（上次请求只是响应超时）');
+        } else {
+          // 记录在，但内容不是这次提交的（超时后改过字段 / 别的设备存的）
+          setDuplicateCheckInfo('保存：该网址已存在，但内容与当前表单不同');
+          updateSaveButtonState();
+          showToast('该网址已在书签中（可能是上次保存成功），本次修改未写入', 'error');
+        }
       } else {
         showToast('该网址已收藏过，未重复保存', 'error');
       }
@@ -1607,7 +1666,28 @@ async function saveBookmark(event) {
       if (existing) {
         setDuplicateHint(existing);
         setDuplicateCheckInfo(`查重：已存在（${existing.category_name || '未分类'}）`);
-        finishSaveSuccess('✅ 已保存（响应超时，已确认写入）');
+
+        // 存在不等于这次写进去了：内容一致才关窗，否则保留弹窗让用户核对
+        let verified = false;
+        try {
+          verified = await verifyTimedOutSaveContent(url, {
+            name: title,
+            description: description || '',
+            categoryId,
+            tags: tagItems.join(','),
+            notes
+          });
+        } catch (confirmError) {
+          if (confirmError.kind === 'unauthorized') return;
+        }
+
+        if (verified) {
+          finishSaveSuccess('✅ 已保存（响应超时，已确认写入）');
+        } else {
+          setDuplicateCheckInfo('保存：该网址已存在，但内容与当前表单不同');
+          updateSaveButtonState();
+          showToast('该网址已在书签中（可能是刚才那次保存），本次修改未写入', 'error');
+        }
       } else {
         setDuplicateCheckInfo('保存：请求超时，未确认是否写入');
         updateSaveButtonState();

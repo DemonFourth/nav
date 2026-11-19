@@ -808,7 +808,8 @@ token TTL 必须与 `functions/_middleware.js` 的 `validateToken` 保持一致�
 
 - POST `/api/bookmarks` 超时放宽到 **20s**（GET 仍 8s，超时确认请求 6s）。
 - 超时后不提示「请重试」，而是用 `GET /api/bookmarks?url=`（`exactUrl` 精确匹配，旧后端回退本地比对）在 0s / 1.5s / 3s 查三次：命中即按成功处理并关窗。
-- 超时 URL 记入 `pendingSave`（2 分钟窗口）；期间同一 URL 的 409 视为「上次其实已写入」，按成功提示，不再报错。
+- 超时 URL 记入 `pendingSave`（2 分钟窗口）；期间同一 URL 的 409 不能直接判成功：重新 `GET` 完整记录，比对 `name / description / category_id / tags / notes`，一致才按成功关窗；不一致提示「已在书签中，本次修改未写入」并保持弹窗，避免静默丢弃超时后修改的字段。
+- 注意 `GET /api/bookmarks?url=` 的分支只返回 `id/name/url/category_id/category_name`（精简字段）；`fetchExistingBookmark(url, { full: true })` 发现缺 `description/tags/notes` 时会再拉一次全量列表本地匹配。不要假设该端点返回 `b.*`。
 - 未命中时提示「保存结果未确认，请勿重复提交」，详情面板记一条 `保存：请求超时，未确认是否写入`。
 - 未做服务端幂等键（`client_request_id`）与 URL 唯一索引，属后续可选项。
 
