@@ -669,6 +669,18 @@
                     class="bookmark-search-input"
                     placeholder="搜索书签..."
                   />
+                  <button
+                    v-if="bookmarkSearch"
+                    type="button"
+                    class="bookmark-search-clear"
+                    aria-label="清除搜索"
+                    @mousedown.prevent
+                    @click="clearBookmarkSearch"
+                  >
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M18 6L6 18M6 6l12 12"/>
+                    </svg>
+                  </button>
                   <div class="search-field-wrap" ref="bmSearchFieldRef">
                     <button ref="bmSearchFieldBtnRef" class="search-field-btn" :class="{ active: bookmarkSearchField !== 'all' }" @click="openBmFieldDropdown" :title="'搜索范围: ' + (SEARCH_FIELD_OPTIONS.find(o => o.value === bookmarkSearchField)?.label || '全部字段')">
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -707,12 +719,13 @@
                     name="category-filter-search"
                     autocomplete="new-password"
                     spellcheck="false"
-                    @focus="openFilterSelect"
+                    :readonly="filterInputLocked"
+                    @focus="handleFilterFocus"
                     @input="handleFilterInput"
                     @click="filterSelectOpen = true"
                     @keydown.enter="commitFilterInput"
                     @keydown.esc.stop.prevent="closeFilterSelect({ resetEmpty: false })"
-                    @blur="closeFilterSelect()"
+                    @blur="handleFilterBlur"
                   />
                   <button
                     v-if="filterCategoryQuery"
@@ -1549,6 +1562,9 @@ const runDiagnose = async () => {
 
 // Bookmark tab state
 const bookmarkSearch = ref('')
+const clearBookmarkSearch = () => {
+  bookmarkSearch.value = ''
+}
 const bookmarkCategoryFilter = ref(null)
 const bookmarkSort = ref('default')
 const bookmarkUnusedOnly = ref(false)
@@ -1595,6 +1611,19 @@ const filterSelectRef = ref(null)
 const filterCategoryInputRef = ref(null)
 const filterCategoryQuery = ref('')
 const filterCategoryFiltering = ref(false)
+// Chrome 密码管理器会把普通文本框误判成账号框并弹已存密码；只读字段不会被识别，
+// 聚焦时再解锁，避免下拉建议盖住分类列表
+const filterInputLocked = ref(true)
+
+const handleFilterFocus = () => {
+  filterInputLocked.value = false
+  openFilterSelect()
+}
+
+const handleFilterBlur = () => {
+  closeFilterSelect()
+  filterInputLocked.value = true
+}
 
 const selectedFilterCategoryName = computed(() => {
   if (bookmarkCategoryFilter.value === null) return ''
@@ -4266,6 +4295,29 @@ textarea.setting-input {
 
 .bookmark-search-input::placeholder {
   color: var(--input-placeholder);
+}
+
+.bookmark-search-clear {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  background: transparent;
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.bookmark-search-clear svg {
+  width: 13px;
+  height: 13px;
+}
+
+.bookmark-search-clear:hover svg {
+  color: var(--text);
 }
 .custom-select-filter {
   position: relative;
