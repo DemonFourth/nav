@@ -697,34 +697,30 @@
                   </div>
                 </div>
                 <div class="custom-select-filter" :class="{ open: filterSelectOpen }" ref="filterSelectRef">
-                  <div class="filter-select-trigger" @click="toggleFilterSelect">
-                    <span class="filter-select-value">{{ selectedFilterCategoryName || '全部分类' }}</span>
-                    <svg class="filter-select-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                      <path d="M6 9l6 6 6-6"/>
-                    </svg>
-                  </div>
+                  <input
+                    ref="filterCategoryInputRef"
+                    v-model="filterCategoryQuery"
+                    type="text"
+                    class="filter-select-input"
+                    placeholder="全部分类"
+                    autocomplete="off"
+                    @focus="openFilterSelect"
+                    @input="handleFilterInput"
+                    @click="filterSelectOpen = true"
+                    @keydown.enter="commitFilterInput"
+                    @keydown.esc.stop.prevent="closeFilterSelect({ resetEmpty: false })"
+                    @blur="closeFilterSelect()"
+                  />
+                  <svg class="filter-select-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M6 9l6 6 6-6"/>
+                  </svg>
                   <div v-if="filterSelectOpen" class="filter-select-dropdown">
-                    <div class="filter-select-search">
-                      <input
-                        ref="filterCategoryInputRef"
-                        v-model="filterCategoryQuery"
-                        type="text"
-                        class="filter-select-search-input"
-                        placeholder="筛选分类..."
-                        @keydown.esc.stop="closeFilterSelect"
-                      />
-                    </div>
-                    <div
-                      class="filter-select-option"
-                      :class="{ active: bookmarkCategoryFilter === null }"
-                      @click="selectFilterCategory(null)"
-                    >全部分类</div>
                     <div
                       v-for="cat in filteredFilterCategories"
                       :key="cat.id"
                       class="filter-select-option"
                       :class="{ active: bookmarkCategoryFilter === cat.id }"
-                      @click="selectFilterCategory(cat.id)">
+                      @mousedown.prevent="selectFilterCategory(cat.id)">
                       {{ cat.displayName }}
                     </div>
                     <div v-if="filteredFilterCategories.length === 0" class="filter-select-empty">
@@ -1581,14 +1577,9 @@ const navBookmarkEditModalRef = ref(null)
 const bookmarkMoveTarget = ref(null)
 const filterSelectOpen = ref(false)
 const filterSelectRef = ref(null)
-const filterCategoryQuery = ref('')
 const filterCategoryInputRef = ref(null)
-
-const filteredFilterCategories = computed(() => {
-  const query = filterCategoryQuery.value.trim().toLowerCase()
-  if (!query) return categoryFlatList.value
-  return categoryFlatList.value.filter(cat => (cat.displayName || '').toLowerCase().includes(query))
-})
+const filterCategoryQuery = ref('')
+const filterCategoryFiltering = ref(false)
 
 const selectedFilterCategoryName = computed(() => {
   if (bookmarkCategoryFilter.value === null) return ''
@@ -1596,25 +1587,53 @@ const selectedFilterCategoryName = computed(() => {
   return cat?.name || ''
 })
 
-const toggleFilterSelect = () => {
-  if (filterSelectOpen.value) {
-    filterSelectOpen.value = false
-    return
-  }
+const filteredFilterCategories = computed(() => {
+  if (!filterCategoryFiltering.value) return categoryFlatList.value
+  const query = filterCategoryQuery.value.trim().toLowerCase()
+  if (!query) return categoryFlatList.value
+  return categoryFlatList.value.filter(cat => (cat.displayName || '').toLowerCase().includes(query))
+})
+
+const openFilterSelect = () => {
   filterSelectOpen.value = true
-  filterCategoryQuery.value = ''
-  nextTick(() => filterCategoryInputRef.value?.focus())
+  filterCategoryFiltering.value = false
+  filterCategoryQuery.value = selectedFilterCategoryName.value
+  nextTick(() => filterCategoryInputRef.value?.select())
 }
 
-const closeFilterSelect = () => {
+const handleFilterInput = () => {
+  filterCategoryFiltering.value = true
+  filterSelectOpen.value = true
+}
+
+const closeFilterSelect = ({ resetEmpty = true } = {}) => {
+  if (resetEmpty && filterCategoryFiltering.value && !filterCategoryQuery.value.trim()) {
+    bookmarkCategoryFilter.value = null
+  }
   filterSelectOpen.value = false
-  filterCategoryQuery.value = ''
+  filterCategoryFiltering.value = false
+  filterCategoryQuery.value = selectedFilterCategoryName.value
 }
 
 const selectFilterCategory = (id) => {
   bookmarkCategoryFilter.value = id
-  closeFilterSelect()
+  closeFilterSelect({ resetEmpty: false })
 }
+
+const commitFilterInput = (event) => {
+  if (event?.isComposing) return
+  const first = filteredFilterCategories.value[0]
+  if (!filterCategoryQuery.value.trim()) {
+    bookmarkCategoryFilter.value = null
+  } else if (first) {
+    bookmarkCategoryFilter.value = first.id
+  }
+  closeFilterSelect({ resetEmpty: false })
+}
+
+watch(bookmarkCategoryFilter, () => {
+  if (!filterSelectOpen.value) filterCategoryQuery.value = selectedFilterCategoryName.value
+})
 
 const handleFilterClickAway = (e) => {
   if (filterSelectRef.value && !filterSelectRef.value.contains(e.target)) {
@@ -4141,6 +4160,7 @@ textarea.setting-input {
   .settings-content { padding: 20px; }
       .settings-grid { grid-template-columns: 1fr; }
   .bookmark-usage { display: none; }
+  .custom-select-filter { width: 170px; }
 }
 
 /* ===== Bookmark Tab ===== */
@@ -4226,45 +4246,44 @@ textarea.setting-input {
 }
 .custom-select-filter {
   position: relative;
-  min-width: 130px;
+  width: 230px;
+  flex-shrink: 0;
 }
 
-.filter-select-trigger {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 6px;
-  padding: 6px 10px;
+.filter-select-input {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 6px 28px 6px 10px;
+  font-size: 0.75rem;
+  font-family: inherit;
+  color: var(--input-text);
   background: var(--input-bg);
   border: 1px solid var(--input-border);
   border-radius: 8px;
-  cursor: pointer;
+  outline: none;
   transition: border-color 0.2s;
-  user-select: none;
 }
 
-.filter-select-trigger:hover {
+.filter-select-input::placeholder {
+  color: var(--input-placeholder);
+}
+
+.filter-select-input:focus,
+.custom-select-filter.open .filter-select-input {
   border-color: var(--accent-border);
-}
-
-.custom-select-filter.open .filter-select-trigger {
-  border-color: var(--accent-border);
-}
-
-.filter-select-value {
-  font-size: 0.75rem;
-  color: var(--input-text);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 .filter-select-arrow {
+  position: absolute;
+  top: 50%;
+  right: 10px;
+  margin-top: -7px;
   width: 14px;
   height: 14px;
   stroke-width: 2;
   color: var(--text-muted);
-  flex-shrink: 0;
+  pointer-events: none;
   transition: transform 0.2s;
 }
 
@@ -4285,34 +4304,6 @@ textarea.setting-input {
   z-index: 100;
   max-height: 220px;
   overflow-y: auto;
-}
-
-.filter-select-search {
-  position: sticky;
-  top: 0;
-  z-index: 1;
-  padding: 6px;
-  background: var(--bg);
-  border-bottom: 1px solid var(--border);
-}
-
-.filter-select-search-input {
-  display: block;
-  width: 100%;
-  box-sizing: border-box;
-  padding: 5px 8px;
-  font-size: 0.75rem;
-  font-family: inherit;
-  color: var(--input-text);
-  background: var(--input-bg);
-  border: 1px solid var(--input-border);
-  border-radius: 6px;
-  outline: none;
-  transition: border-color 0.2s;
-}
-
-.filter-select-search-input:focus {
-  border-color: var(--accent-border);
 }
 
 .filter-select-empty {
