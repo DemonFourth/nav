@@ -254,6 +254,10 @@ const confirmDelete = async (tag) => {
 }
 
 .panel-header {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0.5rem;
   margin-bottom: 1.5rem;
 }
 
@@ -261,11 +265,11 @@ const confirmDelete = async (tag) => {
   font-size: 1.25rem;
   font-weight: 600;
   color: var(--text);
-  margin: 0 0 0.5rem 0;
+  margin: 0;
 }
 
 .panel-desc {
-  font-size: 0.875rem;
+  font-size: 0.8125rem;
   color: var(--text-secondary);
   margin: 0;
 }
