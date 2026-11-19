@@ -1833,16 +1833,19 @@ async function fetchPageMetadata(tabUrl) {
         resolve(chrome.runtime.lastError ? null : response || null)
       })
     })
-    if (fromContentScript) return fromContentScript
+    // 扩展更新后，已打开页面里跑的还是旧 content script；
+    // 它没有 firstParagraph 字段，直接注入新函数重读，免得用户还要刷新页面
+    if (fromContentScript && 'firstParagraph' in fromContentScript) return fromContentScript
 
-    // 扩展更新前已打开的页面没有 content script，按需注入读取，无需刷新
+    // 按需注入读取：旧 content script 或扩展更新前已打开的页面
     if (chrome.scripting?.executeScript) {
       const [injection] = await chrome.scripting.executeScript({
         target: { tabId: tab.id },
         func: readPageMetadataInPage
       })
-      return injection?.result || null
+      return injection?.result || fromContentScript || null
     }
+    return fromContentScript || null
   } catch (error) {
     console.error('Failed to fetch page metadata:', error)
     return null
@@ -1854,12 +1857,20 @@ async function fetchPageMetadata(tabUrl) {
 const FETCH_DESC_DEFAULT_TIP = '从页面获取描述'
 let fetchDescBusy = false
 
-// 手动获取时按质量依次回退：meta → og → h1 → 正文首段
+// 手动获取时按质量依次回退：meta → og → 正文首段 → h1
+// h1 通常就是标题（经常与 <title> 重复），首段才更像描述
 function pickPageDescription(meta) {
-  if (!meta) return ''
-  const candidates = [meta.metaDescription, meta.ogDescription, meta.h1, meta.firstParagraph]
-  const found = candidates.find(text => typeof text === 'string' && text.trim())
-  return found ? found.trim().slice(0, 300) : ''
+  if (!meta) return { text: '', source: '' }
+  const candidates = [
+    [meta.metaDescription, 'meta'],
+    [meta.ogDescription, 'og'],
+    [meta.firstParagraph, '首段'],
+    [meta.h1, 'h1']
+  ]
+  const found = candidates.find(([text]) => typeof text === 'string' && text.trim())
+  return found
+    ? { text: found[0].trim().slice(0, 300), source: found[1] }
+    : { text: '', source: '' }
 }
 
 async function fetchDescriptionFromPage() {
@@ -1881,7 +1892,7 @@ async function fetchDescriptionFromPage() {
   setAiBusy(btn, true, '获取中…')
   try {
     const meta = await fetchPageMetadata(tab.url)
-    const text = pickPageDescription(meta)
+    const { text, source } = pickPageDescription(meta)
     if (!text) {
       showToast('该页面没有可用的描述，可试试 AI 生成', 'error')
       return
@@ -1891,7 +1902,7 @@ async function fetchDescriptionFromPage() {
     const descEl = document.getElementById('description')
     if (descEl && activeField === 'description') descEl.value = text
     updateFieldTabs()
-    showToast('已从页面获取描述', 'success')
+    showToast(`已从页面获取描述（来源：${source}）`, 'success')
   } finally {
     fetchDescBusy = false
     setAiBusy(btn, false, FETCH_DESC_DEFAULT_TIP)

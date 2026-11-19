@@ -757,10 +757,11 @@ token TTL 必须与 `functions/_middleware.js` 的 `validateToken` 保持一致�
 
 描述行右侧有两个图标按钮：📥 手动获取、🤖 AI 生成（`.field-actions` 包一层，避免 `space-between` 把两个按钮撑到中间）。
 
-- **手动获取的回退链**：`meta[name=description]` → `og:description` → `h1` → 正文首段（`article / main / [role=main] / #app` 下第一个 ≥20 字的 `p`），截断 300 字。
+- **手动获取的回退链**：`meta[name=description]` → `og:description` → 正文首段（`article / main / [role=main] / #app` 下第一个 ≥20 字的 `p`）→ `h1`，截断 300 字。首段排在 `h1` 前面：`h1` 通常只是标题（常与 `<title>` 重复），首段才更像描述。
+- 获取成功后 toast 标注来源（`来源：meta / og / 首段 / h1`），便于判断填入内容的质量。
 - **只填空字段**：描述已有内容时提示「描述已有内容，清空后可重新获取」，绝不覆盖用户输入（与网页版「获取元数据」一致）。
-- **打开弹窗时的自动填充仍只读 meta/og**，h1 与首段只给手动按钮用——避免把页面标题原样当成描述塞进去。
-- 该逻辑对**没有 meta 的站点**有效：例如 `dalei.rokoai.fun` 只有 `<title>`，手动获取会退回到渲染后的 `h1`。首段需要 content script 是新版；已打开的旧页面只有 `h1` 可用，刷新页面后才有 `firstParagraph`。
+- **打开弹窗时的自动填充仍只读 meta/og**，首段与 h1 只给手动按钮用——避免把页面标题或正文随手塞成描述。
+- 该逻辑对**没有 meta 的站点**有效：例如 `dalei.rokoai.fun` 只有 `<title>`，手动获取会取 `h1` 下方的介绍段落；首段需要 content script 是新版，已打开的旧页面会退回到 `h1`，刷新页面后才有 `firstParagraph`。
 - `content.js` 的 `capturePageMeta` 与 `popup.js` 的 `readPageMetadataInPage` **必须同步新增字段**，否则按需注入路径会缺字段。
 - `readPageMetadataInPage` 会被 `chrome.scripting.executeScript` 序列化后执行，内部只能引用自身作用域（辅助函数写在函数体内）。
 
