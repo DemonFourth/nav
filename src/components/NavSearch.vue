@@ -11,6 +11,17 @@
             @click.stop="toggleEngineDropdown"
             v-tooltip="engineOpen ? '' : '选择搜索引擎'"
           >
+            <img
+              v-if="selectedEngine.icon"
+              :src="selectedEngine.icon"
+              alt=""
+              class="engine-trigger-icon"
+              @error="e => (e.target.style.display = 'none')"
+            />
+            <svg v-else class="engine-trigger-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="11" cy="11" r="7"/>
+              <path d="M21 21l-4.3-4.3"/>
+            </svg>
             <span class="engine-trigger-name">{{ selectedEngine.name }}</span>
             <svg class="engine-trigger-arrow" :class="{ open: engineOpen }" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <polyline points="6 9 12 15 18 9"/>
@@ -27,6 +38,17 @@
                   :class="{ active: selectedEngineId === engine.id }"
                   @click="selectEngine(engine.id)"
                 >
+                  <img
+                    v-if="engine.icon"
+                    :src="engine.icon"
+                    alt=""
+                    class="engine-option-icon"
+                    @error="e => (e.target.style.display = 'none')"
+                  />
+                  <svg v-else class="engine-option-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="11" cy="11" r="7"/>
+                    <path d="M21 21l-4.3-4.3"/>
+                  </svg>
                   {{ engine.name }}
                 </button>
               </div>
@@ -124,7 +146,7 @@ const engineOptions = computed(() => {
   if (!enabledSearchEnginesPanel.value) return [SITE_ENGINE]
   return [
     SITE_ENGINE,
-    ...getAvailableEngines().map(engine => ({ id: engine.id, name: engine.name }))
+    ...getAvailableEngines().map(engine => ({ id: engine.id, name: engine.name, icon: engine.icon }))
   ]
 })
 
@@ -303,6 +325,13 @@ watch(searchField, () => {
   background: color-mix(in srgb, var(--nav-primary) 12%, transparent);
 }
 
+.engine-trigger-icon {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+  object-fit: contain;
+}
+
 .engine-trigger-name {
   overflow: hidden;
   text-overflow: ellipsis;
@@ -332,7 +361,9 @@ watch(searchField, () => {
 }
 
 .engine-option {
-  display: block;
+  display: flex;
+  align-items: center;
+  gap: 8px;
   width: 100%;
   padding: 8px 12px;
   background: none;
@@ -355,6 +386,13 @@ watch(searchField, () => {
   color: var(--nav-primary);
   background: color-mix(in srgb, var(--nav-primary) 14%, transparent);
   font-weight: 600;
+}
+
+.engine-option-icon {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  object-fit: contain;
 }
 
 .search-input {
