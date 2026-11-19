@@ -966,6 +966,7 @@ function selectCategory(id, path) {
     input.value = path;
     input.dataset.selectedId = id;
   }
+  updateClearButtonState();
   hideCategorySuggestions();
 }
 
@@ -1407,6 +1408,45 @@ function updateFieldTabs() {
     btn.classList.toggle('has-content', value.trim() !== '');
     btn.setAttribute('aria-selected', key === activeField ? 'true' : 'false');
   });
+  updateClearButtonState();
+}
+
+// 描述/备注共用同一个 textarea：按钮清空当前活动字段，文案跟着切换
+function updateClearButtonState() {
+  const descBtn = document.getElementById('desc-clear-btn');
+  const area = document.getElementById('description');
+  if (descBtn && area) {
+    const label = activeField === 'notes' ? '清空备注' : '清空描述';
+    descBtn.classList.toggle('hidden', !area.value.trim());
+    descBtn.dataset.tip = label;
+    descBtn.setAttribute('aria-label', label);
+  }
+
+  const catBtn = document.getElementById('category-clear-btn');
+  const catInput = document.getElementById('category-input');
+  if (catBtn && catInput) {
+    const hasValue = !!catInput.value.trim() || !!catInput.dataset.selectedId;
+    catBtn.classList.toggle('hidden', !hasValue);
+  }
+}
+
+function clearActiveField() {
+  const area = document.getElementById('description');
+  if (!area) return;
+  area.value = '';
+  fieldValues[activeField] = '';
+  updateFieldTabs();
+  area.focus();
+}
+
+function clearCategorySelection() {
+  const input = document.getElementById('category-input');
+  if (!input) return;
+  input.value = '';
+  delete input.dataset.selectedId;
+  hideCategorySuggestions();
+  updateClearButtonState();
+  input.focus();
 }
 
 function getFieldValue(key) {
@@ -1441,6 +1481,7 @@ function initFieldTabs() {
     btn.addEventListener('click', () => switchField(btn.dataset.field));
   });
   area.addEventListener('input', updateFieldTabs);
+  updateClearButtonState();
 }
 
 async function generateDescription() {
@@ -1947,6 +1988,8 @@ document.addEventListener('DOMContentLoaded', () => {
   
   document.getElementById('ai-btn').addEventListener('click', generateDescription);
   document.getElementById('fetch-desc-btn').addEventListener('click', fetchDescriptionFromPage);
+  document.getElementById('desc-clear-btn').addEventListener('click', clearActiveField);
+  document.getElementById('category-clear-btn').addEventListener('click', clearCategorySelection);
   
   document.getElementById('ai-category-btn').addEventListener('click', suggestCategory);
   
@@ -1981,6 +2024,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const categoryInput = document.getElementById('category-input');
   categoryInput.addEventListener('input', (e) => {
     renderCategorySuggestions(e.target.value);
+    updateClearButtonState();
   });
   categoryInput.addEventListener('blur', () => {
     setTimeout(hideCategorySuggestions, 300);

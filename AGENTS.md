@@ -765,6 +765,13 @@ token TTL 必须与 `functions/_middleware.js` 的 `validateToken` 保持一致�
 - `content.js` 的 `capturePageMeta` 与 `popup.js` 的 `readPageMetadataInPage` **必须同步新增字段**，否则按需注入路径会缺字段。
 - `readPageMetadataInPage` 会被 `chrome.scripting.executeScript` 序列化后执行，内部只能引用自身作用域（辅助函数写在函数体内）。
 
+### 描述 / 分类一键清除
+
+- 描述 `textarea` 与分类输入框右侧各有一个 `×`（`.field-clear-btn`），只在字段有内容时显示。
+- 描述与备注共用同一个 `textarea`：`×` 清空**当前活动字段**，tooltip / `aria-label` 随 tab 切换为「清空描述」或「清空备注」。
+- 分类 `×` 同时清空输入文本与 `dataset.selectedId`，并收起建议列表；清空后保存按钮仍可点，提交时按必填项校验提示。
+- 清除按钮统一 `type="button"`，避免触发表单提交；文本区外层加 `.field-with-clear` 后，`textarea` 不再是 `.form-group` 的直接 flex 子项，必须补 `width: 100%; box-sizing: border-box`，否则会缩成默认列宽。
+
 ### 连接延迟胶囊
 
 唯一的连接状态展示，位于标题行右侧（`#connection-main`），不再有独立状态栏：

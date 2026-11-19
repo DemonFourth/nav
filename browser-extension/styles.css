@@ -446,6 +446,7 @@ body.dark .ai-icon-btn:hover {
 }
 
 .ai-icon-btn::after,
+.field-clear-btn::after,
 .connection-pill::after {
   content: attr(data-tip);
   position: absolute;
@@ -468,6 +469,8 @@ body.dark .ai-icon-btn:hover {
 
 .ai-icon-btn:hover::after,
 .ai-icon-btn:focus-visible::after,
+.field-clear-btn:hover::after,
+.field-clear-btn:focus-visible::after,
 .connection-pill:hover::after,
 .connection-pill:focus-visible::after {
   opacity: 1;
@@ -514,6 +517,65 @@ body.dark select {
 
 textarea {
   resize: vertical;
+}
+
+/* 输入框右侧的一键清除按钮（描述 / 分类） */
+.field-with-clear,
+.category-input-container {
+  position: relative;
+}
+
+.field-with-clear textarea,
+.category-input-container .category-input {
+  padding-right: 30px;
+}
+
+/* 包了一层 div 后，textarea 不再是 .form-group 的直接 flex 子项，需要自己撑满 */
+.field-with-clear textarea {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.field-clear-btn {
+  position: absolute;
+  top: 50%;
+  right: 7px;
+  transform: translateY(-50%);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: rgba(148, 163, 184, 0.2);
+  color: var(--text-muted);
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.field-clear-btn:hover {
+  background: rgba(148, 163, 184, 0.38);
+  color: var(--text);
+}
+
+.field-clear-btn:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 1px;
+}
+
+/* textarea 的清除按钮贴右上角，垂直居中会压在正文中间 */
+.field-with-clear .field-clear-btn {
+  top: 7px;
+  transform: none;
+}
+
+body.dark .field-clear-btn {
+  background: rgba(148, 163, 184, 0.22);
+  color: rgba(226, 232, 240, 0.75);
 }
 
 /* 私密开关：并入保存行，不再单独占一行 */

@@ -62,7 +62,10 @@
               </button>
             </div>
           </div>
-          <textarea id="description" rows="3" placeholder="可选的描述信息" aria-label="描述"></textarea>
+          <div class="field-with-clear">
+            <textarea id="description" rows="3" placeholder="可选的描述信息" aria-label="描述"></textarea>
+            <button type="button" id="desc-clear-btn" class="field-clear-btn hidden" data-tip="清空描述" aria-label="清空描述">×</button>
+          </div>
         </div>
 
         <div class="form-group">
@@ -75,6 +78,7 @@
           </div>
           <div class="category-input-container">
             <input type="text" id="category-input" class="category-input" placeholder="选择分类..." autocomplete="off">
+            <button type="button" id="category-clear-btn" class="field-clear-btn hidden" data-tip="清除所选分类" aria-label="清除所选分类">×</button>
             <div class="category-suggestions hidden" id="category-suggestions"></div>
           </div>
         </div>
