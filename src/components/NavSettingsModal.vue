@@ -96,16 +96,6 @@
                     />
                     <span class="slider-value">{{ navCardOpacity }}%</span>
                   </div>
-                  <div class="toggle-row" style="margin-top:8px;">
-                    <div class="toggle-info">
-                      <div class="toggle-name">文字阴影</div>
-                      <div class="toggle-desc">深色壁纸时增强文字可读性</div>
-                    </div>
-                    <label class="toggle-switch">
-                      <input type="checkbox" :checked="navCardTextShadow" @change="toggleNavCardTextShadow" />
-                      <span class="toggle-slider"></span>
-                    </label>
-                  </div>
                 </div>
 
                 <div class="setting-card">
@@ -142,16 +132,6 @@
                     </div>
                     <label class="toggle-switch">
                       <input type="checkbox" :checked="publicMode" @change="togglePublicMode" />
-                      <span class="toggle-slider"></span>
-                    </label>
-                  </div>
-                  <div class="toggle-row">
-                    <div class="toggle-info">
-                      <div class="toggle-name">卡片动画</div>
-                      <div class="toggle-desc">悬停和入场动画效果</div>
-                    </div>
-                    <label class="toggle-switch">
-                      <input type="checkbox" :checked="navCardAnimation" @change="toggleNavCardAnimation" />
                       <span class="toggle-slider"></span>
                     </label>
                   </div>
@@ -1431,12 +1411,11 @@ const emit = defineEmits(['close', 'action'])
 const {
   themeMode, showSearch, hideEmptyCategories, publicMode,
   customTitle, avatarUrl, footerContent, randomWallpaper, wallpaperApi,
-  displayMode, navCardAnimation, navCardBlur, navCardOpacity, navWallpaper, iconSources, proxyUrl,
+  displayMode, navCardBlur, navCardOpacity, navWallpaper, iconSources, proxyUrl,
   toggleSearch, toggleHideEmptyCategories, togglePublicMode,
   updateCustomTitle, updateFooterContent, toggleRandomWallpaper,
   updateWallpaperApi, updateAvatarUrl, toggleDisplayMode,
-  toggleNavCardAnimation, updateNavWallpaper, setNavCardBlur, setNavCardOpacity,
-  navCardTextShadow, toggleNavCardTextShadow,
+  updateNavWallpaper, setNavCardBlur, setNavCardOpacity,
   toggleIconSourceEnabled, toggleIconSourceLarger,
   moveIconSource, updateProxyUrl, parseIconSourceUrl,
   addIconSource, removeIconSource,

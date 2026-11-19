@@ -234,23 +234,6 @@
       </div>
     </div>
 
-    <!-- 导航站卡片动画 -->
-    <div class="form-group">
-      <label class="form-label">导航站卡片动画</label>
-      <div class="form-row">
-        <span class="form-text">{{ navCardAnimation ? '已开启' : '已关闭' }}</span>
-        <label class="switch">
-          <input 
-            type="checkbox" 
-            :checked="navCardAnimation"
-            @change="$emit('toggleNavCardAnimation')"
-          >
-          <span class="slider"></span>
-        </label>
-      </div>
-      <div class="form-hint">切换菜单时卡片会以动画方式入场</div>
-    </div>
-    
     <!-- 导航站壁纸 -->
     <div class="form-group">
       <label class="form-label">导航站壁纸</label>
@@ -564,7 +547,6 @@ const props = defineProps({
   displayMode: String,
   iconSources: Array,
   proxyUrl: String,
-  navCardAnimation: Boolean,
   navWallpaper: String
 })
 
@@ -585,7 +567,6 @@ const emit = defineEmits([
   'toggleIconSourceLarger',
   'moveIconSource',
   'updateProxyUrl',
-  'toggleNavCardAnimation',
   'updateNavWallpaper'
 ])
 

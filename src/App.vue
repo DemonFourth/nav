@@ -276,7 +276,6 @@
       :random-wallpaper="randomWallpaper"
       :wallpaper-api="wallpaperApi"
       :display-mode="displayMode"
-      :nav-card-animation="navCardAnimation"
       :nav-wallpaper="navWallpaper"
 
       :hide-empty-categories="hideEmptyCategories"
@@ -309,7 +308,6 @@
       @toggle-icon-source-larger="toggleIconSourceLarger"
       @move-icon-source="moveIconSource"
       @update-proxy-url="updateProxyUrl"
-      @toggle-nav-card-animation="toggleNavCardAnimation"
       @update-nav-wallpaper="updateNavWallpaper"
     />
     </template>
@@ -324,7 +322,6 @@
       :random-wallpaper="randomWallpaper"
       :wallpaper-api="wallpaperApi"
       :display-mode="displayMode"
-      :nav-card-animation="navCardAnimation"
       :nav-wallpaper="navWallpaper"
 
       :hide-empty-categories="hideEmptyCategories"
@@ -357,7 +354,6 @@
       @toggle-icon-source-larger="toggleIconSourceLarger"
       @move-icon-source="moveIconSource"
       @update-proxy-url="updateProxyUrl"
-      @toggle-nav-card-animation="toggleNavCardAnimation"
       @update-nav-wallpaper="updateNavWallpaper"
     />
     
@@ -425,7 +421,7 @@ const {
   cleanupEmptyCategories
 } = useBookmarks()
 const { themeMode, isDark, setThemeMode, toggleTheme, loadThemeFromDB } = useTheme()
-const { showSearch, hideEmptyCategories, customTitle, footerContent, activeSettingsTab, publicMode, randomWallpaper, wallpaperApi, navCardAnimation, navWallpaper, avatarUrl, displayMode, iconSources, proxyUrl, toggleSearch, toggleHideEmptyCategories, togglePublicMode, updateCustomTitle, updateFooterContent, setActiveSettingsTab, toggleRandomWallpaper, updateWallpaperApi, updateAvatarUrl, toggleDisplayMode, toggleNavCardAnimation, updateNavWallpaper, addIconSource, removeIconSource, toggleIconSourceEnabled, toggleIconSourceLarger, moveIconSource, updateProxyUrl, applyWallpaper, loadSettingsFromDB } = useSettings()
+const { showSearch, hideEmptyCategories, customTitle, footerContent, activeSettingsTab, publicMode, randomWallpaper, wallpaperApi, navWallpaper, avatarUrl, displayMode, iconSources, proxyUrl, toggleSearch, toggleHideEmptyCategories, togglePublicMode, updateCustomTitle, updateFooterContent, setActiveSettingsTab, toggleRandomWallpaper, updateWallpaperApi, updateAvatarUrl, toggleDisplayMode, updateNavWallpaper, addIconSource, removeIconSource, toggleIconSourceEnabled, toggleIconSourceLarger, moveIconSource, updateProxyUrl, applyWallpaper, loadSettingsFromDB } = useSettings()
 const { setToastInstance, success: toastSuccess, error: toastError } = useToast()
 const { setLoginModalInstance } = useAuthGuard()
 const {

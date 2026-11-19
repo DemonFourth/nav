@@ -11,10 +11,8 @@ const activeSettingsTab = ref(localStorage.getItem('activeSettingsTab') || 'appe
 const publicMode = ref(localStorage.getItem('publicMode') !== 'false')
 const randomWallpaper = ref(localStorage.getItem('randomWallpaper') === 'true')
 const wallpaperApi = ref(localStorage.getItem('wallpaperApi') || '')
-const navCardAnimation = ref(localStorage.getItem('navCardAnimation') !== 'false')
 const navCardBlur = ref(Number(localStorage.getItem('navCardBlur') || '0'))
 const navCardOpacity = ref(Number(localStorage.getItem('navCardOpacity') || '0'))
-const navCardTextShadow = ref(localStorage.getItem('navCardTextShadow') !== 'false')
 const navWallpaper = ref(localStorage.getItem('navWallpaper') ?? '')
 const navWallpaperHistory = ref(JSON.parse(localStorage.getItem('navWallpaperHistory') || '[]'))
 const wallpaperApiHistory = ref(JSON.parse(localStorage.getItem('wallpaperApiHistory') || '[]'))
@@ -223,11 +221,6 @@ export function useSettings() {
     }
   }
 
-  const toggleNavCardAnimation = () => {
-    navCardAnimation.value = !navCardAnimation.value
-    localStorage.setItem('navCardAnimation', navCardAnimation.value.toString())
-  }
-
   const setNavCardBlur = (value) => {
     navCardBlur.value = value
     localStorage.setItem('navCardBlur', value.toString())
@@ -236,11 +229,6 @@ export function useSettings() {
   const setNavCardOpacity = (value) => {
     navCardOpacity.value = value
     localStorage.setItem('navCardOpacity', value.toString())
-  }
-
-  const toggleNavCardTextShadow = () => {
-    navCardTextShadow.value = !navCardTextShadow.value
-    localStorage.setItem('navCardTextShadow', navCardTextShadow.value.toString())
   }
 
   const updateNavWallpaper = (url) => {
@@ -603,12 +591,6 @@ export function useSettings() {
     }
   })
 
-  watch(navCardAnimation, (newValue) => {
-    if (!isLoadingFromDB.value) {
-      localStorage.setItem('navCardAnimation', newValue.toString())
-    }
-  })
-
   watch(navWallpaper, (newValue) => {
     if (!isLoadingFromDB.value) {
       localStorage.setItem('navWallpaper', newValue)
@@ -654,7 +636,6 @@ export function useSettings() {
     publicMode,
     randomWallpaper,
     wallpaperApi,
-    navCardAnimation,
     navWallpaper,
     avatarUrl,
     displayMode,
@@ -671,7 +652,6 @@ export function useSettings() {
     updateWallpaperApi,
     updateAvatarUrl,
     toggleDisplayMode,
-    toggleNavCardAnimation,
     updateNavWallpaper,
     addIconSource,
     removeIconSource,
@@ -688,8 +668,6 @@ export function useSettings() {
     setNavCardOpacity,
     navCardOpacity,
     navCardBlur,
-    navCardTextShadow,
-    toggleNavCardTextShadow,
     navWallpaperHistory,
     wallpaperApiHistory,
     loadSettingsFromDB

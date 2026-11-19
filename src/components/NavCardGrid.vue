@@ -158,7 +158,7 @@ const totalCount = computed(() =>
   displayGroups.value.reduce((sum, group) => sum + group.bookmarks.length, 0)
 )
 
-const { navCardAnimation, navCardBlur, navCardOpacity } = useSettings()
+const { navCardBlur, navCardOpacity } = useSettings()
 const { isDark } = useTheme()
 
 const animationClass = ref('')

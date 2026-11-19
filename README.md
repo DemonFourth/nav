@@ -131,7 +131,6 @@ npm run ext:build:firefox
 ### 仅本地存储的设置
 
 - `displayMode`
-- `navCardAnimation`
 - `navWallpaper`
 - `iconSources`
 - `proxyUrl`
