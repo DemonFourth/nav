@@ -773,6 +773,7 @@ token TTL 必须与 `functions/_middleware.js` 的 `validateToken` 保持一致�
 - 清除按钮统一 `type="button"`，避免触发表单提交；文本区外层加 `.field-with-clear` 后，`textarea` 不再是 `.form-group` 的直接 flex 子项，必须补 `width: 100%; box-sizing: border-box`，否则会缩成默认列宽。
 - tooltip 单独定义（不透明深色底、12px、浮在字段**上方**），不要直接复用 `.ai-icon-btn` 那套 `top: 100%` 的 tooltip：它会压在 textarea 正文上，且 11px + 细字在浅色背景里几乎看不清。
 - `.ai-icon-btn`（📥 从页面获取 / 🤖 AI 生成 / AI 推荐）的 tooltip 同样改为不透明 `#1f2933` + 投影 + 12px/500，过渡 0.06s；`.connection-pill` 仍保留原来的轻量样式，不要再把两者合并成一条规则。
+- **`.ai-icon-btn` 必须带 `position: relative; z-index: 1`**：hover 时的 `transform: translateY(-1px)` 会创建 stacking context，把 `::after` 的 `z-index: 100` 锁在按钮内部，导致 tooltip 被下方 `.field-with-clear` / `.category-input-container`（`position: relative`，`z-index: auto`）连同 textarea 的 0.9 白底盖住，看起来又淡又糊。抬高按钮本身（`z-index: 1` > 同级 0）才能正常显示。
 
 ### 连接延迟胶囊
 

@@ -404,7 +404,11 @@ body.dark .field-tab.is-active {
 
 /* AI 图标按钮：仅图标，悬浮显示提示 */
 .ai-icon-btn {
+  /* 必须压过下方的 .field-with-clear / .category-input-container（position: relative）：
+     hover 的 transform 会创建 stacking context，把 ::after 的 z-index 锁在里面，
+     不抬高按钮本身，tooltip 就会被 textarea 的 0.9 白底盖住而显得发灰 */
   position: relative;
+  z-index: 1;
   display: inline-flex;
   align-items: center;
   justify-content: center;
