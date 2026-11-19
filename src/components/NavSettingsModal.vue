@@ -700,11 +700,11 @@
                   <input
                     ref="filterCategoryInputRef"
                     v-model="filterCategoryQuery"
-                    type="text"
+                    type="search"
                     class="filter-select-input"
                     :class="{ 'has-value': filterCategoryQuery }"
                     placeholder="全部分类"
-                    name="bm-category-filter"
+                    name="category-filter-search"
                     autocomplete="new-password"
                     spellcheck="false"
                     @focus="openFilterSelect"
@@ -4290,6 +4290,12 @@ textarea.setting-input {
 
 .filter-select-input::placeholder {
   color: var(--input-placeholder);
+}
+
+.filter-select-input::-webkit-search-cancel-button,
+.filter-select-input::-webkit-search-decoration {
+  -webkit-appearance: none;
+  appearance: none;
 }
 
 .filter-select-input:focus,
