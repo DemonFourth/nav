@@ -612,6 +612,7 @@ export function useBookmarks() {
     bookmarksByCategory,
     allTags,
     fetchData,
+    persistCache,
     addBookmark,
     updateBookmark,
     deleteBookmark,

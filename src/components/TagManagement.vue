@@ -166,10 +166,11 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed } from 'vue'
 import { useTags } from '@/composables/useTags'
 import { useBookmarks } from '@/composables/useBookmarks'
 import { buildCategoryTree, getCategoryPath } from '@/utils/categoryTree'
+import { countBookmarksWithTags } from '@/utils/tagBrowse'
 import TagRenameDialog from './TagRenameDialog.vue'
 import ConfirmDialog from './ConfirmDialog.vue'
 import { getIconUrl, handleIconError } from '@/composables/useIcon'
@@ -183,20 +184,19 @@ const {
   sortOrder,
   expandedTags,
   filteredTags,
-  fetchTags,
   renameTag,
   deleteTag,
   toggleExpand
 } = useTags()
 
-const { categories } = useBookmarks()
+const { categories, bookmarks } = useBookmarks()
 
 const renameDialogRef = ref(null)
 const confirmDialogRef = ref(null)
 
-const totalBookmarksWithTags = computed(() => {
-  return tags.value.reduce((sum, tag) => sum + tag.count, 0)
-})
+// 标签计数是按标签累计的，同一书签带多个标签会被重复计入，
+// 这里按书签去重统计“使用了标签的书签数”。
+const totalBookmarksWithTags = computed(() => countBookmarksWithTags(bookmarks.value))
 
 const truncateUrl = (url) => {
   try {
@@ -246,10 +246,6 @@ const confirmDelete = async (tag) => {
     await deleteTag(tag.name)
   }
 }
-
-onMounted(() => {
-  fetchTags()
-})
 </script>
 
 <style scoped>
