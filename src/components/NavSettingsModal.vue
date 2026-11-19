@@ -697,25 +697,38 @@
                   </div>
                 </div>
                 <div class="custom-select-filter" :class="{ open: filterSelectOpen }" ref="filterSelectRef">
-                  <div class="filter-select-trigger" @click="filterSelectOpen = !filterSelectOpen">
+                  <div class="filter-select-trigger" @click="toggleFilterSelect">
                     <span class="filter-select-value">{{ selectedFilterCategoryName || '全部分类' }}</span>
                     <svg class="filter-select-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                       <path d="M6 9l6 6 6-6"/>
                     </svg>
                   </div>
                   <div v-if="filterSelectOpen" class="filter-select-dropdown">
+                    <div class="filter-select-search">
+                      <input
+                        ref="filterCategoryInputRef"
+                        v-model="filterCategoryQuery"
+                        type="text"
+                        class="filter-select-search-input"
+                        placeholder="筛选分类..."
+                        @keydown.esc.stop="closeFilterSelect"
+                      />
+                    </div>
                     <div
                       class="filter-select-option"
                       :class="{ active: bookmarkCategoryFilter === null }"
                       @click="selectFilterCategory(null)"
                     >全部分类</div>
                     <div
-                      v-for="cat in categoryFlatList"
+                      v-for="cat in filteredFilterCategories"
                       :key="cat.id"
                       class="filter-select-option"
                       :class="{ active: bookmarkCategoryFilter === cat.id }"
                       @click="selectFilterCategory(cat.id)">
                       {{ cat.displayName }}
+                    </div>
+                    <div v-if="filteredFilterCategories.length === 0" class="filter-select-empty">
+                      没有匹配的分类
                     </div>
                   </div>
                 </div>
@@ -753,6 +766,12 @@
                     <div class="bookmark-info">
                       <div class="bookmark-name">{{ row.bm.name }}</div>
                       <div class="bookmark-meta-line">
+                        <span
+                          v-if="hasExtension && checksEnabled"
+                          class="link-health-dot bookmark-link-dot"
+                          :style="{ background: linkStateMeta(stateOf(row.bm.url)).color }"
+                          aria-hidden="true"
+                        ></span>
                         <span class="bookmark-url">{{ row.bm.url }}</span>
                         <span class="bookmark-usage" :class="{ 'is-empty': !summaryOf(row.bm.id).total }">
                           {{ usageText(row.bm.id) }}
@@ -1365,7 +1384,7 @@ import { useToast } from '@/composables/useToast'
 import { useAuthGuard } from '@/composables/useAuthGuard'
 import { useLinkHealth } from '@/composables/useLinkHealth'
 import { useClickStats } from '@/composables/useClickStats'
-import { formatCheckedAt } from '@/utils/linkHealth'
+import { formatCheckedAt, linkStateMeta } from '@/utils/linkHealth'
 import { formatLastOpenedAt, getDailySeries } from '@/utils/clickStats'
 import { buildCategoryTree, getCategoryPath } from '@/utils/categoryTree'
 import { searchBookmarks, SEARCH_FIELD_OPTIONS } from '@/utils/search'
@@ -1562,6 +1581,14 @@ const navBookmarkEditModalRef = ref(null)
 const bookmarkMoveTarget = ref(null)
 const filterSelectOpen = ref(false)
 const filterSelectRef = ref(null)
+const filterCategoryQuery = ref('')
+const filterCategoryInputRef = ref(null)
+
+const filteredFilterCategories = computed(() => {
+  const query = filterCategoryQuery.value.trim().toLowerCase()
+  if (!query) return categoryFlatList.value
+  return categoryFlatList.value.filter(cat => (cat.displayName || '').toLowerCase().includes(query))
+})
 
 const selectedFilterCategoryName = computed(() => {
   if (bookmarkCategoryFilter.value === null) return ''
@@ -1569,14 +1596,29 @@ const selectedFilterCategoryName = computed(() => {
   return cat?.name || ''
 })
 
+const toggleFilterSelect = () => {
+  if (filterSelectOpen.value) {
+    filterSelectOpen.value = false
+    return
+  }
+  filterSelectOpen.value = true
+  filterCategoryQuery.value = ''
+  nextTick(() => filterCategoryInputRef.value?.focus())
+}
+
+const closeFilterSelect = () => {
+  filterSelectOpen.value = false
+  filterCategoryQuery.value = ''
+}
+
 const selectFilterCategory = (id) => {
   bookmarkCategoryFilter.value = id
-  filterSelectOpen.value = false
+  closeFilterSelect()
 }
 
 const handleFilterClickAway = (e) => {
   if (filterSelectRef.value && !filterSelectRef.value.contains(e.target)) {
-    filterSelectOpen.value = false
+    closeFilterSelect()
   }
 }
 
@@ -4245,6 +4287,40 @@ textarea.setting-input {
   overflow-y: auto;
 }
 
+.filter-select-search {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  padding: 6px;
+  background: var(--bg);
+  border-bottom: 1px solid var(--border);
+}
+
+.filter-select-search-input {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 5px 8px;
+  font-size: 0.75rem;
+  font-family: inherit;
+  color: var(--input-text);
+  background: var(--input-bg);
+  border: 1px solid var(--input-border);
+  border-radius: 6px;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.filter-select-search-input:focus {
+  border-color: var(--accent-border);
+}
+
+.filter-select-empty {
+  padding: 10px 12px;
+  font-size: 0.75rem;
+  color: var(--text-tertiary);
+}
+
 .filter-select-option {
   padding: 8px 12px;
   font-size: 0.75rem;
@@ -4363,6 +4439,10 @@ textarea.setting-input {
   align-items: baseline;
   gap: 10px;
   min-width: 0;
+}
+.bookmark-meta-line .bookmark-link-dot {
+  align-self: center;
+  margin-right: -4px;
 }
 .bookmark-meta-line .bookmark-url {
   flex: 0 1 auto;
