@@ -342,6 +342,13 @@ body.dark .section {
   background: rgba(148, 163, 184, 0.14);
 }
 
+/* 描述行右侧的图标按钮组（从页面获取 / AI 生成） */
+.field-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
 body.dark .field-tabs {
   background: rgba(148, 163, 184, 0.16);
 }

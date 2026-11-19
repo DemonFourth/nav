@@ -51,10 +51,16 @@
               <button type="button" class="field-tab is-active" data-field="description" role="tab" aria-selected="true" aria-controls="description">描述</button>
               <button type="button" class="field-tab" data-field="notes" role="tab" aria-selected="false" aria-controls="description">备注<i class="field-tab-dot" aria-hidden="true"></i></button>
             </div>
-            <button type="button" id="ai-btn" class="ai-icon-btn" data-tip="AI 生成描述" aria-label="AI 生成描述">
-              <span class="ai-icon" aria-hidden="true">🤖</span>
-              <span class="ai-spinner" aria-hidden="true"></span>
-            </button>
+            <div class="field-actions">
+              <button type="button" id="fetch-desc-btn" class="ai-icon-btn" data-tip="从页面获取描述" aria-label="从页面获取描述">
+                <span class="ai-icon" aria-hidden="true">📥</span>
+                <span class="ai-spinner" aria-hidden="true"></span>
+              </button>
+              <button type="button" id="ai-btn" class="ai-icon-btn" data-tip="AI 生成描述" aria-label="AI 生成描述">
+                <span class="ai-icon" aria-hidden="true">🤖</span>
+                <span class="ai-spinner" aria-hidden="true"></span>
+              </button>
+            </div>
           </div>
           <textarea id="description" rows="3" placeholder="可选的描述信息" aria-label="描述"></textarea>
         </div>

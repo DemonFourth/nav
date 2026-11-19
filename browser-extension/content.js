@@ -24,6 +24,21 @@ function stripUrlSuffix(text) {
   return text
 }
 
+function captureFirstParagraph() {
+  try {
+    const scope = document.querySelector('article, main, [role="main"], #app')
+    if (!scope) return ''
+    const candidates = scope.querySelectorAll('p')
+    for (const p of candidates) {
+      const text = (p.textContent || '').replace(/\s+/g, ' ').trim()
+      if (text.length >= 20) return text
+    }
+  } catch (e) {
+    // ignore
+  }
+  return ''
+}
+
 function capturePageMeta() {
   try {
     const title = document.title || ''
@@ -31,7 +46,7 @@ function capturePageMeta() {
     const ogDesc = stripUrlSuffix(document.querySelector('meta[property="og:description"]')?.content || '')
     const h1 = document.querySelector('h1')?.textContent?.trim() || ''
     const keywords = document.querySelector('meta[name="keywords"]')?.content || ''
-    return { title, metaDescription: metaDesc, ogDescription: ogDesc, h1, keywords }
+    return { title, metaDescription: metaDesc, ogDescription: ogDesc, h1, firstParagraph: captureFirstParagraph(), keywords }
   } catch (e) {
     return null
   }

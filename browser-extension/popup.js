@@ -1385,9 +1385,12 @@ function switchField(next) {
   area.value = fieldValues[next] || '';
   area.placeholder = FIELD_PLACEHOLDERS[next];
   area.setAttribute('aria-label', next === 'notes' ? '备注' : '描述');
-  // 备注页没有 AI 生成，用 visibility 保留占位，避免按钮左右跳动
+  // 备注页没有 AI 生成 / 页面获取，用 visibility 保留占位，避免按钮左右跳动
+  const hideOnNotes = next === 'notes' ? 'hidden' : 'visible';
   const aiBtn = document.getElementById('ai-btn');
-  if (aiBtn) aiBtn.style.visibility = next === 'notes' ? 'hidden' : 'visible';
+  if (aiBtn) aiBtn.style.visibility = hideOnNotes;
+  const fetchBtn = document.getElementById('fetch-desc-btn');
+  if (fetchBtn) fetchBtn.style.visibility = hideOnNotes;
   updateFieldTabs();
   area.focus();
 }
@@ -1713,10 +1716,21 @@ function readPageMetadataInPage() {
       metaDescription: stripUrlSuffix(metaContent('meta[name="description"]')),
       ogDescription: stripUrlSuffix(metaContent('meta[property="og:description"]')),
       h1: document.querySelector('h1')?.textContent?.trim() || '',
+      firstParagraph: readFirstParagraph(),
       keywords: metaContent('meta[name="keywords"]')
     }
   } catch (e) {
     return null
+  }
+
+  function readFirstParagraph() {
+    const scope = document.querySelector('article, main, [role="main"], #app')
+    if (!scope) return ''
+    for (const p of scope.querySelectorAll('p')) {
+      const text = (p.textContent || '').replace(/\s+/g, ' ').trim()
+      if (text.length >= 20) return text
+    }
+    return ''
   }
 }
 
@@ -1757,6 +1771,53 @@ async function fetchPageMetadata(tabUrl) {
   return null
 }
 
+const FETCH_DESC_DEFAULT_TIP = '从页面获取描述'
+let fetchDescBusy = false
+
+// 手动获取时按质量依次回退：meta → og → h1 → 正文首段
+function pickPageDescription(meta) {
+  if (!meta) return ''
+  const candidates = [meta.metaDescription, meta.ogDescription, meta.h1, meta.firstParagraph]
+  const found = candidates.find(text => typeof text === 'string' && text.trim())
+  return found ? found.trim().slice(0, 300) : ''
+}
+
+async function fetchDescriptionFromPage() {
+  const btn = document.getElementById('fetch-desc-btn')
+  if (!btn || fetchDescBusy) return
+
+  if (getFieldValue('description').trim()) {
+    showToast('描述已有内容，清空后可重新获取', 'info')
+    return
+  }
+
+  const tab = await getCurrentTab()
+  if (!tab) {
+    showToast('无法读取当前标签页', 'error')
+    return
+  }
+
+  fetchDescBusy = true
+  setAiBusy(btn, true, '获取中…')
+  try {
+    const meta = await fetchPageMetadata(tab.url)
+    const text = pickPageDescription(meta)
+    if (!text) {
+      showToast('该页面没有可用的描述，可试试 AI 生成', 'error')
+      return
+    }
+
+    fieldValues.description = text
+    const descEl = document.getElementById('description')
+    if (descEl && activeField === 'description') descEl.value = text
+    updateFieldTabs()
+    showToast('已从页面获取描述', 'success')
+  } finally {
+    fetchDescBusy = false
+    setAiBusy(btn, false, FETCH_DESC_DEFAULT_TIP)
+  }
+}
+
 document.addEventListener('DOMContentLoaded', () => {
   init();
   
@@ -1794,6 +1855,7 @@ document.addEventListener('DOMContentLoaded', () => {
   });
   
   document.getElementById('ai-btn').addEventListener('click', generateDescription);
+  document.getElementById('fetch-desc-btn').addEventListener('click', fetchDescriptionFromPage);
   
   document.getElementById('ai-category-btn').addEventListener('click', suggestCategory);
   
