@@ -47,13 +47,16 @@
 
         <div class="form-group">
           <div class="form-label-row">
-            <label for="description">描述</label>
+            <div class="field-tabs" role="tablist" aria-label="描述或备注">
+              <button type="button" class="field-tab is-active" data-field="description" role="tab" aria-selected="true" aria-controls="description">描述</button>
+              <button type="button" class="field-tab" data-field="notes" role="tab" aria-selected="false" aria-controls="description">备注<i class="field-tab-dot" aria-hidden="true"></i></button>
+            </div>
             <button type="button" id="ai-btn" class="ai-icon-btn" data-tip="AI 生成描述" aria-label="AI 生成描述">
               <span class="ai-icon" aria-hidden="true">🤖</span>
               <span class="ai-spinner" aria-hidden="true"></span>
             </button>
           </div>
-          <textarea id="description" rows="3" placeholder="可选的描述信息"></textarea>
+          <textarea id="description" rows="3" placeholder="可选的描述信息" aria-label="描述"></textarea>
         </div>
 
         <div class="form-group">
@@ -79,17 +82,14 @@
           </div>
         </div>
 
-        <div class="form-group checkbox-group">
-          <label>
-            <input type="checkbox" id="is-private">
-            <span>私密书签（仅登录后可见）</span>
-          </label>
-        </div>
-
         <div class="button-group">
           <button type="submit" class="button button-primary" id="save-btn">
             <span id="save-text">保存书签</span>
           </button>
+          <label class="private-toggle" title="仅登录后可见">
+            <input type="checkbox" id="is-private">
+            <span>私密</span>
+          </label>
         </div>
       </form>
     </div>

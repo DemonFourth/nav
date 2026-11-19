@@ -8,6 +8,13 @@ const appSettings = {
 let categories = [];
 let tagItems = [];
 let allTags = [];
+// 描述与备注共用同一块文本区域：textarea 只显示当前字段，另一个字段的值保存在这里
+let activeField = 'description';
+const fieldValues = { description: '', notes: '' };
+const FIELD_PLACEHOLDERS = {
+  description: '可选的描述信息',
+  notes: '为什么收藏它？例如：下季度做 XX 时参考'
+};
 // 只有用户真正键入/粘贴过 URL 才置位；自动填充不会触发 keydown/paste
 let urlEditedByUser = false;
 let prefetchCacheRecord = null;
@@ -868,6 +875,7 @@ function renderCategorySuggestions(query = '') {
   if (filtered.length === 0) {
     suggestions.innerHTML = '<div class="suggestion-no-results">无匹配分类</div>';
     showCategorySuggestions();
+    fitSuggestionDropdown(document.getElementById('category-input'), suggestions);
     return;
   }
   
@@ -884,8 +892,8 @@ function renderCategorySuggestions(query = '') {
     });
   });
   
-  fitSuggestionDropdown(document.getElementById('category-input'), suggestions);
   showCategorySuggestions();
+  fitSuggestionDropdown(document.getElementById('category-input'), suggestions);
 }
 
 function addTag(tag) {
@@ -952,16 +960,27 @@ function hideTagSuggestions() {
 
 function fitSuggestionDropdown(triggerEl, dropdownEl) {
   if (!triggerEl || !dropdownEl) return;
-  const triggerRect = triggerEl.getBoundingClientRect();
-  const popupHeight = window.innerHeight;
-  const popupWidth = window.innerWidth;
-  const spaceBelow = popupHeight - triggerRect.bottom - 4;
-  const maxHeight = Math.min(Math.max(spaceBelow, 60), 200);
+  const GAP = 4;
+  const rect = triggerEl.getBoundingClientRect();
+  const viewportWidth = window.innerWidth;
+  const viewportHeight = window.innerHeight;
+  const spaceBelow = viewportHeight - rect.bottom - GAP;
+  const spaceAbove = rect.top - GAP;
+  // 弹窗最高 600px：下方放不下完整列表时向上翻，并让高度吃掉可用空间，避免被弹窗底边截断
+  const openBelow = spaceBelow >= 180 || spaceBelow >= spaceAbove;
+  const available = Math.max(openBelow ? spaceBelow : spaceAbove, 0);
+  const maxHeight = Math.min(200, available);
+  const width = Math.min(rect.width, viewportWidth - 16);
+
   dropdownEl.style.position = 'fixed';
-  dropdownEl.style.top = (triggerRect.bottom + 4) + 'px';
-  dropdownEl.style.left = triggerRect.left + 'px';
-  dropdownEl.style.width = triggerRect.width + 'px';
+  dropdownEl.style.width = width + 'px';
+  dropdownEl.style.left = Math.max(8, Math.min(rect.left, viewportWidth - 8 - width)) + 'px';
   dropdownEl.style.maxHeight = maxHeight + 'px';
+  // 先落到 0 再按实际高度定位，向上翻时才能贴住输入框下沿
+  dropdownEl.style.top = '0px';
+
+  const height = Math.min(dropdownEl.offsetHeight, maxHeight);
+  dropdownEl.style.top = (openBelow ? rect.bottom + GAP : rect.top - GAP - height) + 'px';
 }
 
 function renderTagSuggestions(query = '') {
@@ -984,8 +1003,9 @@ function renderTagSuggestions(query = '') {
     `<div class="tag-suggestion" data-tag="${tag}">${tag}</div>`
   ).join('');
   
+  showTagSuggestions();
   fitSuggestionDropdown(document.querySelector('.tags-input-container'), suggestions);
-  
+
   suggestions.querySelectorAll('.tag-suggestion').forEach(el => {
     el.addEventListener('click', () => {
       addTag(el.dataset.tag);
@@ -994,8 +1014,6 @@ function renderTagSuggestions(query = '') {
       hideTagSuggestions();
     });
   });
-  
-  showTagSuggestions();
 }
 
 function openSelectDropdown() {
@@ -1261,6 +1279,50 @@ async function maybeUseContextInfo() {
   });
 }
 
+function updateFieldTabs() {
+  const area = document.getElementById('description');
+  if (!area) return;
+  fieldValues[activeField] = area.value;
+  document.querySelectorAll('.field-tab').forEach(btn => {
+    const key = btn.dataset.field;
+    const value = key === activeField ? area.value : (fieldValues[key] || '');
+    btn.classList.toggle('is-active', key === activeField);
+    btn.classList.toggle('has-content', value.trim() !== '');
+    btn.setAttribute('aria-selected', key === activeField ? 'true' : 'false');
+  });
+}
+
+function getFieldValue(key) {
+  const area = document.getElementById('description');
+  if (area && key === activeField) return area.value;
+  return fieldValues[key] || '';
+}
+
+function switchField(next) {
+  if (next === activeField || !FIELD_PLACEHOLDERS[next]) return;
+  const area = document.getElementById('description');
+  if (!area) return;
+  fieldValues[activeField] = area.value;
+  activeField = next;
+  area.value = fieldValues[next] || '';
+  area.placeholder = FIELD_PLACEHOLDERS[next];
+  area.setAttribute('aria-label', next === 'notes' ? '备注' : '描述');
+  // 备注页没有 AI 生成，用 visibility 保留占位，避免按钮左右跳动
+  const aiBtn = document.getElementById('ai-btn');
+  if (aiBtn) aiBtn.style.visibility = next === 'notes' ? 'hidden' : 'visible';
+  updateFieldTabs();
+  area.focus();
+}
+
+function initFieldTabs() {
+  const area = document.getElementById('description');
+  if (!area) return;
+  document.querySelectorAll('.field-tab').forEach(btn => {
+    btn.addEventListener('click', () => switchField(btn.dataset.field));
+  });
+  area.addEventListener('input', updateFieldTabs);
+}
+
 async function generateDescription() {
   const titleEl = document.getElementById('title');
   const urlEl = document.getElementById('url');
@@ -1290,7 +1352,10 @@ async function generateDescription() {
     const result = await response.json();
 
     if (result.success && result.description) {
-      descEl.value = result.description
+      fieldValues.description = result.description
+      // 生成期间可能已切到备注页，此时不能把描述写进正在显示的备注
+      if (activeField === 'description') descEl.value = result.description
+      updateFieldTabs()
       showToast('✅ AI描述生成成功', 'success');
     } else {
       showToast(result.error || 'AI描述生成失败', 'error');
@@ -1308,7 +1373,6 @@ async function generateDescription() {
 async function suggestCategory() {
   const titleEl = document.getElementById('title');
   const urlEl = document.getElementById('url');
-  const descEl = document.getElementById('description');
   const aiCategoryBtn = document.getElementById('ai-category-btn');
 
   if (!titleEl.value || !urlEl.value) {
@@ -1325,7 +1389,7 @@ async function suggestCategory() {
 
   try {
     const pageMeta = await fetchPageMetadata(urlEl.value)
-    const descriptionToSend = pageMeta ? (pageMeta.metaDescription || pageMeta.ogDescription) : descEl.value
+    const descriptionToSend = pageMeta ? (pageMeta.metaDescription || pageMeta.ogDescription) : getFieldValue('description')
 
     const response = await apiFetch('/api/ai/suggest-category', {
       method: 'POST',
@@ -1340,7 +1404,7 @@ async function suggestCategory() {
           path: cat.path
         })),
         tags: tagItems.join(','),
-        notes: document.getElementById('notes')?.value || ''
+        notes: getFieldValue('notes')
       }
     });
 
@@ -1375,7 +1439,9 @@ async function saveBookmark(event) {
 
   const title = document.getElementById('title').value.trim();
   const url = document.getElementById('url').value.trim();
-  const description = document.getElementById('description').value.trim();
+  updateFieldTabs();
+  const description = getFieldValue('description').trim();
+  const notes = getFieldValue('notes').trim();
   const categoryInput = document.getElementById('category-input');
   const categoryId = categoryInput?.dataset?.selectedId || '';
   const isPrivate = document.getElementById('is-private').checked;
@@ -1402,7 +1468,8 @@ async function saveBookmark(event) {
         icon: null,
         category_id: parseInt(categoryId, 10),
         is_private: isPrivate,
-        tags: tagItems.join(',')
+        tags: tagItems.join(','),
+        notes: notes || null
       }
     });
 
@@ -1498,13 +1565,16 @@ async function getTabInfo() {
 
   checkDuplicateUrl(urlEl?.value || '')
 
-  // 抓取页面元数据自动填充描述（不覆盖用户已输入的内容）
+  // 抓取页面元数据自动填充描述（不覆盖用户已输入的内容，也不写入备注）
   fetchPageMetadata(tab?.url).then(pageMeta => {
     const descEl = document.getElementById('description')
-    if (!descEl || descEl.value.trim()) return
+    if (!descEl || getFieldValue('description').trim()) return
 
     if (pageMeta && (pageMeta.metaDescription || pageMeta.ogDescription)) {
-      descEl.value = pageMeta.metaDescription || pageMeta.ogDescription
+      const text = pageMeta.metaDescription || pageMeta.ogDescription
+      fieldValues.description = text
+      if (activeField === 'description') descEl.value = text
+      updateFieldTabs()
     }
   })
 }
@@ -1587,6 +1657,7 @@ document.addEventListener('DOMContentLoaded', () => {
   });
   
   document.getElementById('bookmark-form').addEventListener('submit', saveBookmark);
+  initFieldTabs();
 
   const urlInput = document.getElementById('url');
   let duplicateTimer = null;
@@ -1687,6 +1758,18 @@ document.addEventListener('mousedown', (e) => {
     hideCategorySuggestions();
   }
 });
+
+// 下拉是 fixed 定位：页面滚动时重新贴合输入框，避免与字段脱开
+window.addEventListener('scroll', () => {
+  const tagsSuggestions = document.getElementById('tags-suggestions');
+  if (tagsSuggestions && !tagsSuggestions.classList.contains('hidden')) {
+    fitSuggestionDropdown(document.querySelector('.tags-input-container'), tagsSuggestions);
+  }
+  const categorySuggestions = document.getElementById('category-suggestions');
+  if (categorySuggestions && !categorySuggestions.classList.contains('hidden')) {
+    fitSuggestionDropdown(document.getElementById('category-input'), categorySuggestions);
+  }
+}, { passive: true });
 
 chrome.storage.onChanged.addListener((changes, area) => {
   if (area !== 'local') return;
