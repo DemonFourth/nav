@@ -5,6 +5,10 @@
       <p class="panel-desc">管理书签标签，支持重命名和删除</p>
     </div>
 
+    <div class="tag-summary">
+      共 {{ tags.length }} 个标签，{{ totalBookmarksWithTags }} 个书签使用标签
+    </div>
+
     <div class="tag-toolbar">
       <div class="search-box">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="16" height="16">
@@ -149,10 +153,6 @@
           </div>
         </div>
       </div>
-    </div>
-
-    <div class="tag-summary">
-      共 {{ tags.length }} 个标签，{{ totalBookmarksWithTags }} 个书签使用标签
     </div>
 
     <TagRenameDialog 
@@ -643,13 +643,14 @@ const confirmDelete = async (tag) => {
 }
 
 .tag-summary {
-  margin-top: 0.75rem;
-  padding: 0.5rem;
+  display: inline-flex;
+  align-items: center;
+  margin-bottom: 0.75rem;
+  padding: 0.25rem 0.625rem;
   background: var(--bg-secondary);
-  border-radius: var(--radius-sm);
-  font-size: 0.8125rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
   color: var(--text-secondary);
-  text-align: center;
 }
 
 @media (max-width: 600px) {
