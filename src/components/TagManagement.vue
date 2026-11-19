@@ -650,11 +650,13 @@ const confirmDelete = async (tag) => {
   display: inline-flex;
   align-items: center;
   margin-bottom: 0.75rem;
-  padding: 0.25rem 0.625rem;
-  background: var(--bg-secondary);
+  padding: 0.25rem 0.75rem;
+  background: color-mix(in srgb, var(--primary) 9%, transparent);
+  border: 1px solid color-mix(in srgb, var(--primary) 22%, transparent);
   border-radius: 9999px;
   font-size: 0.75rem;
   color: var(--text-secondary);
+  line-height: 1.4;
 }
 
 @media (max-width: 600px) {
