@@ -791,6 +791,16 @@ token TTL 必须与 `functions/_middleware.js` 的 `validateToken` 保持一致�
 - 位于 `.sticky-top` 内，`width: fit-content`：出现时把表单轻微下推，**不遮挡字段、不超视口**
 - 保存成功：先 `showToast`，**1 秒后再 `window.close()`**；不要缩短，否则用户看不到提示
 
+### 保存超时与「已存在」误报
+
+写请求超时**不代表没保存**：`AbortController` 只中断客户端连接，服务端的 `INSERT` 可能仍在 20s 内完成，这正是「提示超时，再点一次却说已收藏过」的原因。
+
+- POST `/api/bookmarks` 超时放宽到 **20s**（GET 仍 8s，超时确认请求 6s）。
+- 超时后不提示「请重试」，而是用 `GET /api/bookmarks?url=`（`exactUrl` 精确匹配，旧后端回退本地比对）在 0s / 1.5s / 3s 查三次：命中即按成功处理并关窗。
+- 超时 URL 记入 `pendingSave`（2 分钟窗口）；期间同一 URL 的 409 视为「上次其实已写入」，按成功提示，不再报错。
+- 未命中时提示「保存结果未确认，请勿重复提交」，详情面板记一条 `保存：请求超时，未确认是否写入`。
+- 未做服务端幂等键（`client_request_id`）与 URL 唯一索引，属后续可选项。
+
 ### 弹窗高度
 
 - `body` 不要写 `min-height`：弹窗高度由内容决定，写死会在底部留白

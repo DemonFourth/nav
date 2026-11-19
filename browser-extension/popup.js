@@ -38,6 +38,8 @@ let duplicateCheckInfo = null;
 // 查重命中的已有书签：用它把保存按钮锁成「已保存过」，避免点了没反应
 let duplicateBookmark = null;
 let savingInProgress = false;
+// 最近一次写超时的保存（客户端 abort 不会撤销服务端写入，重试前要先确认）
+let pendingSave = null;
 
 function storageGet(area, keys) {
   return new Promise(resolve => chrome.storage[area].get(keys, resolve));
@@ -97,6 +99,7 @@ function resetSessionState() {
   renewingPromise = null;
   duplicateCheckSeq++;
   pendingRetry = null;
+  pendingSave = null;
   requestTimings.length = 0;
   pingSupported = true;
   lastPingMs = null;
@@ -739,6 +742,65 @@ function normalizeUrlForCompare(value) {
 
 function setDuplicateCheckInfo(text) {
   duplicateCheckInfo = text ? { text, at: Date.now() } : null;
+}
+
+// 写请求超时 ≠ 保存失败：客户端 abort 不会撤销服务端的 INSERT，
+// 所以超时后先确认是否已落库，避免用户重试时撞上"已收藏过"。
+const TIMEOUT_RECONCILE_DELAYS = [0, 1500, 3000];
+const TIMEOUT_RECONCILE_WINDOW = 120000;
+
+function isSameSaveUrl(a, b) {
+  return normalizeUrlForCompare(a) === normalizeUrlForCompare(b);
+}
+
+// 上一次超时的保存，URL 相同且还在窗口期内才认，避免把别处创建的同名书签当成自己存的
+function isRecentTimedOutSave(url) {
+  return !!pendingSave &&
+    Date.now() - pendingSave.at < TIMEOUT_RECONCILE_WINDOW &&
+    isSameSaveUrl(pendingSave.url, url);
+}
+
+// 查询某个 URL 是否已存在；兼容忽略 url 参数的旧后端（本地逐条比对）
+async function fetchExistingBookmark(targetUrl) {
+  const response = await apiFetch(
+    `/api/bookmarks?url=${encodeURIComponent(targetUrl)}`,
+    { label: '确认保存', timeout: 6000 }
+  );
+  if (!response.ok) return null;
+
+  const result = await response.json();
+  const list = Array.isArray(result.data) ? result.data : [];
+  if (result.exactUrl === true) return list[0] || null;
+  return list.find(item => isSameSaveUrl(item.url, targetUrl)) || null;
+}
+
+async function reconcileTimedOutSave(targetUrl) {
+  for (const delay of TIMEOUT_RECONCILE_DELAYS) {
+    if (delay) await new Promise(resolve => setTimeout(resolve, delay));
+    try {
+      const existing = await fetchExistingBookmark(targetUrl);
+      if (existing) return existing;
+    } catch (error) {
+      if (error.kind === 'unauthorized') throw error;
+      // 网络/超时都继续下一次尝试
+    }
+  }
+  return null;
+}
+
+function finishSaveSuccess(message) {
+  pendingSave = null;
+  showToast(message, 'success');
+  // 通知 background 刷新预取缓存
+  try {
+    chrome.runtime.sendMessage({ type: 'data-changed' });
+  } catch (e) {
+    // background 不可用时忽略
+  }
+  // 保留 1 秒，让用户看清成功提示
+  setTimeout(() => {
+    window.close();
+  }, 1000);
 }
 
 async function checkDuplicateUrl(url) {
@@ -1483,7 +1545,9 @@ async function saveBookmark(event) {
   try {
     const response = await apiFetch('/api/bookmarks', {
       method: 'POST',
-      timeout: 10000,
+      // 写请求放宽超时：Worker 冷启动 + D1 首次查询可能超过 10s，
+      // 过早 abort 会造成"其实已写入却提示超时"
+      timeout: 20000,
       label: '保存',
       body: {
         name: title,
@@ -1500,33 +1564,57 @@ async function saveBookmark(event) {
     const result = await response.json();
 
     if (result.success) {
-      showToast('✅ 书签保存成功', 'success');
-      // 通知 background 刷新预取缓存
-      try {
-        chrome.runtime.sendMessage({ type: 'data-changed' });
-      } catch (e) {
-        // background 不可用时忽略
-      }
-      // 保留 1 秒，让用户看清成功提示
-      setTimeout(() => {
-        window.close();
-      }, 1000);
+      finishSaveSuccess('✅ 书签保存成功');
     } else if (response.status === 409 && result.duplicate) {
       // 查重漏判（旧后端 / 竞态）时由服务端兜底：给出提示并锁住按钮
       savingInProgress = false;
-      setDuplicateHint(result.existingBookmark || { url });
-      showToast('该网址已收藏过，未重复保存', 'error');
+      const existing = result.existingBookmark || { url };
+      setDuplicateHint(existing);
+      setDuplicateCheckInfo(`查重：已存在（${existing.category_name || '未分类'}）`);
+      if (isRecentTimedOutSave(url)) {
+        // 上一次请求只是响应超时，实际已写入：按成功处理，不再让用户困惑
+        finishSaveSuccess('✅ 已保存（上次请求只是响应超时）');
+      } else {
+        showToast('该网址已收藏过，未重复保存', 'error');
+      }
     } else {
       savingInProgress = false;
       showToast(result.error || '保存失败', 'error');
       updateSaveButtonState();
     }
   } catch (error) {
-    savingInProgress = false;
-    if (error.kind !== 'unauthorized') {
-      console.error('Save error:', error);
-      showToast(error.kind === 'timeout' ? '连接超时，请重试' : '网络错误，请检查服务器地址', 'error');
+    if (error.kind === 'unauthorized') return;
+
+    console.error('Save error:', error);
+
+    if (error.kind === 'timeout') {
+      // 可能已落库，只是响应没回来：先查证，不要提示"请重试"
+      pendingSave = { url, at: Date.now() };
+      if (saveText) saveText.textContent = '确认中...';
+
+      let existing = null;
+      try {
+        existing = await reconcileTimedOutSave(url);
+      } catch (confirmError) {
+        if (confirmError.kind === 'unauthorized') return;
+      }
+
+      savingInProgress = false;
+
+      if (existing) {
+        setDuplicateHint(existing);
+        setDuplicateCheckInfo(`查重：已存在（${existing.category_name || '未分类'}）`);
+        finishSaveSuccess('✅ 已保存（响应超时，已确认写入）');
+      } else {
+        setDuplicateCheckInfo('保存：请求超时，未确认是否写入');
+        updateSaveButtonState();
+        showToast('保存结果未确认，请勿重复提交；重新打开插件可看到是否已保存', 'error');
+      }
+      return;
     }
+
+    savingInProgress = false;
+    showToast('网络错误，请检查服务器地址', 'error');
     updateSaveButtonState();
   }
 }
