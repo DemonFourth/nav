@@ -257,8 +257,8 @@ const handleRestoreBackup = async (backupKey) => {
   
   const result = await restoreBackup(backupKey)
   if (result.success) {
-    // 刷新数据
-    await fetchData()
+    // 恢复备份是服务端批量替换：必须强制刷新，不能读 10 分钟内的旧缓存
+    await fetchData({ forceRefresh: true })
     await loadBackups()
   }
 }

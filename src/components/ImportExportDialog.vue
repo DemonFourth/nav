@@ -334,7 +334,7 @@ const importJSON = async (text) => {
     
     // 刷新数据但不重载页面
     setTimeout(async () => {
-      await fetchData()
+      await fetchData({ forceRefresh: true })
     }, 1500)
   } else {
     throw new Error(result.error || '导入失败')
@@ -591,7 +591,7 @@ const importHTML = async (text) => {
     
     // 刷新数据但不重载页面
     setTimeout(async () => {
-      await fetchData()
+      await fetchData({ forceRefresh: true })
     }, 1500)
   } else {
     throw new Error(result.error || '导入失败')
