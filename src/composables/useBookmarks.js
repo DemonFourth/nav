@@ -7,7 +7,8 @@ import {
   isCacheExpired,
   isCacheFresh,
   parseCacheEntry,
-  resolveCacheKey
+  resolveCacheKey,
+  shouldApplyExternalCache
 } from '@/utils/cacheMeta'
 
 const RETRY_ATTEMPTS = 3
@@ -56,6 +57,19 @@ const cacheWriteFailed = ref(false)
 
 // 当前内存数据属于哪个缓存作用域；登录/登出后必须切换，避免残留上一个账号的数据
 let loadedScopeKey = null
+
+// 本地写版本号：写成功后递增，用来丢弃「写之前发出、写之后返回」的旧响应
+let dataVersion = 0
+// 每轮网络刷新递增，只有最新一轮允许落地
+let refreshSeq = 0
+// 同一账号桶的在途刷新，避免打开设置 + 切回页签时重复请求
+let inflightRefresh = null
+
+// 本地数据被写入后，之前发出的刷新已经过期：递增版本并让后续刷新重新发起
+function bumpDataVersion() {
+  dataVersion++
+  inflightRefresh = null
+}
 
 // 旧版 5 分钟缓存留着只会占空间，模块加载时清掉
 try {
@@ -106,6 +120,33 @@ function clearCache() {
   }
 }
 
+// 另一个标签页写入了缓存：时间戳比当前新、且本页没有在途刷新时才采用。
+// 采用后递增 dataVersion，让本页在途的旧刷新即使后到也会被丢弃。
+function applyExternalCache(raw) {
+  const entry = parseCacheEntry(raw)
+  const accepted = shouldApplyExternalCache(entry, {
+    updatedAt: cacheUpdatedAt.value,
+    refreshing: refreshState.value === 'refreshing'
+  })
+  if (!accepted) return false
+
+  categories.value = entry.data.categories || []
+  bookmarks.value = entry.data.bookmarks || []
+  dataSource.value = 'cache'
+  cacheUpdatedAt.value = entry.savedAt
+  bumpDataVersion()
+  return true
+}
+
+if (typeof window !== 'undefined') {
+  window.addEventListener('storage', (event) => {
+    if (!event.key || !event.key.startsWith(`${CACHE_KEY_PREFIX}_`)) return
+    // 只处理当前作用域（当前账号桶），别的账号桶不碰
+    if (!loadedScopeKey || event.key !== loadedScopeKey) return
+    applyExternalCache(event.newValue)
+  })
+}
+
 export function useBookmarks() {
   const { getAuthHeaders, logout, apiRequest, isAuthenticated, username } = useAuth()
   const { error: toastError } = useToast()
@@ -117,10 +158,16 @@ export function useBookmarks() {
 
   // 写成功后先把内存结果落到缓存，避免随后 GET 失败导致下次打开看到旧数据
   const persistCache = () => {
-    saveToCache(currentCacheKey(), {
+    const saved = saveToCache(currentCacheKey(), {
       categories: categories.value,
       bookmarks: bookmarks.value
     })
+    // 本地数据已和服务端一致：让「写之前发出」的在途刷新作废
+    bumpDataVersion()
+    if (saved) {
+      cacheUpdatedAt.value = Date.now()
+    }
+    return saved
   }
 
 
@@ -186,8 +233,114 @@ export function useBookmarks() {
     return Array.from(tagsSet).sort()
   })
 
+  // 网络刷新：同一账号桶的在途刷新复用同一个 promise，避免并发重复请求
+  const refreshFromNetwork = (cacheKey, { silent = false } = {}) => {
+    if (inflightRefresh && inflightRefresh.key === cacheKey) {
+      return inflightRefresh.promise
+    }
+
+    const clearInflight = (promise) => {
+      if (inflightRefresh && inflightRefresh.promise === promise) {
+        inflightRefresh = null
+      }
+    }
+
+    const promise = (async () => {
+      // 本轮刷新唯一标识 + 开始时看到的本地写版本
+      const seq = ++refreshSeq
+      const version = dataVersion
+      refreshState.value = 'refreshing'
+
+      try {
+        const authHeaders = getAuthHeaders()
+
+        const categoriesRes = await fetchWithRetry('/api/categories', {
+          headers: authHeaders
+        })
+
+        if (categoriesRes.status === 401) {
+          if (seq === refreshSeq) {
+            if (authHeaders.Authorization) {
+              logout()
+            }
+            categories.value = []
+            bookmarks.value = []
+            dataSource.value = 'empty'
+            cacheUpdatedAt.value = 0
+            refreshState.value = 'idle'
+          }
+          return false
+        }
+
+        const categoriesData = await categoriesRes.json()
+
+        const bookmarksRes = await fetchWithRetry('/api/bookmarks', {
+          headers: authHeaders
+        })
+
+        if (bookmarksRes.status === 401) {
+          if (seq === refreshSeq) {
+            if (authHeaders.Authorization) {
+              logout()
+            }
+            categories.value = []
+            bookmarks.value = []
+            dataSource.value = 'empty'
+            cacheUpdatedAt.value = 0
+            refreshState.value = 'idle'
+          }
+          return false
+        }
+
+        const bookmarksData = await bookmarksRes.json()
+
+        // 请求期间登录状态变了：丢弃这批数据，避免把上一个账号的数据写进当前缓存
+        if (currentCacheKey() !== cacheKey) {
+          return false
+        }
+
+        // 已有更新的一轮刷新：交给它落地，本轮不碰状态
+        if (seq !== refreshSeq) {
+          return false
+        }
+
+        // 请求期间发生过本地写：这份快照比本地数据旧，丢弃
+        if (version !== dataVersion) {
+          refreshState.value = 'idle'
+          return false
+        }
+
+        categories.value = categoriesData.data || []
+        bookmarks.value = bookmarksData.data || []
+        dataSource.value = 'network'
+        cacheUpdatedAt.value = Date.now()
+        loadedScopeKey = cacheKey
+        refreshState.value = 'idle'
+        saveToCache(cacheKey, {
+          categories: categories.value,
+          bookmarks: bookmarks.value
+        })
+        return true
+      } catch (error) {
+        if (seq === refreshSeq) {
+          console.error('Failed to fetch data (after retries):', error)
+          refreshState.value = 'failed'
+          // 有缓存/已有数据时不再弹 toast，由连接面板体现；完全没数据才提示
+          if (!silent && dataSource.value === 'empty') {
+            toastError('数据加载失败，请刷新页面重试')
+          }
+        }
+        return false
+      }
+    })()
+
+    inflightRefresh = { key: cacheKey, promise }
+    promise.then(() => clearInflight(promise), () => clearInflight(promise))
+    return promise
+  }
+
   const fetchData = async (options = {}) => {
-    const { forceRefresh = false, silent = false } = options
+    const { forceRefresh = false, silent = false, background = false } = options
     const cacheKey = currentCacheKey()
     const scopeChanged = loadedScopeKey !== null && loadedScopeKey !== cacheKey
 
@@ -215,72 +368,13 @@ export function useBookmarks() {
       }
     }
 
-    refreshState.value = 'refreshing'
-
-    try {
-      const authHeaders = getAuthHeaders()
-
-      const categoriesRes = await fetchWithRetry('/api/categories', {
-        headers: authHeaders
-      })
-
-      if (categoriesRes.status === 401) {
-        if (authHeaders.Authorization) {
-          logout()
-        }
-        categories.value = []
-        bookmarks.value = []
-        dataSource.value = 'empty'
-        cacheUpdatedAt.value = 0
-        refreshState.value = 'idle'
-        return false
-      }
-
-      const categoriesData = await categoriesRes.json()
-
-      const bookmarksRes = await fetchWithRetry('/api/bookmarks', {
-        headers: authHeaders
-      })
-
-      if (bookmarksRes.status === 401) {
-        if (authHeaders.Authorization) {
-          logout()
-        }
-        categories.value = []
-        bookmarks.value = []
-        dataSource.value = 'empty'
-        cacheUpdatedAt.value = 0
-        refreshState.value = 'idle'
-        return false
-      }
-
-      const bookmarksData = await bookmarksRes.json()
-
-      // 请求期间登录状态变了：丢弃这批数据，避免把上一个账号的数据写进当前缓存
-      if (currentCacheKey() !== cacheKey) {
-        return false
-      }
-
-      categories.value = categoriesData.data || []
-      bookmarks.value = bookmarksData.data || []
-      dataSource.value = 'network'
-      cacheUpdatedAt.value = Date.now()
-      loadedScopeKey = cacheKey
-      refreshState.value = 'idle'
-      saveToCache(cacheKey, {
-        categories: categories.value,
-        bookmarks: bookmarks.value
-      })
+    const refresh = refreshFromNetwork(cacheKey, { silent })
+    if (background) {
+      // 后台刷新：不阻塞调用方；错误已在 refreshFromNetwork 内部处理
+      refresh.then(() => {}, () => {})
       return true
-    } catch (error) {
-      console.error('Failed to fetch data (after retries):', error)
-      refreshState.value = 'failed'
-      // 有缓存/已有数据时不再弹 toast，由连接面板体现；完全没数据才提示
-      if (!silent && dataSource.value === 'empty') {
-        toastError('数据加载失败，请刷新页面重试')
-      }
-      return false
     }
+    return refresh
   }
 
   const addBookmark = async (data, options = {}) => {
@@ -422,6 +516,8 @@ export function useBookmarks() {
 
       const result = await response.json()
       if (result.success) {
+        // 服务端已变更：作废写之前发出的在途刷新
+        bumpDataVersion()
         await fetchData({ forceRefresh: true })
         return { success: true }
       }
@@ -454,6 +550,8 @@ export function useBookmarks() {
 
       const result = await response.json()
       if (result.success) {
+        // 服务端已变更：作废写之前发出的在途刷新
+        bumpDataVersion()
         // 写成功后后台静默同步，不阻塞弹窗关闭 / toast
         fetchData({ forceRefresh: true, silent: true }).catch(() => {})
         return { success: true }
@@ -479,6 +577,7 @@ export function useBookmarks() {
 
       const result = await response.json()
       if (result.success) {
+        bumpDataVersion()
         await fetchData({ forceRefresh: true })
         return { success: true, deletedBookmarks: result.deletedBookmarks }
       }
@@ -539,6 +638,7 @@ export function useBookmarks() {
 
       const result = await response.json()
       if (result.success) {
+        bumpDataVersion()
         await fetchData({ forceRefresh: true })
         return { success: true }
       }
@@ -582,6 +682,7 @@ export function useBookmarks() {
 
       const result = await response.json()
       if (result.success) {
+        bumpDataVersion()
         await fetchData({ forceRefresh: true })
         return {
           success: true,

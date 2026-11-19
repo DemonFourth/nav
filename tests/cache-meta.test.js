@@ -7,7 +7,8 @@ import {
   isCacheExpired,
   isCacheFresh,
   parseCacheEntry,
-  resolveCacheKey
+  resolveCacheKey,
+  shouldApplyExternalCache
 } from '../src/utils/cacheMeta.js'
 
 test('访客与不同账号使用不同缓存键', () => {
@@ -66,4 +67,20 @@ test('10 分钟新鲜窗口', () => {
   assert.equal(isCacheFresh(CACHE_FRESH_MS - 1), true)
   assert.equal(isCacheFresh(CACHE_FRESH_MS), false)
   assert.equal(isCacheFresh(6 * 24 * 60 * 60 * 1000), false)
+})
+
+test('跨标签页缓存只有更新时才采用', () => {
+  const now = 1_700_000_000_000
+  assert.equal(shouldApplyExternalCache({ savedAt: now }), true)
+  assert.equal(shouldApplyExternalCache({ savedAt: now }, { updatedAt: now - 1 }), true)
+  assert.equal(shouldApplyExternalCache({ savedAt: now }, { updatedAt: now }), false)
+  assert.equal(shouldApplyExternalCache({ savedAt: now - 1 }, { updatedAt: now }), false)
+})
+
+test('跨标签页缓存遇到 null / 坏数据 / 正在刷新时不采用', () => {
+  const now = 1_700_000_000_000
+  assert.equal(shouldApplyExternalCache(null, { updatedAt: 0 }), false)
+  assert.equal(shouldApplyExternalCache(undefined, { updatedAt: 0 }), false)
+  assert.equal(shouldApplyExternalCache({ savedAt: 'x' }, { updatedAt: 0 }), false)
+  assert.equal(shouldApplyExternalCache({ savedAt: now }, { updatedAt: 0, refreshing: true }), false)
 })

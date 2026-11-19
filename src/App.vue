@@ -708,7 +708,9 @@ onMounted(async () => {
   })
 
   // Load from cache immediately, fetch from API in background
-  await fetchData({ background: true })
+  // 导航站自己按 dataSource/refreshState 显示骨架，可以真正后台刷新；
+  // 默认模式仍等网络完成后再撤 loading，保持原有行为。
+  await fetchData({ background: displayMode.value === 'nav-item' })
 
   // 初始化时加载设置（无论是否登录）
   await loadSettingsFromDB()
