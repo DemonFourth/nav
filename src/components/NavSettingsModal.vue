@@ -702,6 +702,7 @@
                     v-model="filterCategoryQuery"
                     type="text"
                     class="filter-select-input"
+                    :class="{ 'has-value': filterCategoryQuery }"
                     placeholder="全部分类"
                     autocomplete="off"
                     @focus="openFilterSelect"
@@ -711,6 +712,18 @@
                     @keydown.esc.stop.prevent="closeFilterSelect({ resetEmpty: false })"
                     @blur="closeFilterSelect()"
                   />
+                  <button
+                    v-if="filterCategoryQuery"
+                    type="button"
+                    class="filter-select-clear"
+                    aria-label="清除分类筛选"
+                    @mousedown.prevent
+                    @click="clearFilterInput"
+                  >
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M18 6L6 18M6 6l12 12"/>
+                    </svg>
+                  </button>
                   <svg class="filter-select-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <path d="M6 9l6 6 6-6"/>
                   </svg>
@@ -1604,6 +1617,14 @@ const openFilterSelect = () => {
 const handleFilterInput = () => {
   filterCategoryFiltering.value = true
   filterSelectOpen.value = true
+}
+
+const clearFilterInput = () => {
+  filterCategoryQuery.value = ''
+  filterCategoryFiltering.value = true
+  bookmarkCategoryFilter.value = null
+  filterSelectOpen.value = true
+  nextTick(() => filterCategoryInputRef.value?.focus())
 }
 
 const closeFilterSelect = ({ resetEmpty = true } = {}) => {
@@ -4272,6 +4293,39 @@ textarea.setting-input {
 .filter-select-input:focus,
 .custom-select-filter.open .filter-select-input {
   border-color: var(--accent-border);
+}
+
+.filter-select-input.has-value {
+  padding-right: 46px;
+}
+
+.filter-select-clear {
+  position: absolute;
+  top: 50%;
+  right: 26px;
+  width: 16px;
+  height: 16px;
+  margin-top: -8px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  border-radius: 50%;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: color 0.15s, background 0.15s;
+}
+
+.filter-select-clear:hover {
+  color: var(--text);
+  background: var(--bg-secondary);
+}
+
+.filter-select-clear svg {
+  width: 11px;
+  height: 11px;
 }
 
 .filter-select-arrow {
