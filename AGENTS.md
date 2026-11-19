@@ -771,6 +771,7 @@ token TTL 必须与 `functions/_middleware.js` 的 `validateToken` 保持一致�
 - 描述与备注共用同一个 `textarea`：`×` 清空**当前活动字段**，tooltip / `aria-label` 随 tab 切换为「清空描述」或「清空备注」。
 - 分类 `×` 同时清空输入文本与 `dataset.selectedId`，并收起建议列表；清空后保存按钮仍可点，提交时按必填项校验提示。
 - 清除按钮统一 `type="button"`，避免触发表单提交；文本区外层加 `.field-with-clear` 后，`textarea` 不再是 `.form-group` 的直接 flex 子项，必须补 `width: 100%; box-sizing: border-box`，否则会缩成默认列宽。
+- tooltip 单独定义（不透明深色底、12px、浮在字段**上方**），不要直接复用 `.ai-icon-btn` 那套 `top: 100%` 的 tooltip：它会压在 textarea 正文上，且 11px + 细字在浅色背景里几乎看不清。
 
 ### 连接延迟胶囊
 

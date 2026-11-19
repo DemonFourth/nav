@@ -446,7 +446,6 @@ body.dark .ai-icon-btn:hover {
 }
 
 .ai-icon-btn::after,
-.field-clear-btn::after,
 .connection-pill::after {
   content: attr(data-tip);
   position: absolute;
@@ -469,8 +468,6 @@ body.dark .ai-icon-btn:hover {
 
 .ai-icon-btn:hover::after,
 .ai-icon-btn:focus-visible::after,
-.field-clear-btn:hover::after,
-.field-clear-btn:focus-visible::after,
 .connection-pill:hover::after,
 .connection-pill:focus-visible::after {
   opacity: 1;
@@ -571,6 +568,40 @@ textarea {
 .field-with-clear .field-clear-btn {
   top: 7px;
   transform: none;
+}
+
+/* 清除按钮的 tooltip：单独写，保证不透明、对比够、且浮在输入框上方而不是压住文字 */
+.field-clear-btn::after {
+  content: attr(data-tip);
+  position: absolute;
+  bottom: calc(100% + 8px);
+  right: 0;
+  z-index: 100;
+  padding: 5px 9px;
+  border-radius: 6px;
+  background: #1f2933;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.35;
+  white-space: nowrap;
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.32);
+  pointer-events: none;
+  opacity: 0;
+  transform: translateY(2px);
+  transition: opacity 0.06s ease, transform 0.06s ease;
+}
+
+.field-clear-btn:hover::after,
+.field-clear-btn:focus-visible::after {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+body.dark .field-clear-btn::after {
+  background: #0b1220;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  color: #f8fafc;
 }
 
 body.dark .field-clear-btn {
