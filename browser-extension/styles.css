@@ -815,8 +815,8 @@ body.dark .tags-input-container:focus-within {
 
 #tags-input,
 .tag-input {
-  flex: 1 1 64px;
-  min-width: 64px;
+  flex: 1 1 40px;
+  min-width: 40px;
   padding: 4px 0;
   border: none;
   font-size: 14px;
