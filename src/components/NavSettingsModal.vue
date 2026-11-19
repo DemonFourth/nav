@@ -719,13 +719,12 @@
                     name="category-filter-search"
                     autocomplete="new-password"
                     spellcheck="false"
-                    :readonly="filterInputLocked"
-                    @focus="handleFilterFocus"
+                    @focus="openFilterSelect"
                     @input="handleFilterInput"
                     @click="filterSelectOpen = true"
                     @keydown.enter="commitFilterInput"
                     @keydown.esc.stop.prevent="closeFilterSelect({ resetEmpty: false })"
-                    @blur="handleFilterBlur"
+                    @blur="closeFilterSelect()"
                   />
                   <button
                     v-if="filterCategoryQuery"
@@ -1611,19 +1610,6 @@ const filterSelectRef = ref(null)
 const filterCategoryInputRef = ref(null)
 const filterCategoryQuery = ref('')
 const filterCategoryFiltering = ref(false)
-// Chrome 密码管理器会把普通文本框误判成账号框并弹已存密码；只读字段不会被识别，
-// 聚焦时再解锁，避免下拉建议盖住分类列表
-const filterInputLocked = ref(true)
-
-const handleFilterFocus = () => {
-  filterInputLocked.value = false
-  openFilterSelect()
-}
-
-const handleFilterBlur = () => {
-  closeFilterSelect()
-  filterInputLocked.value = true
-}
 
 const selectedFilterCategoryName = computed(() => {
   if (bookmarkCategoryFilter.value === null) return ''
